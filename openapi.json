@@ -485,6 +485,20 @@
         }
       }
     },
+    "/api/v1/organization/management": {
+      "get": {
+        "operationId": "getManagedOrganization",
+        "description": "Reads the current Organization only when the authenticated Member may manage it. Returns the same public Organization fields as getOrganization; no storage credentials or operational details. Returns 403 when management authority is absent or revoked.",
+        "security": [{ "memberBearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Current Organization under Manager authorization",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Organization" } } }
+          },
+          "default": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
     "/api/v1/organization/audience": {
       "put": {
         "operationId": "replaceOrganizationAudienceLabel",

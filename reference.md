@@ -54,6 +54,13 @@ only Member sessions; an OAuth token cannot use them merely because the
 endpoint is public documentation. Imports require the current responsible
 human Manager and do not grant private Chat reading rights.
 
+For an Administration screen, `GET /api/v1/organization/management` returns
+the community's `id`, `name`, and `system_labels` only while the signed-in
+Member has Manager authority. It returns `403` when that authority is absent
+or revoked. Rename the community with `PUT /api/v1/organization`; change its
+audience with `PUT /api/v1/organization/audience`. These operations require a
+Member session, not an Agent token. Every mutation checks current authority.
+
 The following operation tables show **Agent scopes**. Signed-in clients use
 their Member session and ordinary resource permissions, as specified by
 OpenAPI. Neither authentication method creates authority beyond its current
