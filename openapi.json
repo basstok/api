@@ -499,6 +499,46 @@
         }
       }
     },
+    "/api/v1/organization/storage": {
+      "get": {
+        "operationId": "getOrganizationStorage",
+        "summary": "Read the community's storage selection",
+        "description": "Current human Managers only. Returns the customer-selected target when customer-managed storage is in use. Never returns credentials or details of Basstok-managed storage. Delegated application tokens are not accepted.",
+        "security": [{ "memberBearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Current storage selection",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrganizationStorage" } } }
+          },
+          "401": { "description": "The Member session is invalid or revoked." },
+          "403": { "description": "Current human Manager authority is required." },
+          "default": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/v1/organization/storage/verify": {
+      "post": {
+        "operationId": "verifyOrganizationStorage",
+        "summary": "Check S3 settings without changing community storage",
+        "description": "Current human Managers only. Checks the supplied HTTPS target and credentials using bounded temporary objects and multipart uploads, then removes those probes. Does not retain the submitted credentials, select the bucket or move community data. A target other than the currently enrolled target must be empty and dedicated to this community. The endpoint must be a public HTTPS origin without a path, query, fragment or embedded credentials. Customer lifecycle rules and browser CORS rules are not read, changed or verified. A successful check is not authorization to use the bucket and does not guarantee its future availability. Exact repeated checks are safe. Request JSON is limited to 32 KiB; secrets and provider diagnostics are never echoed in an error response.",
+        "security": [{ "memberBearer": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CustomerStorageCheck" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Required data operations passed and the temporary probes were removed",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CustomerStorageCheckResult" } } }
+          },
+          "400": { "description": "Invalid target, credential fields or request body, including JSON exceeding 32 KiB; correct the settings before retrying." },
+          "401": { "description": "The Member session is invalid or revoked." },
+          "403": { "description": "Current human Manager authority is required, including when verification finishes." },
+          "502": { "description": "Verification could not complete. Check the target, credentials, required operations and reachability before retrying." },
+          "default": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
     "/api/v1/organization/audience": {
       "put": {
         "operationId": "replaceOrganizationAudienceLabel",
@@ -6154,6 +6194,60 @@
             "$ref": "#/components/schemas/OrganizationSystemLabels"
           }
         },
+        "additionalProperties": false
+      },
+      "OrganizationStorage": {
+        "type": "object",
+        "required": ["custody"],
+        "properties": {
+          "custody": { "type": "string", "enum": ["managed", "customer_owned"] },
+          "target": { "$ref": "#/components/schemas/CustomerStorageTarget" }
+        },
+        "description": "Target is present only for customer-owned storage. Credentials are never returned.",
+        "additionalProperties": false
+      },
+      "CustomerStorageTarget": {
+        "type": "object",
+        "required": ["endpoint", "region", "bucket"],
+        "properties": {
+          "endpoint": {
+            "type": "string", "format": "uri", "maxLength": 2048,
+            "description": "Public HTTPS origin without a trailing slash, path, query, fragment or embedded credentials."
+          },
+          "region": {
+            "type": "string", "minLength": 1, "maxLength": 64,
+            "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+          },
+          "bucket": {
+            "type": "string", "minLength": 3, "maxLength": 63,
+            "pattern": "^[a-z0-9][a-z0-9.-]*[a-z0-9]$",
+            "description": "Dedicated private S3 bucket; adjacent periods, period-hyphen combinations and IPv4-address names are rejected."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CustomerStorageCheck": {
+        "type": "object",
+        "required": ["target", "credentials"],
+        "properties": {
+          "target": { "$ref": "#/components/schemas/CustomerStorageTarget" },
+          "credentials": {
+            "type": "object", "writeOnly": true,
+            "required": ["access_key_id", "secret_access_key"],
+            "properties": {
+              "access_key_id": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[!-~]+$", "writeOnly": true },
+              "secret_access_key": { "type": "string", "minLength": 1, "maxLength": 1024, "pattern": "^[!-~]+$", "writeOnly": true },
+              "session_token": { "type": ["string", "null"], "minLength": 1, "maxLength": 4096, "pattern": "^[!-~]+$", "writeOnly": true }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "CustomerStorageCheckResult": {
+        "type": "object",
+        "required": ["verified"],
+        "properties": { "verified": { "const": true } },
         "additionalProperties": false
       },
       "Label": {

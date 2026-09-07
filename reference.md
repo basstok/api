@@ -61,6 +61,26 @@ or revoked. Rename the community with `PUT /api/v1/organization`; change its
 audience with `PUT /api/v1/organization/audience`. These operations require a
 Member session, not an Agent token. Every mutation checks current authority.
 
+### Check storage settings
+
+Managers can inspect `GET /api/v1/organization/storage` or check a candidate
+bucket with `POST /api/v1/organization/storage/verify`. Both require a human
+Member session; delegated Agent tokens are not accepted.
+
+The check accepts `target` (HTTPS endpoint, region and bucket) and private
+`credentials`, as specified in OpenAPI. It tests the required S3 operations
+with temporary objects and uploads, then removes them. Success returns
+`{"verified": true}`. Credentials are neither returned nor retained.
+
+Checking does not connect the bucket, move data or change the community's
+current storage. A different target must be empty and dedicated to the
+community. Customer lifecycle and browser CORS settings are separate;
+[see the bucket requirements](https://github.com/basstok/storage).
+
+Invalid settings return `400`; an invalid or revoked session returns `401`,
+and missing current Manager authority returns `403`. A failed bucket check
+returns `502` without echoing credentials or provider diagnostics.
+
 The following operation tables show **Agent scopes**. Signed-in clients use
 their Member session and ordinary resource permissions, as specified by
 OpenAPI. Neither authentication method creates authority beyond its current

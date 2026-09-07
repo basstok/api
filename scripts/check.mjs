@@ -25,6 +25,16 @@ function walk(value) {
 }
 walk(spec);
 
+for (const [path, method] of [
+  ["/api/v1/organization/storage", "get"],
+  ["/api/v1/organization/storage/verify", "post"],
+]) {
+  assert.deepEqual(Object.keys(spec.paths[path]), [method]);
+  assert.deepEqual(spec.paths[path][method].security, [{ memberBearer: [] }]);
+}
+assert.deepEqual(Object.keys(spec.components.schemas.OrganizationStorage.properties), ["custody", "target"]);
+assert.equal(spec.components.schemas.CustomerStorageCheck.properties.credentials.writeOnly, true);
+
 for (const [path, item] of Object.entries(spec.paths)) {
   assert.ok(path.startsWith("/"));
   for (const [method, operation] of Object.entries(item)) {
