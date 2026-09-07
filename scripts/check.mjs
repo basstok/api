@@ -61,7 +61,7 @@ for (const [path, item] of Object.entries(spec.paths)) {
   }
 }
 
-for (const file of ["README.md", "reference.md"]) {
+for (const file of ["README.md", "reference.md", ".github/CONTRIBUTING.md"]) {
   const text = readFileSync(resolve(root, file), "utf8");
   for (const [, target] of text.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
     if (/^(https?:|mailto:)/.test(target)) continue;

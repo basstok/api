@@ -12,6 +12,10 @@ https://<community>/openapi.json
 Requests and responses use JSON unless noted otherwise. Always use the target
 community's HTTPS origin, not a shared API hostname.
 
+[Authentication](#member-sessions) · [Permissions](#authorization-model)
+· [OAuth](#oauth) · [Webhooks](#webhook-registration)
+· [Official Agents](#manage-official-agents) · [Errors](#errors)
+
 ## Member sessions
 
 Signed-in clients use a Member session as a bearer token. Agents use the

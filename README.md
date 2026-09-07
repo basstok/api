@@ -58,8 +58,5 @@ from those available through Agent grants.
 and their results. [Basstok storage](https://github.com/basstok/storage)
 explains customer custody and portability.
 
-To check this repository, run `node scripts/check.mjs` with Node.js 24 or newer.
-The check validates references, operation identities, security declarations,
-and documentation links; it does not claim to test a running Basstok service.
-
-[MIT](LICENSE) · [Contact Basstok](mailto:mail@basstok.com)
+[Contributing and checks](.github/CONTRIBUTING.md) · [MIT](LICENSE)
+· [Contact Basstok](mailto:mail@basstok.com)
