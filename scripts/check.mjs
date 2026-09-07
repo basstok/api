@@ -28,11 +28,16 @@ walk(spec);
 for (const [path, method] of [
   ["/api/v1/organization/storage", "get"],
   ["/api/v1/organization/storage/verify", "post"],
+  ["/api/v1/organization/storage/activate", "post"],
+  ["/api/v1/organization/storage/resume", "post"],
 ]) {
   assert.deepEqual(Object.keys(spec.paths[path]), [method]);
   assert.deepEqual(spec.paths[path][method].security, [{ memberBearer: [] }]);
 }
-assert.deepEqual(Object.keys(spec.components.schemas.OrganizationStorage.properties), ["custody", "target"]);
+assert.deepEqual(Object.keys(spec.components.schemas.OrganizationStorage.properties), ["custody", "target", "transfer"]);
+assert.deepEqual(spec.components.schemas.OrganizationStorage.properties.custody.enum,
+  ["managed", "transferring", "customer_owned"]);
+assert.equal(spec.paths["/api/v1/organization/storage/resume"].post.requestBody, undefined);
 assert.equal(spec.components.schemas.CustomerStorageCheck.properties.credentials.writeOnly, true);
 
 for (const [path, item] of Object.entries(spec.paths)) {

@@ -65,7 +65,7 @@ or revoked. Rename the community with `PUT /api/v1/organization`; change its
 audience with `PUT /api/v1/organization/audience`. These operations require a
 Member session, not an Agent token. Every mutation checks current authority.
 
-### Check storage settings
+### Connect your storage
 
 Managers can inspect `GET /api/v1/organization/storage` or check a candidate
 bucket with `POST /api/v1/organization/storage/verify`. Both require a human
@@ -84,6 +84,25 @@ community. Customer lifecycle and browser CORS settings are separate;
 Invalid settings return `400`; an invalid or revoked session returns `401`,
 and missing current Manager authority returns `403`. A failed bucket check
 returns `502` without echoing credentials or provider diagnostics.
+
+To move a managed community, separately confirm the action with the Manager
+and send the same connection input to
+`POST /api/v1/organization/storage/activate`. A `202` response means the move
+has started, not that it has finished. Community activity pauses during the
+move; unfinished uploads may need to be started again. Closing the client
+does not stop an admitted move. Connection credentials are retained privately
+for ongoing storage access, never returned by the API.
+
+Read `GET /api/v1/organization/storage` for `custody`: `managed`,
+`transferring` or `customer_owned`. During a move, `target` identifies the
+selected bucket and `transfer` reports `objects_copied` and `bytes_copied`.
+These counters are not a completion percentage.
+
+An interrupted move can resume with `POST /api/v1/organization/storage/resume`
+and an empty body. An exact activation retry is safe; a different connection
+returns `409`. Read status before retrying an uncertain response. Activation
+does not replace an already connected customer bucket. These operations
+require current human Manager authority; no Agent scope grants them.
 
 The following operation tables show **Agent scopes**. Signed-in clients use
 their Member session and ordinary resource permissions, as specified by

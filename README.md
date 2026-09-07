@@ -30,7 +30,7 @@ resources requires the appropriate authentication and resource access.
 - **Native experiences:** Member sign-in, notifications, push registration,
   Connections, and audio/video Call signaling and recording consent.
 - **Management tools:** manage Members, moderation, public Website publication,
-  and official Agent installation.
+  official Agent installation, and customer storage connections.
 - **Agents and importers:** use delegated OAuth grants for automation or the
   separately authorized historical-import contract.
 

@@ -539,6 +539,57 @@
         }
       }
     },
+    "/api/v1/organization/storage/activate": {
+      "post": {
+        "operationId": "activateOrganizationStorage",
+        "summary": "Move community data to a customer-owned bucket",
+        "description": "Current human Managers only. Checks a dedicated empty S3-compatible bucket, then durably starts a transfer. Ordinary community activity pauses while data moves; unfinished uploads may need to be started again. The operation continues independently of the requesting client and resumes after a service restart. Credentials are retained privately for the connection and are never returned. GET organization/storage reports progress and the completed selection. Exact repeated requests are safe; a different pending or active connection returns 409. This operation moves Basstok-managed data to a customer-owned bucket; it does not replace an already connected customer bucket. Request JSON is limited to 32 KiB.",
+        "security": [{ "memberBearer": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CustomerStorageCheck" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "The exact connection is already active",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrganizationStorage" } } }
+          },
+          "202": {
+            "description": "Transfer admitted; read storage status for progress",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrganizationStorage" } } }
+          },
+          "400": { "description": "Invalid target, credentials or request body." },
+          "401": { "description": "The Member session is invalid or revoked." },
+          "403": { "description": "Current human Manager authority is required." },
+          "409": { "description": "A different connection already exists or a storage operation is already running. Read storage status before retrying." },
+          "502": { "description": "The storage operation could not complete. Read storage status before retrying; an admitted transfer remains resumable." },
+          "default": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/v1/organization/storage/resume": {
+      "post": {
+        "operationId": "resumeOrganizationStorage",
+        "summary": "Resume the current storage transfer",
+        "description": "Current human Managers only. Uses the already admitted connection; send an empty request body. Does not replace its target or credentials. A transfer already running returns 409; an already completed transfer returns 200. Failed transfers remain paused until their connection can be used again.",
+        "security": [{ "memberBearer": [] }],
+        "responses": {
+          "200": {
+            "description": "The transfer is already complete",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrganizationStorage" } } }
+          },
+          "202": {
+            "description": "Transfer resumed",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrganizationStorage" } } }
+          },
+          "400": { "description": "There is no admitted connection, or the request body is not empty." },
+          "401": { "description": "The Member session is invalid or revoked." },
+          "403": { "description": "Current human Manager authority is required." },
+          "409": { "description": "The storage operation is already running; read storage status." },
+          "default": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
     "/api/v1/organization/audience": {
       "put": {
         "operationId": "replaceOrganizationAudienceLabel",
@@ -6200,10 +6251,18 @@
         "type": "object",
         "required": ["custody"],
         "properties": {
-          "custody": { "type": "string", "enum": ["managed", "customer_owned"] },
-          "target": { "$ref": "#/components/schemas/CustomerStorageTarget" }
+          "custody": { "type": "string", "enum": ["managed", "transferring", "customer_owned"] },
+          "target": { "$ref": "#/components/schemas/CustomerStorageTarget" },
+          "transfer": {
+            "type": "object", "required": ["objects_copied", "bytes_copied"],
+            "properties": {
+              "objects_copied": { "type": "integer", "minimum": 0 },
+              "bytes_copied": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": false
+          }
         },
-        "description": "Target is present only for customer-owned storage. Credentials are never returned.",
+        "description": "Target is present for transferring and customer_owned custody. Transfer counters are present only while transferring and report copied data, not a completion percentage. Credentials are never returned.",
         "additionalProperties": false
       },
       "CustomerStorageTarget": {
