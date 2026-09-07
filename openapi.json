@@ -3164,7 +3164,7 @@
       ],
       "get": {
         "operationId": "getAsset",
-        "description": "Returns an authorized Asset payload or metadata. For a Chat-owned Asset, chat:read and effective-participant access from that Member's admission boundary are both required; actor_id may select an existing controlled Member.",
+        "description": "Returns an authorized Asset payload or metadata. For a Chat-owned Asset, chat:read and effective-participant access from that Member's admission boundary are both required; actor_id may select an existing controlled Member. Payload responses include a strong ETag. Anonymous payloads use private, no-cache, must-revalidate; authenticated payloads use no-store. Asset URLs are not immutable. Conditional payload requests always evaluate current authorization before returning bytes or 304. Metadata responses are not conditional.",
         "security": [
           {},
           {
@@ -3190,11 +3190,34 @@
           },
           {
             "$ref": "#/components/parameters/ByteRange"
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "Payload only: one or more entity-tags, or *. A matching current representation returns 304 after authorization. Weak comparison applies; this condition precedes Range.",
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "Payload only: require a matching strong entity-tag or *. A mismatch returns 412. Evaluated before If-None-Match.",
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "If-Range",
+            "in": "header",
+            "description": "Payload only: apply Range only if this is the exact current strong ETag; otherwise return the complete payload. Dates and weak validators do not match.",
+            "schema": {"type": "string"}
           }
         ],
         "responses": {
           "200": {
             "description": "Authorized Asset payload, or exact Asset metadata when metadata=1",
+            "headers": {
+              "ETag": {"description": "Strong payload validator; absent for metadata.", "schema": {"type": "string"}},
+              "Cache-Control": {"description": "private, no-cache, must-revalidate for anonymous payloads; no-store for authenticated requests or metadata.", "schema": {"type": "string"}},
+              "Vary": {"description": "Authorization, Cookie for payloads.", "schema": {"type": "string"}}
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -3211,6 +3234,12 @@
           },
           "206": {
             "description": "Authorized byte range",
+            "headers": {
+              "ETag": {"description": "Strong validator for the complete payload.", "schema": {"type": "string"}},
+              "Content-Range": {"description": "Selected byte interval and complete payload size.", "schema": {"type": "string"}},
+              "Cache-Control": {"description": "Same policy as the complete payload response.", "schema": {"type": "string"}},
+              "Vary": {"description": "Authorization, Cookie.", "schema": {"type": "string"}}
+            },
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -3219,6 +3248,17 @@
                 }
               }
             }
+          },
+          "304": {
+            "description": "The currently authorized payload matches If-None-Match. No response body.",
+            "headers": {
+              "ETag": {"description": "Current strong payload validator.", "schema": {"type": "string"}},
+              "Cache-Control": {"description": "Same policy as the complete payload response.", "schema": {"type": "string"}},
+              "Vary": {"description": "Authorization, Cookie.", "schema": {"type": "string"}}
+            }
+          },
+          "412": {
+            "$ref": "#/components/responses/Error"
           },
           "416": {
             "$ref": "#/components/responses/Error"

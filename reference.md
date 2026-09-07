@@ -568,6 +568,15 @@ of its bytes. Payload reads also support the ordinary HTTP `Range` header and
 return `206` for an authorized byte range.
 Use bounded `Range` reads or a streaming HTTP client for larger Assets.
 
+Payload responses include a strong `ETag`. Send it in `If-None-Match` to
+receive `304` when the currently authorized payload is unchanged. Current
+authorization is checked even for conditional requests. Anonymous payloads
+use `private, no-cache, must-revalidate`; authenticated responses use `no-store`.
+Asset URLs are not immutable. `If-Range` accepts an exact strong `ETag` to
+resume the same representation; a mismatch returns the complete payload.
+`If-Match` can require that representation, returning `412` on a mismatch.
+These conditions apply to bytes, not to `metadata=1` responses.
+
 A small Asset for an exact pending Content create uses the same binary body and
 headers at:
 
