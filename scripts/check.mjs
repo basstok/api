@@ -40,6 +40,24 @@ assert.deepEqual(spec.components.schemas.OrganizationStorage.properties.custody.
 assert.equal(spec.paths["/api/v1/organization/storage/resume"].post.requestBody, undefined);
 assert.equal(spec.components.schemas.CustomerStorageCheck.properties.credentials.writeOnly, true);
 
+for (const [path, allowedMethods] of [
+  ["/api/v1/schedules/{scheduleId}", ["put", "get", "delete"]],
+  ["/api/v1/schedules/{scheduleId}/pause", ["post"]],
+  ["/api/v1/schedules/{scheduleId}/resume", ["post"]],
+]) {
+  const item = spec.paths[path];
+  assert.deepEqual(Object.keys(item).filter(key => methods.has(key)), allowedMethods);
+  for (const method of allowedMethods) assert.deepEqual(item[method].security, [{ oauth: [] }]);
+}
+assert.equal(spec.components.schemas.ScheduledRequest.additionalProperties, false);
+assert.deepEqual(spec.components.schemas.ScheduledRequest.required, ["execute_at", "request"]);
+assert.deepEqual(spec.components.schemas.ScheduledRequest.properties.request.properties.method.enum, ["PUT", "POST"]);
+assert.equal(spec.components.schemas.ScheduledBatch.properties.requests.maxItems, 8192);
+assert.equal(spec.components.schemas.ScheduledBatch.properties.attempts.maximum, 16);
+assert.equal(spec.components.schemas.ScheduledBatch.properties.paused_at.format, "date-time");
+assert.match(spec.paths["/api/v1/schedules/{scheduleId}"].put.description,
+  /no application-defined future scheduling horizon/);
+
 for (const [path, item] of Object.entries(spec.paths)) {
   assert.ok(path.startsWith("/"));
   for (const [method, operation] of Object.entries(item)) {

@@ -14,7 +14,7 @@ community's HTTPS origin, not a shared API hostname.
 
 [Authentication](#member-sessions) · [Permissions](#authorization-model)
 · [OAuth](#oauth) · [Webhooks](#webhook-registration)
-· [Official Agents](#manage-official-agents) · [Errors](#errors)
+· [Scheduling](#schedule-requests) · [Official Agents](#manage-official-agents) · [Errors](#errors)
 
 ## Member sessions
 
@@ -200,6 +200,112 @@ This is a Member authorization operation, not an Agent-token operation. It
 replaces the complete Content selection. An empty array removes the grant's
 Content access immediately; it does not grant or remove participant-scoped Chat
 access.
+
+## Schedule requests
+
+Submit future API mutations once. Basstok executes them at or after their due
+times even when the Agent is offline. No webhook receiver or new scope is
+required. Check the community's `/openapi.json` for support in its installed
+release.
+
+For example, schedule publication of a draft already created by this
+delegation, using `content:write`:
+
+```http
+PUT /api/v1/schedules/ca681d22-75f0-4aa2-a82d-3528318ab433
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "requests": [
+    {
+      "execute_at": "2027-01-01T09:00:00Z",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/content-drafts/75b4ea59-0f50-49f4-9e14-b6149f4a4493/publish"
+      }
+    }
+  ]
+}
+```
+
+Choose a fresh lowercase UUIDv4 for the batch and retain it for retries.
+`200` returns the accepted requests and current progress. An identical retry
+returns that progress without creating another schedule.
+
+### Supported mutations
+
+Each request keeps its ordinary endpoint's body and authorization:
+
+| Request | Required Agent scopes |
+|---|---|
+| `PUT /api/v1/member-creations/{memberId}` | `member:write` |
+| `PUT /api/v1/content-drafts/{contentId}` | `content:write` |
+| `POST /api/v1/content-drafts/{contentId}/publish` | `content:write` |
+| `PUT /api/v1/contents/{contentId}/comment-creations/{commentId}` | `content:read` + `content:write` |
+| `POST /api/v1/chats` | `chat:write` |
+| `POST /api/v1/chats/{chatId}/messages` | `chat:write` |
+
+Put the normal JSON body in `request.body`; omit it for draft publication.
+Chat and Message creation require `request.idempotency_key`, which supplies
+their ordinary `Idempotency-Key` header. Other supported operations use their
+existing path identity. Keep both identities and requests unchanged when
+retrying an uncertain outcome.
+
+Paths cannot include a hostname, query parameters or arbitrary headers. There
+are no placeholders or dependencies: create a Chat first and use its returned
+ID when scheduling Messages. Reactions, subscriptions, edits, moderation and
+other mutations remain immediate-only.
+
+### Timing and current permissions
+
+Use UTC `YYYY-MM-DDTHH:MM:SSZ` in nondecreasing order. New requests cannot
+predate the current UTC second. There is **no application-defined future
+scheduling horizon**; the timestamp format uses four-digit years through 9999.
+Equal-time requests execute in their listed order. An earlier retry delays
+later items in that batch. A terminal failure is recorded and the next item
+proceeds; successful work is not rolled back.
+
+Every execution rechecks the current grant, responsible Member, controlled
+persona and resource access. Submission does not preserve permissions that
+are later removed, and unrelated permission additions do not invalidate work.
+Access-token expiry alone does not cancel accepted work; revoking the grant
+prevents subsequent authorized execution. A human session cannot submit an
+Agent schedule, and another grant cannot inspect or control it.
+
+### Inspect and change a schedule
+
+- `GET /api/v1/schedules/{scheduleId}` returns requests, ordered `results`,
+  `attempts` for the next item, and any `retry_at`, `paused_at`, `completed_at`
+  or `cancelled_at` timestamp. A result has an HTTP `status` and an optional
+  `resource_id`, not a resource body. Responses are `no-store`.
+- `POST /api/v1/schedules/{scheduleId}/pause` durably pauses pending work.
+  An already admitted request may finish. Refresh progress before editing.
+- While paused, repeat `PUT` with the same batch ID to correct its unattempted
+  tail. Preserve the completed prefix and any attempted next request exactly,
+  including times: an uncertain attempt may already have committed. Remaining
+  requests must be future-dated and ordered. Invalid changes leave the old
+  batch intact; accepted changes keep it paused.
+- `POST /api/v1/schedules/{scheduleId}/resume` resumes overdue work in order
+  without resetting attempts. Pause and resume return `200` with progress.
+- `DELETE /api/v1/schedules/{scheduleId}` cancels pending work and returns
+  `204`. Cancellation cannot undo mutations or stop an already admitted request.
+
+Pause, resume and cancel are idempotent. Changed requests in an unpaused batch,
+changes to attempted work, and resuming a cancelled batch return `409`.
+Malformed input returns `400`; missing or revoked authorization returns
+`401` or `403`. A batch outside the current grant is not disclosed.
+
+Batches allow up to 8,192 requests, with 16,384 retained requests and 32 retained
+batches per community. Each body is at most 64 KiB; aggregate request data is
+at most 16 MiB. Retries are bounded to 16 attempts with backoff capped at five
+minutes. An uncertain terminal outcome does not prove nothing committed;
+inspect the affected resource before creating replacement work.
+
+Completed records remain inspectable for at least seven days from actual
+completion; cancelled records use cancellation time. Pending and paused work
+does not expire under that retention window. Keep future request bodies free
+of credentials, and use the smallest scopes and resource selection needed.
 
 ## OAuth
 

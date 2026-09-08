@@ -33,10 +33,13 @@ resources requires the appropriate authentication and resource access.
   official Agent installation, and customer storage connections.
 - **Agents and importers:** use delegated OAuth grants for automation or the
   separately authorized historical-import contract.
+- **Scheduled publishing:** submit future API requests once; inspect, pause,
+  correct or cancel them without keeping an Agent online.
 
 [OpenAPI](openapi.json) specifies the supported requests, schemas, and
 authentication for each operation. A community's `/openapi.json` describes its
 installed release; [view the contract served by basstok.com](https://basstok.com/openapi.json).
+Check that installed contract for operation availability before connecting.
 
 ## Access stays explicit
 

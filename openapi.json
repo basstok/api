@@ -24,6 +24,112 @@
     }
   ],
   "paths": {
+    "/api/v1/schedules/{scheduleId}": {
+      "parameters": [
+        {
+          "name": "scheduleId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client-generated lowercase UUIDv4; retry an identical batch with the same ID."
+          }
+        }
+      ],
+      "put": {
+        "operationId": "scheduleRequests",
+        "summary": "Schedule a bounded batch of existing API mutations",
+        "description": "Delegated applications only. No separate scheduling scope: every request requires its ordinary write scope. Supports PUT member-creations/{id}, PUT content-drafts/{id}, POST content-drafts/{id}/publish, PUT contents/{id}/comment-creations/{id}, POST chats, and POST chats/{id}/messages under /api/v1/. Chat and Message POSTs require idempotency_key, which supplies their ordinary Idempotency-Key header. No arbitrary headers, hosts, query parameters, edits, nested schedules or other operations. Times use UTC YYYY-MM-DDTHH:MM:SSZ and must be nondecreasing and in the future, with no application-defined future scheduling horizon. The timestamp format supports four-digit years through 9999; a new batch cannot predate its admission's current UTC second. Up to 8192 requests per batch, 16384 retained requests and 32 batches per community, 64 KiB per body, and 16 MiB total request data. Each exact request is authorized against the current Grant, responsible Member, persona and resource. Unrelated scope or Label additions do not invalidate execution. Stored admission snapshots never confer authority. Identical submission retries return current progress; changing a running batch returns 409. Pause the batch to replace its unattempted tail with future requests under the same ID. The exact completed prefix and any currently attempted request, including its time, are immutable. Replacement keeps the batch paused and does not reset attempts. Completed records retain identity for at least seven days from actual completion; cancelled records from cancellation.",
+        "security": [
+          {
+            "oauth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "requests"
+                ],
+                "properties": {
+                  "requests": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8192,
+                    "items": {
+                      "$ref": "#/components/schemas/ScheduledRequest"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Durably accepted, or identical retry with current progress.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledBatch"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "get": {
+        "operationId": "getScheduledRequests",
+        "summary": "Inspect this Grant's scheduled batch and progress",
+        "description": "Only the current delegated Grant that submitted the batch can inspect it. Results are in submission order. Earlier failed items do not roll back successful requests or create dependencies; remaining items execute normally. Retryable outcomes use bounded backoff and at most 16 attempts. A terminal error is not a promise that an earlier ambiguous attempt never committed. Creation identities prevent duplicating the underlying creation on recovery. Exact execution time is not guaranteed; requests are never intentionally executed before their due time.",
+        "security": [
+          {
+            "oauth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current progress; no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledBatch"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "cancelScheduledRequests",
+        "summary": "Cancel pending requests in this Grant's batch",
+        "description": "Idempotent cancellation. An already admitted request may finish. Completed work is not undone. The cancelled batch remains inspectable during retention.",
+        "security": [
+          {
+            "oauth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Pending execution cancelled."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/api/v1/agents": {
       "get": {
         "operationId": "listOfficialAgents",
@@ -4745,6 +4851,84 @@
           }
         }
       }
+    },
+    "/api/v1/schedules/{scheduleId}/pause": {
+      "parameters": [
+        {
+          "name": "scheduleId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client-generated lowercase UUIDv4; retry an identical batch with the same ID."
+          }
+        }
+      ],
+      "post": {
+        "operationId": "pauseScheduledRequests",
+        "summary": "Pause pending requests in this Grant's batch",
+        "description": "Durably pause pending requests without cancelling the batch. Idempotent. An already admitted request may finish and record its result. Paused batches survive restart and remain until resumed or cancelled; completed-record retention does not apply. Requires the submitting current delegated Grant.",
+        "security": [
+          {
+            "oauth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current progress; no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledBatch"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/schedules/{scheduleId}/resume": {
+      "parameters": [
+        {
+          "name": "scheduleId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client-generated lowercase UUIDv4; retry an identical batch with the same ID."
+          }
+        }
+      ],
+      "post": {
+        "operationId": "resumeScheduledRequests",
+        "summary": "Resume this Grant's paused batch",
+        "description": "Clear a durable pause. Overdue requests become eligible immediately in their original order with current authorization. Attempts and retry budget are not reset. Idempotent; cancelled batches return 409, completed batches remain complete. Requires the submitting current delegated Grant.",
+        "security": [
+          {
+            "oauth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current progress; no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledBatch"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5163,6 +5347,121 @@
       }
     },
     "schemas": {
+      "ScheduledRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execute_at",
+          "request"
+        ],
+        "properties": {
+          "execute_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          },
+          "request": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "method",
+              "path"
+            ],
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": [
+                  "PUT",
+                  "POST"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 1024,
+                "description": "An exact supported /api/v1/ mutation path, without host or query parameters."
+              },
+              "body": {
+                "type": "object",
+                "description": "The ordinary endpoint's JSON request body; omit for Content publication."
+              },
+              "idempotency_key": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Required only for Chat and Message creation; supplies the ordinary Idempotency-Key header."
+              }
+            }
+          }
+        }
+      },
+      "ScheduledBatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "requests",
+          "results",
+          "attempts"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requests": {
+            "type": "array",
+            "maxItems": 8192,
+            "items": {
+              "$ref": "#/components/schemas/ScheduledRequest"
+            }
+          },
+          "results": {
+            "type": "array",
+            "maxItems": 8192,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "minimum": 200,
+                  "maximum": 599
+                },
+                "resource_id": {
+                  "type": "string",
+                  "maxLength": 256,
+                  "description": "The ordinary mutation's returned resource identity, when available. No response body is retained."
+                }
+              }
+            }
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 16,
+            "description": "Attempts admitted for the next unfinished request."
+          },
+          "retry_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cancelled_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "paused_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Present while pending work is paused. An admitted request may still finish."
+          }
+        }
+      },
       "ManagedAgentCatalog": {
         "type": "object",
         "required": [
