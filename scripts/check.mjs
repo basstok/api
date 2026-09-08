@@ -41,6 +41,17 @@ assert.equal(spec.paths["/api/v1/organization/storage/resume"].post.requestBody,
 assert.equal(spec.components.schemas.CustomerStorageCheck.properties.credentials.writeOnly, true);
 
 for (const [path, allowedMethods] of [
+  ["/api/v1/organization/email", ["get", "put"]],
+  ["/api/v1/organization/email/verify", ["post"]],
+]) {
+  assert.deepEqual(Object.keys(spec.paths[path]), allowedMethods);
+  for (const method of allowedMethods)
+    assert.deepEqual(spec.paths[path][method].security, [{ memberBearer: [] }]);
+}
+assert.equal(spec.components.schemas.CommunitySmtpInput.properties.credentials.writeOnly, true);
+assert.deepEqual(Object.keys(spec.components.schemas.OrganizationEmail.properties), ["smtp"]);
+
+for (const [path, allowedMethods] of [
   ["/api/v1/schedules/{scheduleId}", ["put", "get", "delete"]],
   ["/api/v1/schedules/{scheduleId}/pause", ["post"]],
   ["/api/v1/schedules/{scheduleId}/resume", ["post"]],

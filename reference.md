@@ -12,6 +12,19 @@ https://<community>/openapi.json
 Requests and responses use JSON unless noted otherwise. Always use the target
 community's HTTPS origin, not a shared API hostname.
 
+Send `Accept-Language` with the user's language preference for Basstok-owned
+presentation text, such as official Agent names and permission explanations.
+English is the fallback; German, Spanish, French, Portuguese, Japanese,
+Chinese and Arabic are available. Resource IDs, enum values, scopes and
+Member-authored text do not change with the language. Public Website
+declarations may include explicitly authored translations using the same
+routes; the shapes and bounds are in OpenAPI.
+
+Ordinary HTTP clients negotiate response compression automatically. Eligible
+text responses support gzip and Zstandard; always respect the returned
+`Content-Encoding`, cache policy and validators. Files retain their ordinary
+authorized delivery and conditional-request behavior.
+
 [Authentication](#member-sessions) · [Permissions](#authorization-model)
 · [OAuth](#oauth) · [Webhooks](#webhook-registration)
 · [Scheduling](#schedule-requests) · [Official Agents](#manage-official-agents) · [Errors](#errors)
@@ -64,6 +77,54 @@ Member has Manager authority. It returns `403` when that authority is absent
 or revoked. Rename the community with `PUT /api/v1/organization`; change its
 audience with `PUT /api/v1/organization/audience`. These operations require a
 Member session, not an Agent token. Every mutation checks current authority.
+
+### Use your mail server
+
+Managers can connect a community's existing SMTP service from Administration
+→ Community email on Web, iPhone/iPad or Android. The same operations are
+available to other clients through a current human Member session, not an
+Agent token:
+
+- `GET /api/v1/organization/email` reads the selected sender, host, port and
+  TLS mode. An absent `smtp` field means the default mail service is selected.
+- `POST /api/v1/organization/email/verify` checks supplied settings without
+  changing delivery, retaining credentials or sending an email.
+- `PUT /api/v1/organization/email` checks and selects the supplied connection.
+
+Both writes accept this shape; supply your own credentials securely:
+
+```json
+{
+  "endpoint": {
+    "sender": "hello@community.example",
+    "host": "smtp.community.example",
+    "port": 465,
+    "security": "implicit_tls"
+  },
+  "credentials": {
+    "username": "your-smtp-username",
+    "password": "your-smtp-password"
+  }
+}
+```
+
+Use `implicit_tls` for TLS from connection establishment or `starttls` for
+mandatory TLS upgrade before authentication. The server must be reachable at
+a public DNS hostname with a valid matching certificate. JSON is limited to
+4 KiB. Credentials are write-only and never appear in a response.
+
+A successful check returns `{"verified": true}`. It does not activate the
+connection. Saving returns the selected `smtp` endpoint without credentials;
+future community email uses that connection. There is no fallback to another
+provider on delivery failure. Member preferences and Basstok unsubscribe
+behavior still apply automatically.
+
+Each operation requires current Manager authority, including after a network
+check. Invalid input returns `400`, an invalid session `401`, insufficient
+authority `403`, a concurrent update/check limit `409`, and an unsuccessful
+check or save `502`. Errors do not echo credentials. A failed check leaves
+delivery unchanged. After an uncertain save response, read settings or repeat
+the exact request; an exact retry does not create another connection.
 
 ### Connect your storage
 
@@ -309,7 +370,7 @@ of credentials, and use the smallest scopes and resource selection needed.
 
 ## OAuth
 
-For the supplied TypeScript Agents, [connect with the CLI](https://agents.basstok.com/connecting).
+For the supplied TypeScript Agents, [connect with the CLI](https://github.com/basstok/agents/blob/main/docs/connecting.md).
 The wire contract follows.
 
 Send an OAuth access token as a bearer token:
