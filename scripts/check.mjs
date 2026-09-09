@@ -25,6 +25,15 @@ function walk(value) {
 }
 walk(spec);
 
+assert.deepEqual(spec.components.schemas.PrimaryColor.enum,
+  ["rose", "orange", "amber", "lime", "emerald", "cyan", "blue", "violet", "fuchsia"]);
+assert.deepEqual(spec.paths["/api/v1/organization/appearance"].put.security, [{memberBearer: []}]);
+for (const method of ["get", "put"])
+  assert.deepEqual(spec.paths["/api/v1/organization/homepage"][method].security, [{memberBearer: []}]);
+const memberQuery = spec.paths["/api/v1/members"].get.parameters.find(p => p.name === "q");
+assert.equal(memberQuery.in, "query");
+assert.equal(memberQuery.schema.maxLength, 256);
+
 for (const [path, allowedMethods] of [
   ["/api/v1/organization/domains", ["get", "post"]],
   ["/api/v1/organization/domains/{domainId}/verify", ["post"]],

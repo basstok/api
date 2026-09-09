@@ -78,6 +78,33 @@ or revoked. Rename the community with `PUT /api/v1/organization`; change its
 audience with `PUT /api/v1/organization/audience`. These operations require a
 Member session, not an Agent token. Every mutation checks current authority.
 
+### Manage appearance, homepage and Members
+
+Use `PUT /api/v1/organization/appearance` with `{"primary_color":"blue"}`
+to select the website color. Choose `rose`, `orange`, `amber`, `lime`,
+`emerald`, `cyan`, `blue`, `violet` or `fuchsia`; omit the value or use `null`
+to restore the default. This requires a current human Manager session.
+
+Read the editable homepage with `GET /api/v1/organization/homepage`. Save its
+title and Markdown body with `PUT /api/v1/organization/homepage`, echoing the
+returned `version`. An exact retry is safe; a stale edit returns `409`.
+This is also Manager-only and leaves other pages and posts unchanged.
+
+`GET /api/v1/members?q=Mara` filters authorized Members by display name.
+The optional filter is limited to 256 UTF-8 bytes and matches substrings with
+ASCII case folding. Follow `next_offset` with the same query and authorization;
+a short page may still have a continuation. The offset is not a Member count.
+The existing session, scope and resource-access requirements still apply.
+
+### Find or create a Basstok
+
+On `basstok.com`, `GET /api/v1/basstoks?hostname=your-name` checks one exact
+name, not a directory. `POST /api/v1/basstoks` starts email verification;
+`POST /api/v1/basstoks/complete` completes the verified claim. Open the returned
+`sign_in_url` to sign in on the new hostname. Sessions remain separate by
+origin. The [OpenAPI contract](openapi.json) specifies the verification and
+completion tokens to retain for a safe retry.
+
 ### Connect a domain
 
 A Manager can connect a custom hostname to the same Basstok, without creating

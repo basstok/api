@@ -24,227 +24,6 @@
     }
   ],
   "paths": {
-    "/api/v1/organization/domains": {
-      "get": {
-        "operationId": "getOrganizationDomains",
-        "summary": "List your custom domains",
-        "description": "Current human Manager only. Returns only this Basstok's requests, not a public domain directory. The permanent Basstok address is always retained.",
-        "security": [
-          {
-            "memberBearer": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Current custom-domain requests for this Basstok",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OrganizationDomains"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid hostname or request"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Current human Manager authority required"
-          },
-          "404": {
-            "description": "The domain request is not available to this Basstok"
-          },
-          "409": {
-            "description": "Hostname already attached or request limit reached"
-          },
-          "503": {
-            "description": "Retryable storage or concurrent update failure. Read current state and retry the same request; a failed response does not establish whether a mutation committed."
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      },
-      "post": {
-        "operationId": "addOrganizationDomain",
-        "summary": "Add a custom domain",
-        "description": "Current human Manager only; unavailable to delegated applications. Accepts an ASCII DNS hostname (including punycode), without scheme, port or path. Case and one trailing dot are normalized. Basstok-provided names, wildcards and IP literals are not custom domains. At most four saved requests per Basstok. An exact retry returns the same request. Adding creates a pending request; it does not change routing or prove ownership.",
-        "security": [
-          {
-            "memberBearer": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Current custom-domain requests for this Basstok",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OrganizationDomains"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid hostname or request"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Current human Manager authority required"
-          },
-          "404": {
-            "description": "The domain request is not available to this Basstok"
-          },
-          "409": {
-            "description": "Hostname already attached or request limit reached"
-          },
-          "503": {
-            "description": "Retryable storage or concurrent update failure. Read current state and retry the same request; a failed response does not establish whether a mutation committed."
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "hostname"
-                ],
-                "properties": {
-                  "hostname": {
-                    "type": "string",
-                    "minLength": 3,
-                    "maxLength": 244
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/organization/domains/{domainId}/verify": {
-      "parameters": [
-        {
-          "name": "domainId",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      ],
-      "post": {
-        "operationId": "verifyOrganizationDomain",
-        "summary": "Verify and connect a domain",
-        "description": "Current human Manager only. Publish the returned TXT verification record and point the hostname to the permanent Basstok address. Every resolved A/AAAA address must be public and match that address. For a subdomain use a CNAME; for an apex use the DNS provider's ALIAS/ANAME equivalent or matching A/AAAA records. Basstok never changes DNS. Returns pending when DNS is not ready; repeat verification later. HTTPS must be provisioned before activation. DNS/HTTPS failures preserve the request. Active retries are idempotent; only one Basstok may own an active hostname.",
-        "security": [
-          {
-            "memberBearer": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Current custom-domain requests for this Basstok",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OrganizationDomains"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid hostname or request"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Current human Manager authority required"
-          },
-          "404": {
-            "description": "The domain request is not available to this Basstok"
-          },
-          "409": {
-            "description": "Hostname already attached or request limit reached"
-          },
-          "503": {
-            "description": "Retryable verification, HTTPS, storage or concurrent update failure. The request is retained. Retry verification even if current state already says active, to finish routing publication."
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      }
-    },
-    "/api/v1/organization/domains/{domainId}": {
-      "parameters": [
-        {
-          "name": "domainId",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      ],
-      "delete": {
-        "operationId": "removeOrganizationDomain",
-        "summary": "Remove a custom domain",
-        "description": "Current human Manager only. Removes pending or active attachment. Subsequent requests to that hostname no longer route to this Basstok. Its permanent hostname and all other data remain unchanged. Removal is idempotent by request ID, including after a lost response; an old ID cannot remove a newly added request. Clients using the removed origin should switch to permanent_origin and authenticate there.",
-        "security": [
-          {
-            "memberBearer": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Current custom-domain requests for this Basstok",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OrganizationDomains"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid hostname or request"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Current human Manager authority required"
-          },
-          "404": {
-            "description": "The domain request is not available to this Basstok"
-          },
-          "409": {
-            "description": "Hostname already attached or request limit reached"
-          },
-          "503": {
-            "description": "Retryable storage, HTTPS cleanup or concurrent update failure. An uncertain removal withholds routing. Retry the same removal on the permanent hostname."
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      }
-    },
     "/api/v1/schedules/{scheduleId}": {
       "parameters": [
         {
@@ -725,6 +504,479 @@
           },
           "409": {
             "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/basstoks": {
+      "servers": [
+        {
+          "url": "https://basstok.com"
+        }
+      ],
+      "get": {
+        "operationId": "findBasstok",
+        "summary": "Open a Basstok by its exact name",
+        "security": [],
+        "description": "Accepts a single subdomain label or its full name.basstok.com hostname. Returns only the normalized hostname, origin and whether the exact name is active; never a directory, membership or private profile data. Reserved and invalid names return 400.",
+        "parameters": [
+          {
+            "name": "hostname",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 90
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exact hostname lookup",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "hostname",
+                    "origin",
+                    "exists"
+                  ],
+                  "properties": {
+                    "hostname": {
+                      "type": "string"
+                    },
+                    "origin": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "exists": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "requestBasstokCreation",
+        "summary": "Verify an email before claiming a Basstok name",
+        "security": [],
+        "description": "Sends a fifteen-minute verification link. Sending the link does not claim the name. An already active name returns 409. A verified pending claim can be resumed only through the same email. This is account onboarding, not an application grant or Agent capability.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "hostname",
+                  "email"
+                ],
+                "properties": {
+                  "hostname": {
+                    "type": "string",
+                    "maxLength": 90
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "maxLength": 254
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Check the submitted email for the verification link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "accepted"
+                  ],
+                  "properties": {
+                    "accepted": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/basstoks/complete": {
+      "servers": [
+        {
+          "url": "https://basstok.com"
+        }
+      ],
+      "post": {
+        "operationId": "completeBasstokCreation",
+        "summary": "Claim a verified name and open its new Basstok",
+        "security": [],
+        "description": "Submit the verification token and a securely random 32-byte lowercase hex completion token. Retain both for an exact retry. The first completion binds this retry token; a different token is denied. Claims are exclusive. A successful response means the new Basstok is ready with an editable starter homepage. Open sign_in_url to finish ordinary sign-in on that origin; the verified creator is its Manager. A failed provisioning attempt may be retried with the same pair. An expired pending attempt requires a new email verification. No session is shared with basstok.com.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "token",
+                  "completion_token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "completion_token": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The Basstok is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "origin",
+                    "sign_in_url"
+                  ],
+                  "properties": {
+                    "origin": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "sign_in_url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid, expired or mismatched verification"
+          },
+          "409": {
+            "description": "Name claimed by another verified request, or creation unavailable"
+          },
+          "503": {
+            "description": "Temporarily unavailable; retry the same request"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/organization/domains": {
+      "get": {
+        "operationId": "getOrganizationDomains",
+        "summary": "List your custom domains",
+        "description": "Current human Manager only. Returns only this Basstok's requests, not a public domain directory. The permanent Basstok address is always retained.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current custom-domain requests for this Basstok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDomains"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid hostname or request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Current human Manager authority required"
+          },
+          "404": {
+            "description": "The domain request is not available to this Basstok"
+          },
+          "409": {
+            "description": "Hostname already attached or request limit reached"
+          },
+          "503": {
+            "description": "Retryable storage or concurrent update failure. Read current state and retry the same request; a failed response does not establish whether a mutation committed."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "addOrganizationDomain",
+        "summary": "Add a custom domain",
+        "description": "Current human Manager only; unavailable to delegated applications. Accepts an ASCII DNS hostname (including punycode), without scheme, port or path. Case and one trailing dot are normalized. Basstok-provided names, wildcards and IP literals are not custom domains. At most four saved requests per Basstok. An exact retry returns the same request. Adding creates a pending request; it does not change routing or prove ownership.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current custom-domain requests for this Basstok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDomains"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid hostname or request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Current human Manager authority required"
+          },
+          "404": {
+            "description": "The domain request is not available to this Basstok"
+          },
+          "409": {
+            "description": "Hostname already attached or request limit reached"
+          },
+          "503": {
+            "description": "Retryable storage or concurrent update failure. Read current state and retry the same request; a failed response does not establish whether a mutation committed."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "hostname"
+                ],
+                "properties": {
+                  "hostname": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 244
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organization/domains/{domainId}/verify": {
+      "parameters": [
+        {
+          "name": "domainId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "verifyOrganizationDomain",
+        "summary": "Verify and connect a domain",
+        "description": "Current human Manager only. Publish the returned TXT verification record and point the hostname to the permanent Basstok address. Every resolved A/AAAA address must be public and match that address. For a subdomain use a CNAME; for an apex use the DNS provider's ALIAS/ANAME equivalent or matching A/AAAA records. Basstok never changes DNS. Returns pending when DNS is not ready; repeat verification later. HTTPS must be provisioned before activation. DNS/HTTPS failures preserve the request. Active retries are idempotent; only one Basstok may own an active hostname.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current custom-domain requests for this Basstok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDomains"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid hostname or request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Current human Manager authority required"
+          },
+          "404": {
+            "description": "The domain request is not available to this Basstok"
+          },
+          "409": {
+            "description": "Hostname already attached or request limit reached"
+          },
+          "503": {
+            "description": "Retryable verification, HTTPS, storage or concurrent update failure. The request is retained. Retry verification even if current state already says active, to finish routing publication."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/organization/domains/{domainId}": {
+      "parameters": [
+        {
+          "name": "domainId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "delete": {
+        "operationId": "removeOrganizationDomain",
+        "summary": "Remove a custom domain",
+        "description": "Current human Manager only. Removes pending or active attachment. Subsequent requests to that hostname no longer route to this Basstok. Its permanent hostname and all other data remain unchanged. Removal is idempotent by request ID, including after a lost response; an old ID cannot remove a newly added request. Clients using the removed origin should switch to permanent_origin and authenticate there.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current custom-domain requests for this Basstok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDomains"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid hostname or request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Current human Manager authority required"
+          },
+          "404": {
+            "description": "The domain request is not available to this Basstok"
+          },
+          "409": {
+            "description": "Hostname already attached or request limit reached"
+          },
+          "503": {
+            "description": "Retryable storage, HTTPS cleanup or concurrent update failure. An uncertain removal withholds routing. Retry the same removal on the permanent hostname."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/organization/homepage": {
+      "get": {
+        "operationId": "getHomepage",
+        "summary": "Read the editable homepage",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "Current human Manager only. Reads the homepage selected by the request hostname. Returns the source title and Markdown body, with the current publication version. An absent homepage has published=false and empty title/body.",
+        "responses": {
+          "200": {
+            "description": "Current homepage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Homepage"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveHomepage",
+        "summary": "Save or remove the homepage",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "Current human Manager bearer session only; delegated applications cannot use this operation. Echo version from the last GET. A published homepage requires a nonempty title; body uses safe Markdown. To remove it, send published=false with empty title and body. Other website pages and ordinary posts remain unchanged. The address then opens the normal feed. Saving edits replaces the homepage's authored translations with this source edition. Saves are atomic and immediately visible. An exact retry is idempotent; a stale version returns 409. Inputs are bounded to 1024 title bytes and 100000 body bytes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Homepage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved homepage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Homepage"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The homepage changed; reload before saving"
           },
           "default": {
             "$ref": "#/components/responses/Error"
@@ -2675,6 +2927,7 @@
     "/api/v1/members": {
       "get": {
         "operationId": "listMembers",
+        "description": "List authorized Members, optionally filtering display names by ASCII-case-insensitive containment. Results are bounded; next_offset is an opaque continuation for the same query and authorization context. It is not a total Member count. A page may contain fewer than the requested limit while still returning a continuation.",
         "security": [
           {
             "memberBearer": []
@@ -2687,7 +2940,16 @@
         ],
         "parameters": [
           {
-            "$ref": "#/components/parameters/Offset"
+            "name": "offset",
+            "in": "query",
+            "description": "Continuation returned by next_offset; start at zero.",
+            "schema": {"type": "integer", "minimum": 0, "default": 0}
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Optional display-name filter, at most 256 UTF-8 bytes.",
+            "schema": {"type": "string", "maxLength": 256}
           },
           {
             "$ref": "#/components/parameters/Limit"
@@ -5455,6 +5717,42 @@
           }
         }
       }
+    },
+    "/api/v1/organization/appearance": {
+      "put": {
+        "operationId": "setOrganizationAppearance",
+        "description": "Select the website's primary color. Requires a current human Manager; delegated applications cannot change appearance. Repeating a selection is safe. All web routes use the selected color; no installation or restart is needed.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationAppearance"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated Organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organization"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5873,63 +6171,6 @@
       }
     },
     "schemas": {
-      "OrganizationDomains": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "permanent_origin",
-          "domains"
-        ],
-        "properties": {
-          "permanent_origin": {
-            "type": "string",
-            "format": "uri"
-          },
-          "domains": {
-            "type": "array",
-            "maxItems": 4,
-            "items": {
-              "$ref": "#/components/schemas/CustomDomain"
-            }
-          }
-        }
-      },
-      "CustomDomain": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "id",
-          "hostname",
-          "state",
-          "verification_record",
-          "verification_value"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "hostname": {
-            "type": "string",
-            "maxLength": 244
-          },
-          "state": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "active"
-            ]
-          },
-          "verification_record": {
-            "type": "string",
-            "maxLength": 253
-          },
-          "verification_value": {
-            "type": "string",
-            "maxLength": 44
-          }
-        }
-      },
       "ScheduledRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -6830,6 +7071,90 @@
         },
         "additionalProperties": false
       },
+      "OrganizationDomains": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "permanent_origin",
+          "domains"
+        ],
+        "properties": {
+          "permanent_origin": {
+            "type": "string",
+            "format": "uri"
+          },
+          "domains": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/components/schemas/CustomDomain"
+            }
+          }
+        }
+      },
+      "CustomDomain": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "hostname",
+          "state",
+          "verification_record",
+          "verification_value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "hostname": {
+            "type": "string",
+            "maxLength": 244
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "active"
+            ]
+          },
+          "verification_record": {
+            "type": "string",
+            "maxLength": 253
+          },
+          "verification_value": {
+            "type": "string",
+            "maxLength": 44
+          }
+        }
+      },
+      "Homepage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "published",
+          "title",
+          "body"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^([a-f0-9]{64})?$"
+          },
+          "published": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 100000
+          }
+        }
+      },
       "CommunityContext": {
         "type": "object",
         "required": [
@@ -7181,6 +7506,9 @@
           },
           "system_labels": {
             "$ref": "#/components/schemas/OrganizationSystemLabels"
+          },
+          "primary_color": {
+            "$ref": "#/components/schemas/PrimaryColor"
           }
         },
         "additionalProperties": false
@@ -10184,6 +10512,38 @@
             "description": "Authored CommonMark translation, with the same safe Asset-link rules as the source body."
           }
         }
+      },
+      "PrimaryColor": {
+        "type": "string",
+        "enum": [
+          "rose",
+          "orange",
+          "amber",
+          "lime",
+          "emerald",
+          "cyan",
+          "blue",
+          "violet",
+          "fuchsia"
+        ],
+        "description": "Named website color. The selected color supplies consistent shades; it does not change product permissions."
+      },
+      "OrganizationAppearance": {
+        "type": "object",
+        "properties": {
+          "primary_color": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PrimaryColor"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Omit or use null to restore the default color."
+          }
+        },
+        "additionalProperties": false
       }
     }
   },
