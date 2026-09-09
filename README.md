@@ -30,7 +30,8 @@ resources requires the appropriate authentication and resource access.
 - **Native experiences:** Member sign-in, notifications, push registration,
   Connections, and audio/video Call signaling and recording consent.
 - **Management tools:** manage Members, moderation, public Website publication,
-  official Agent installation, customer storage connections, and community email.
+  official Agent installation, [custom domains](reference.md#connect-a-domain),
+  customer storage connections, and community email.
 - **Agents and importers:** use delegated OAuth grants for automation or the
   separately authorized historical-import contract.
 - **Scheduled publishing:** submit future API requests once; inspect, pause,

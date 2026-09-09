@@ -78,6 +78,65 @@ or revoked. Rename the community with `PUT /api/v1/organization`; change its
 audience with `PUT /api/v1/organization/audience`. These operations require a
 Member session, not an Agent token. Every mutation checks current authority.
 
+### Connect a domain
+
+A Manager can connect a custom hostname to the same Basstok, without creating
+another community. The permanent Basstok address remains available. These
+operations require a current human Manager session; Agent tokens cannot use
+them. Check the target's `/openapi.json` for availability in its installed release.
+
+First add the hostname:
+
+```http
+POST /api/v1/organization/domains
+Authorization: Bearer <manager-session>
+Content-Type: application/json
+
+{"hostname":"community.example.com"}
+```
+
+The response contains `permanent_origin` and a `domains` array. Each domain has
+an `id`, `hostname`, `state` (`pending` or `active`), `verification_record` and
+`verification_value`. An identical add returns the same request. A pending
+request does not activate the hostname or reserve it exclusively.
+
+In your DNS settings:
+
+1. Point the hostname to your permanent Basstok address. Use a CNAME for a
+   subdomain, or your provider's apex ALIAS/ANAME equivalent or matching A/AAAA
+   records for a root domain.
+2. Add the returned TXT record and value to confirm domain ownership.
+3. Send `POST /api/v1/organization/domains/{domainId}/verify` with no body.
+
+Basstok verifies DNS and provisions HTTPS before connecting the domain. Every
+resolved address must be public and match the permanent address. Basstok does
+not change DNS. If DNS is not ready, the response remains `pending`; repeat
+verification after correcting it. DNS or HTTPS failures preserve the request.
+Only one Basstok can have an active attachment for a hostname.
+
+Read current requests with `GET /api/v1/organization/domains`. To remove one,
+send `DELETE /api/v1/organization/domains/{domainId}` with no body. Successful
+removal stops routing through that hostname without changing the permanent
+address or community data. Switch to `permanent_origin` and sign in there;
+browser sessions are not shared between hostnames.
+
+There may be up to four saved domain requests per Basstok. Supply an ASCII
+hostname, including punycode where needed, of at most 244 bytes. Do not include
+a scheme, path, port, wildcard or IP address. Basstok-provided names cannot be
+claimed as custom domains. Case and one trailing dot normalize automatically.
+
+These operations return `200` with the current domain list. Invalid input
+returns `400`, missing or invalid authentication `401`, insufficient current
+Manager authority `403`, an unavailable request `404`, and a conflicting
+attachment or request limit `409`. Temporary failures return `503`.
+
+After an uncertain response, read current state and retry the same operation.
+An unsuccessful response does not prove that nothing changed. Repeat
+verification even if the request already reports `active` to finish connecting
+it. An uncertain removal withholds routing; retry removal on the permanent
+hostname. Removal uses the request ID, so retrying an old removal cannot delete
+a newly added attachment.
+
 ### Use your mail server
 
 Managers can connect a community's existing SMTP service from Administration

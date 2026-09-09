@@ -25,6 +25,24 @@ function walk(value) {
 }
 walk(spec);
 
+for (const [path, allowedMethods] of [
+  ["/api/v1/organization/domains", ["get", "post"]],
+  ["/api/v1/organization/domains/{domainId}/verify", ["post"]],
+  ["/api/v1/organization/domains/{domainId}", ["delete"]],
+]) {
+  const item = spec.paths[path];
+  assert.deepEqual(Object.keys(item).filter(key => methods.has(key)), allowedMethods);
+  for (const method of allowedMethods) {
+    assert.deepEqual(item[method].security, [{ memberBearer: [] }]);
+    assert.equal(item[method].responses["200"].content["application/json"].schema.$ref,
+      "#/components/schemas/OrganizationDomains");
+  }
+}
+assert.deepEqual(spec.components.schemas.CustomDomain.properties.state.enum, ["pending", "active"]);
+assert.equal(spec.components.schemas.OrganizationDomains.properties.domains.maxItems, 4);
+assert.equal(spec.paths["/api/v1/organization/domains/{domainId}/verify"].post.requestBody, undefined);
+assert.equal(spec.paths["/api/v1/organization/domains/{domainId}"].delete.requestBody, undefined);
+
 for (const [path, method] of [
   ["/api/v1/organization/storage", "get"],
   ["/api/v1/organization/storage/verify", "post"],
