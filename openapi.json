@@ -24,6 +24,270 @@
     }
   ],
   "paths": {
+    "/api/v1/import-preparation": {
+      "get": {
+        "operationId": "getPreparedImport",
+        "summary": "Read the current import preparation",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Organization. One current preparation, at most three inputs. Returns null when none exists.",
+        "responses": {
+          "200": {
+            "description": "Current preparation or null; no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/PreparedImport"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/import-preparation/{preparationId}/inputs": {
+      "parameters": [
+        {
+          "name": "preparationId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        }
+      ],
+      "put": {
+        "operationId": "prepareImportInput",
+        "summary": "Stage or replace an input before importing",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Organization. Send a new opaque input ID to replace the same named input before starting. Identical retries are safe. No contents are parsed by this request. Up to three files, each 1 byte–8 GiB. Upload parts after declaring the file. File identities must not be reused for different metadata or bytes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportInputWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current prepared input metadata and upload progress. No-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreparedImport"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/import-preparation/{preparationId}/inputs/{inputId}/{part}": {
+      "parameters": [
+        {
+          "name": "preparationId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        },
+        {
+          "name": "inputId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        },
+        {
+          "name": "part",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 511
+          }
+        }
+      ],
+      "put": {
+        "operationId": "uploadPreparedImportPart",
+        "summary": "Upload the next input part",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Organization. Sequential zero-based parts, 16 MiB except the last. Exact retries compare the admitted bytes. A frozen preparation accepts only identical already uploaded parts.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "maxLength": 16777216
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current prepared input metadata and upload progress. No-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreparedImport"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "get": {
+        "operationId": "readPreparedImportPart",
+        "summary": "Download an authorized prepared input part",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Organization. Only completely uploaded parts can be read; changed or missing bytes fail closed.",
+        "responses": {
+          "200": {
+            "description": "Exact input part; no-store.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "maxLength": 16777216
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/import-preparation/{preparationId}/start": {
+      "parameters": [
+        {
+          "name": "preparationId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "startPreparedXenForoImport",
+        "summary": "Start or resume the prepared XenForo 2 import",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Organization. Requires the sql input and every declared input completely uploaded. sql accepts raw .sql or ZIP with exactly one root .sql file and optional root data/ and internal_data/ folders. Optional inputs named data and internal_data accept ZIPs containing their named root folder. Freezes the input set, then starts the import using this current human session. An already running import is not duplicated. Read the ordinary import receipt with the same ID for committed progress. Restart or expired authority requires a fresh sign-in and explicit resume. No whole-migration transaction is implied.",
+        "responses": {
+          "200": {
+            "description": "Current prepared input metadata and upload progress. No-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreparedImport"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/import-preparation/{preparationId}/edit": {
+      "parameters": [
+        {
+          "name": "preparationId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "reopenPreparedImport",
+        "summary": "Change uploads after validation failed",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Organization. Reopens inputs only when no importer is running and no normalized import declaration has been admitted. An admitted import must resume its unchanged inputs.",
+        "responses": {
+          "200": {
+            "description": "Current prepared input metadata and upload progress. No-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreparedImport"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/api/v1/schedules/{scheduleId}": {
       "parameters": [
         {
@@ -632,7 +896,7 @@
         "operationId": "completeBasstokCreation",
         "summary": "Claim a verified name and open its new Basstok",
         "security": [],
-        "description": "Submit the verification token and a securely random 32-byte lowercase hex completion token. Retain both for an exact retry. The first completion binds this retry token; a different token is denied. Claims are exclusive. A successful response means the new Basstok is ready with an editable starter homepage. Open sign_in_url to finish ordinary sign-in on that origin; the verified creator is its Manager. A failed provisioning attempt may be retried with the same pair. An expired pending attempt requires a new email verification. No session is shared with basstok.com.",
+        "description": "Submit the verification token and a securely random 32-byte lowercase hex completion token. Retain both for an exact retry. The first completion binds this retry token; a different token is denied. Claims are exclusive. A successful response means the new Basstok is ready with its ordinary Home feed. Open sign_in_url to finish ordinary sign-in on that origin; the verified creator is its Manager. A failed provisioning attempt may be retried with the same pair. An expired pending attempt requires a new email verification. No session is shared with basstok.com.",
         "requestBody": {
           "required": true,
           "content": {
@@ -919,23 +1183,31 @@
         }
       }
     },
-    "/api/v1/organization/homepage": {
+    "/api/v1/organization/pin": {
       "get": {
-        "operationId": "getHomepage",
-        "summary": "Read the editable homepage",
+        "operationId": "getHomePin",
+        "summary": "Read the ordinary Content pinned to Home",
         "security": [
           {
             "memberBearer": []
-          }
+          },
+          {}
         ],
-        "description": "Current human Manager only. Reads the homepage selected by the request hostname. Returns the source title and Markdown body, with the current publication version. An absent homepage has published=false and empty title/body.",
+        "description": "Returns the pinned Content with its ordinary current authorization. Returns null when there is no visible pin. Pinning never grants access or changes Content visibility.",
         "responses": {
           "200": {
-            "description": "Current homepage",
+            "description": "Visible pinned Content, or null",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Homepage"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Content"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               }
             }
@@ -946,37 +1218,80 @@
         }
       },
       "put": {
-        "operationId": "saveHomepage",
-        "summary": "Save or remove the homepage",
+        "operationId": "setHomePin",
+        "summary": "Pin or unpin one Content item on Home",
         "security": [
           {
             "memberBearer": []
           }
         ],
-        "description": "Current human Manager bearer session only; delegated applications cannot use this operation. Echo version from the last GET. A published homepage requires a nonempty title; body uses safe Markdown. To remove it, send published=false with empty title and body. Other website pages and ordinary posts remain unchanged. The address then opens the normal feed. Saving edits replaces the homepage's authored translations with this source edition. Saves are atomic and immediately visible. An exact retry is idempotent; a stale version returns 409. Inputs are bounded to 1024 title bytes and 100000 body bytes.",
+        "description": "Current human Manager only. Send an ordinary Content ID, or null to unpin. Existing Content editing, permissions, Assets and revisions remain unchanged. Unpin before deleting pinned Content. Exact repeated selections are safe.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Homepage"
+                "$ref": "#/components/schemas/HomePin"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Saved homepage",
+            "description": "Updated Organization",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Homepage"
+                  "$ref": "#/components/schemas/Organization"
                 }
               }
             }
           },
-          "409": {
-            "description": "The homepage changed; reload before saving"
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/organization/notifications": {
+      "put": {
+        "operationId": "setNotificationPause",
+        "summary": "Pause or resume member-facing activity delivery",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "Current human Manager only. Pauses new in-app activity notifications, optional activity email and push. Pending older delivery is discarded and does not replay after resume. Existing inbox entries remain. Required sign-in, security and recovery email remain independent and use Basstok's service email transport, never community SMTP. Deliveries already admitted may finish.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "paused"
+                ],
+                "properties": {
+                  "paused": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated Organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organization"
+                }
+              }
+            }
           },
           "default": {
             "$ref": "#/components/responses/Error"
@@ -1540,42 +1855,6 @@
         "responses": {
           "204": {
             "description": "The exact public route is unassigned"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      }
-    },
-    "/api/v1/site": {
-      "put": {
-        "operationId": "publishOrganizationWebsite",
-        "description": "Atomically applies one bounded standalone Organization website from canonical Content, Assets, and Route Aliases. An exact declaration with empty contents, assets, and navigation removes the active Website. The declaration is request input only; Basstok does not retain or read a client filesystem path. Repeating the same desired state is idempotent.",
-        "security": [
-          {
-            "memberBearer": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WebsitePublication"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The requested Website publication is active, or the Website is absent after an empty declaration",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WebsitePublicationResult"
-                }
-              }
-            }
           },
           "default": {
             "$ref": "#/components/responses/Error"
@@ -6171,6 +6450,119 @@
       }
     },
     "schemas": {
+      "ImportInputWrite": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "filename",
+          "size"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Filename only; no path separators or control characters."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8589934592
+          }
+        }
+      },
+      "ImportInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "filename",
+          "size",
+          "part_sha256"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Filename only; no path separators or control characters."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8589934592
+          },
+          "part_sha256": {
+            "type": "array",
+            "maxItems": 512,
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "description": "SHA-256 of each completed part, in upload order."
+          }
+        }
+      },
+      "PreparedImport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "responsible_member_id",
+          "inputs",
+          "frozen"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "responsible_member_id": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "inputs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "$ref": "#/components/schemas/ImportInput"
+            }
+          },
+          "frozen": {
+            "type": "boolean"
+          }
+        }
+      },
       "ScheduledRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -6921,7 +7313,7 @@
           }
         },
         "additionalProperties": false,
-        "description": "An exact legacy public route. Page offsets, page size and Comment targets preserve pagination and deep links. System-owned routes and Website ownership are not importable."
+        "description": "An exact legacy public route. Page offsets, page size and Comment targets preserve pagination and deep links. System-owned routes, including Home, are not importable."
       },
       "ImportTransformReport": {
         "type": "object",
@@ -7128,30 +7520,19 @@
           }
         }
       },
-      "Homepage": {
+      "HomePin": {
         "type": "object",
-        "additionalProperties": false,
         "required": [
-          "version",
-          "published",
-          "title",
-          "body"
+          "content_id"
         ],
+        "additionalProperties": false,
         "properties": {
-          "version": {
-            "type": "string",
-            "pattern": "^([a-f0-9]{64})?$"
-          },
-          "published": {
-            "type": "boolean"
-          },
-          "title": {
-            "type": "string",
-            "maxLength": 1024
-          },
-          "body": {
-            "type": "string",
-            "maxLength": 100000
+          "content_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 256
           }
         }
       },
@@ -7176,217 +7557,6 @@
           "id": {
             "type": "string",
             "maxLength": 256
-          }
-        },
-        "additionalProperties": false
-      },
-      "WebsiteNavigationLink": {
-        "type": "object",
-        "required": [
-          "label",
-          "href"
-        ],
-        "properties": {
-          "label": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 80
-          },
-          "href": {
-            "type": "string",
-            "pattern": "^/(?!/)[^\\s\\\\\"]*$",
-            "description": "A published site route, optionally with a query or fragment, or /community."
-          },
-          "translations": {
-            "type": "array",
-            "maxItems": 16,
-            "items": {
-              "$ref": "#/components/schemas/WebsiteTextTranslation"
-            },
-            "description": "Optional authored translations. Missing supported languages fall back to the English source. Selection changes presentation only, never URLs or access. Text counts toward the existing publication text bound."
-          }
-        },
-        "additionalProperties": false
-      },
-      "WebsiteAsset": {
-        "type": "object",
-        "required": [
-          "id",
-          "content_id",
-          "name",
-          "media_type",
-          "payload_base64"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128,
-            "description": "Publication-local Asset identity."
-          },
-          "content_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 256,
-            "description": "Publication-local identity of the owning Content."
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 1024
-          },
-          "media_type": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 256
-          },
-          "payload_base64": {
-            "type": "string",
-            "contentEncoding": "base64",
-            "description": "Canonical padded base64 for an Asset of at most 8 MiB."
-          }
-        },
-        "additionalProperties": false
-      },
-      "WebsiteContent": {
-        "type": "object",
-        "required": [
-          "id",
-          "route",
-          "aliases",
-          "title",
-          "body",
-          "asset_ids"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 256,
-            "description": "Publication-local Content identity."
-          },
-          "route": {
-            "type": "string",
-            "maxLength": 2048,
-            "pattern": "^/(?!/)[^\\s\\\\\"'<>?#]*$",
-            "description": "Primary canonical public path for this Website Content."
-          },
-          "aliases": {
-            "type": "array",
-            "maxItems": 63,
-            "uniqueItems": true,
-            "description": "Additional public paths for the same canonical Website Content. Primary routes and aliases are globally unique and total at most 64 per publication.",
-            "items": {
-              "type": "string",
-              "maxLength": 2048,
-              "pattern": "^/(?!/)[^\\s\\\\\"'<>?#]*$"
-            }
-          },
-          "title": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 1024
-          },
-          "body": {
-            "type": "string",
-            "description": "CommonMark Markdown source. Active HTML is not accepted or rendered. Website authoring may reference an Asset owned by this Content with an asset:publication-local-id link or image destination; publication resolves it to the ordinary Asset URL. Unknown or unowned references are rejected."
-          },
-          "asset_ids": {
-            "type": "array",
-            "maxItems": 64,
-            "uniqueItems": true,
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            }
-          },
-          "translations": {
-            "type": "array",
-            "maxItems": 16,
-            "items": {
-              "$ref": "#/components/schemas/WebsiteContentTranslation"
-            },
-            "description": "Optional authored translations. Missing supported languages fall back to the English source. Selection changes presentation only, never URLs or access. Text counts toward the existing publication text bound."
-          }
-        },
-        "additionalProperties": false
-      },
-      "WebsitePublication": {
-        "type": "object",
-        "description": "Bounded desired Website state. Empty contents removes the active Website and requires assets and navigation to be empty.",
-        "required": [
-          "publication_id",
-          "assets",
-          "contents",
-          "navigation"
-        ],
-        "properties": {
-          "publication_id": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "description": "Stable digest identity of the complete declaration and Asset bytes."
-          },
-          "assets": {
-            "type": "array",
-            "maxItems": 128,
-            "items": {
-              "$ref": "#/components/schemas/WebsiteAsset"
-            }
-          },
-          "contents": {
-            "type": "array",
-            "maxItems": 64,
-            "description": "Website Content declarations. An empty array requests Website removal and is valid only with empty assets and navigation.",
-            "items": {
-              "$ref": "#/components/schemas/WebsiteContent"
-            }
-          },
-          "navigation": {
-            "type": "array",
-            "maxItems": 16,
-            "items": {
-              "$ref": "#/components/schemas/WebsiteNavigationLink"
-            }
-          }
-        },
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "contents": {
-                  "maxItems": 0
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "assets": {
-                  "maxItems": 0
-                },
-                "navigation": {
-                  "maxItems": 0
-                }
-              }
-            }
-          }
-        ],
-        "additionalProperties": false
-      },
-      "WebsitePublicationResult": {
-        "type": "object",
-        "required": [
-          "publication_id",
-          "changed"
-        ],
-        "properties": {
-          "publication_id": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$"
-          },
-          "changed": {
-            "type": "boolean",
-            "description": "False when this exact publication was already active or an empty declaration found the Website already absent."
           }
         },
         "additionalProperties": false
@@ -7480,12 +7650,6 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 100
-          },
-          "presentation": {
-            "type": "string",
-            "enum": [
-              "Page"
-            ]
           }
         },
         "additionalProperties": false
@@ -7494,7 +7658,8 @@
         "type": "object",
         "required": [
           "id",
-          "name"
+          "name",
+          "notifications_paused"
         ],
         "properties": {
           "id": {
@@ -7509,6 +7674,9 @@
           },
           "primary_color": {
             "$ref": "#/components/schemas/PrimaryColor"
+          },
+          "notifications_paused": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -10463,55 +10631,6 @@
           }
         },
         "additionalProperties": false
-      },
-      "WebsiteTextTranslation": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "language",
-          "text"
-        ],
-        "properties": {
-          "language": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 8,
-            "pattern": "^[a-z]{2,8}$",
-            "description": "Lowercase primary language, unique within this collection. English source text remains in the owning fields; en is not a translation key. Browser regional preferences select their primary language."
-          },
-          "text": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 240
-          }
-        }
-      },
-      "WebsiteContentTranslation": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "language",
-          "title",
-          "body"
-        ],
-        "properties": {
-          "language": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 8,
-            "pattern": "^[a-z]{2,8}$",
-            "description": "Lowercase primary language, unique within this collection. English source text remains in the owning fields; en is not a translation key. Browser regional preferences select their primary language."
-          },
-          "title": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 1024
-          },
-          "body": {
-            "type": "string",
-            "description": "Authored CommonMark translation, with the same safe Asset-link rules as the source body."
-          }
-        }
       },
       "PrimaryColor": {
         "type": "string",

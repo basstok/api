@@ -28,8 +28,38 @@ walk(spec);
 assert.deepEqual(spec.components.schemas.PrimaryColor.enum,
   ["rose", "orange", "amber", "lime", "emerald", "cyan", "blue", "violet", "fuchsia"]);
 assert.deepEqual(spec.paths["/api/v1/organization/appearance"].put.security, [{memberBearer: []}]);
-for (const method of ["get", "put"])
-  assert.deepEqual(spec.paths["/api/v1/organization/homepage"][method].security, [{memberBearer: []}]);
+assert.equal(spec.paths["/api/v1/organization/homepage"], undefined);
+assert.equal(spec.paths["/api/v1/site"], undefined);
+assert.ok(!Object.keys(spec.components.schemas).some(name => name === "Homepage" || name.startsWith("Website")));
+assert.deepEqual(spec.paths["/api/v1/organization/pin"].put.security, [{memberBearer: []}]);
+assert.deepEqual(spec.paths["/api/v1/organization/pin"].get.security, [{memberBearer: []}, {}]);
+assert.deepEqual(spec.components.schemas.HomePin.required, ["content_id"]);
+assert.deepEqual(spec.components.schemas.HomePin.properties.content_id.type, ["string", "null"]);
+assert.equal(spec.components.schemas.HomePin.additionalProperties, false);
+const notifications = spec.paths["/api/v1/organization/notifications"].put;
+assert.deepEqual(notifications.security, [{memberBearer: []}]);
+assert.deepEqual(notifications.requestBody.content["application/json"].schema.required, ["paused"]);
+assert.equal(notifications.requestBody.content["application/json"].schema.properties.paused.type, "boolean");
+assert.ok(spec.components.schemas.Organization.required.includes("notifications_paused"));
+assert.match(notifications.description, /does not replay/);
+assert.match(notifications.description, /never community SMTP/);
+for (const [path, allowedMethods] of [
+  ["/api/v1/import-preparation", ["get"]],
+  ["/api/v1/import-preparation/{preparationId}/inputs", ["put"]],
+  ["/api/v1/import-preparation/{preparationId}/inputs/{inputId}/{part}", ["put", "get"]],
+  ["/api/v1/import-preparation/{preparationId}/start", ["post"]],
+  ["/api/v1/import-preparation/{preparationId}/edit", ["post"]],
+]) {
+  const item = spec.paths[path];
+  assert.deepEqual(Object.keys(item).filter(key => methods.has(key)), allowedMethods);
+  for (const method of allowedMethods)
+    assert.deepEqual(item[method].security, [{memberBearer: []}]);
+}
+assert.equal(spec.components.schemas.PreparedImport.properties.inputs.maxItems, 3);
+assert.equal(spec.components.schemas.ImportInputWrite.properties.size.maximum, 8 * 1024 ** 3);
+assert.equal(spec.components.schemas.ImportInput.properties.part_sha256.maxItems, 512);
+assert.equal(spec.paths["/api/v1/import-preparation/{preparationId}/start"].post.requestBody, undefined);
+assert.equal(spec.paths["/api/v1/import-preparation/{preparationId}/edit"].post.requestBody, undefined);
 const memberQuery = spec.paths["/api/v1/members"].get.parameters.find(p => p.name === "q");
 assert.equal(memberQuery.in, "query");
 assert.equal(memberQuery.schema.maxLength, 256);

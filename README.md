@@ -29,11 +29,11 @@ resources requires the appropriate authentication and resource access.
   and attachments.
 - **Native experiences:** Member sign-in, notifications, push registration,
   Connections, and audio/video Call signaling and recording consent.
-- **Management tools:** manage Members, moderation, public Website publication,
+- **Management tools:** manage Members, moderation, a [pinned Home post](reference.md#pin-a-post-to-home),
   official Agent installation, [custom domains](reference.md#connect-a-domain),
-  customer storage connections, and community email.
+  storage, community email and activity notifications.
 - **Agents and importers:** use delegated OAuth grants for automation or the
-  separately authorized historical-import contract.
+  separately authorized [historical-import contract](reference.md#import-existing-data).
 - **Scheduled publishing:** submit future API requests once; inspect, pause,
   correct or cancel them without keeping an Agent online.
 

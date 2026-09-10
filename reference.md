@@ -16,9 +16,7 @@ Send `Accept-Language` with the user's language preference for Basstok-owned
 presentation text, such as official Agent names and permission explanations.
 English is the fallback; German, Spanish, French, Portuguese, Japanese,
 Chinese and Arabic are available. Resource IDs, enum values, scopes and
-Member-authored text do not change with the language. Public Website
-declarations may include explicitly authored translations using the same
-routes; the shapes and bounds are in OpenAPI.
+Member-authored text do not change with the language.
 
 Ordinary HTTP clients negotiate response compression automatically. Eligible
 text responses support gzip and Zstandard; always respect the returned
@@ -55,7 +53,8 @@ operations require the Member's current authority.
 The full contract includes capabilities beyond delegated Agent scopes:
 
 - **Community and publishing:** `/api/v1/context`, `/api/v1/organization`,
-  `/api/v1/contents`, `/api/v1/labels`, `/api/v1/routes`, and `/api/v1/site`.
+  `/api/v1/contents`, `/api/v1/labels`, `/api/v1/routes`, and
+  `/api/v1/organization/pin`.
 - **Members and connections:** `/api/v1/members` and `/api/v1/member-connections`.
 - **Messages and files:** `/api/v1/chats`, its Message endpoints, and
   `/api/v1/assets`, including bounded multipart uploads.
@@ -64,7 +63,8 @@ The full contract includes capabilities beyond delegated Agent scopes:
 - **Calls:** `/api/v1/calls`, participant signaling, recording consent, and
   the authorized recording-upload operations.
 - **Management and imports:** official Agent installation, application grants,
-  safety reports, and `/api/v1/imports`.
+  safety reports, activity-notification controls, import uploads and
+  `/api/v1/imports`.
 
 Use each OpenAPI operation's `security` requirement. Some operations accept
 only Member sessions; an OAuth token cannot use them merely because the
@@ -72,29 +72,63 @@ endpoint is public documentation. Imports require the current responsible
 human Manager and do not grant private Chat reading rights.
 
 For an Administration screen, `GET /api/v1/organization/management` returns
-the community's `id`, `name`, and `system_labels` only while the signed-in
+the community's `id`, `name`, `notifications_paused`, and optional
+`system_labels` and `primary_color` only while the signed-in
 Member has Manager authority. It returns `403` when that authority is absent
 or revoked. Rename the community with `PUT /api/v1/organization`; change its
 audience with `PUT /api/v1/organization/audience`. These operations require a
 Member session, not an Agent token. Every mutation checks current authority.
 
-### Manage appearance, homepage and Members
+### Manage appearance and Members
 
 Use `PUT /api/v1/organization/appearance` with `{"primary_color":"blue"}`
 to select the website color. Choose `rose`, `orange`, `amber`, `lime`,
 `emerald`, `cyan`, `blue`, `violet` or `fuchsia`; omit the value or use `null`
 to restore the default. This requires a current human Manager session.
 
-Read the editable homepage with `GET /api/v1/organization/homepage`. Save its
-title and Markdown body with `PUT /api/v1/organization/homepage`, echoing the
-returned `version`. An exact retry is safe; a stale edit returns `409`.
-This is also Manager-only and leaves other pages and posts unchanged.
-
 `GET /api/v1/members?q=Mara` filters authorized Members by display name.
 The optional filter is limited to 256 UTF-8 bytes and matches substrings with
 ASCII case folding. Follow `next_offset` with the same query and authorization;
 a short page may still have a continuation. The offset is not a Member count.
 The existing session, scope and resource-access requirements still apply.
+
+### Pin a post to Home
+
+Home is the Content feed at `/` on each Basstok hostname. A Manager can pin one
+ordinary Content item above the feed:
+
+```http
+PUT /api/v1/organization/pin
+Authorization: Bearer <manager-session>
+Content-Type: application/json
+
+{"content_id":"your-content-id"}
+```
+
+Send `{"content_id":null}` to unpin. Success returns `200` with the updated
+Organization; repeating the same selection is safe. This mutation requires a
+current human Manager session, not an Agent token. Unpin a post before deleting it.
+
+`GET /api/v1/organization/pin` returns the Content the reader is allowed to
+see, or `null` when there is no visible pin. Pinning never changes the post's
+audience or moderation state. Use ordinary Content operations to edit its
+title, Markdown body and attachments. On the web, guests see the pin expanded;
+signed-in Members see its title and can expand it. Home HTML is not cacheable.
+
+### Pause activity notifications
+
+Use `PUT /api/v1/organization/notifications` with `{"paused":true}` before
+importing or testing, and `{"paused":false}` to resume. A current human
+Manager session is required; Agent tokens cannot change this setting.
+Success returns `200` with the updated Organization, including
+`notifications_paused`. Repeating the same desired state is safe.
+
+The pause covers new in-app activity notifications, optional activity email
+and push notifications. Skipped activity and superseded pending deliveries do
+not replay on resume. Existing inbox entries remain; a delivery already in
+progress may finish. Foreground resource updates and Agent webhooks continue.
+Required sign-in, security and recovery email remains available independently
+of this setting and community SMTP.
 
 ### Find or create a Basstok
 
@@ -201,9 +235,11 @@ a public DNS hostname with a valid matching certificate. JSON is limited to
 
 A successful check returns `{"verified": true}`. It does not activate the
 connection. Saving returns the selected `smtp` endpoint without credentials;
-future community email uses that connection. There is no fallback to another
-provider on delivery failure. Member preferences and Basstok unsubscribe
-behavior still apply automatically.
+future optional community email uses that connection. There is no fallback
+to another provider on its delivery failure. Required sign-in, security and
+recovery email uses Basstok's mail service instead, so a missing or broken
+community SMTP connection does not prevent account access. Member preferences
+and Basstok unsubscribe behavior still apply automatically.
 
 Each operation requires current Manager authority, including after a network
 check. Invalid input returns `400`, an invalid session `401`, insufficient
@@ -250,6 +286,56 @@ and an empty body. An exact activation retry is safe; a different connection
 returns `409`. Read status before retrying an uncertain response. Activation
 does not replace an already connected customer bucket. These operations
 require current human Manager authority; no Agent scope grants them.
+
+### Import existing data
+
+Imports require a current human Manager session, not an Agent token. The
+Manager who starts an import remains responsible for it; importing private
+Chats does not grant that Manager participation or access to their history.
+
+For a XenForo 2 import, prepare these inputs in **Administration → Import**:
+
+- **SQL:** required, as a raw `.sql` file or a ZIP containing exactly one
+  root-level `.sql` file and optional root-level `data/` and `internal_data/` folders.
+- **data:** optional ZIP containing its root `data/` folder.
+- **internal_data:** optional ZIP containing its root `internal_data/` folder.
+
+A separately supplied folder replaces the matching folder in the SQL ZIP.
+Uploads can be filled or replaced before starting. Each file is limited to
+8 GiB; keep the ZIP layout explicit rather than nesting another backup folder.
+
+Clients use the following operations with the same Manager session:
+
+1. Read `GET /api/v1/import-preparation`, which returns the current preparation
+   or `null`.
+2. Choose an opaque preparation ID and declare each file with
+   `PUT /api/v1/import-preparation/{preparationId}/inputs`. Send its `id`,
+   slot `name` (`sql`, `data` or `internal_data`), `filename` and byte `size`.
+3. Upload sequential binary parts with
+   `PUT /api/v1/import-preparation/{preparationId}/inputs/{inputId}/{part}`.
+   Parts start at zero and are 16 MiB, except for the final shorter part.
+   Exact retries are safe; do not reuse an input ID for changed metadata or bytes.
+   The response includes completed-part digests in `part_sha256`.
+4. Once all declared files are uploaded, send
+   `POST /api/v1/import-preparation/{preparationId}/start` with no body.
+   It freezes the inputs and starts or resumes the import without duplicating
+   an already running import. Read `GET /api/v1/imports/{importId}`, using the
+   same preparation ID, for committed progress.
+
+After interruption, sign in again if needed and explicitly resume. To correct
+uploads after validation fails, use
+`POST /api/v1/import-preparation/{preparationId}/edit` with no body. This works
+only while no import is running and no normalized import declaration has been
+accepted. Once accepted, resume with the unchanged inputs. A failed import can
+leave earlier work published; it is not an all-or-nothing transaction.
+
+An external importer can instead submit normalized historical data through
+`PUT /api/v1/imports/{importId}`, its ordered batch endpoints and
+`POST /api/v1/imports/{importId}/complete`. That contract preserves historical
+authorship, dates, relationships and public routes subject to validation.
+See [OpenAPI](openapi.json) for the complete schemas, limits and retry rules.
+Consider [pausing activity notifications](#pause-activity-notifications)
+before either workflow.
 
 The following operation tables show **Agent scopes**. Signed-in clients use
 their Member session and ordinary resource permissions, as specified by
