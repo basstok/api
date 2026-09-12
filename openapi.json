@@ -7282,7 +7282,8 @@
           "target",
           "content_offset",
           "comment_offset",
-          "page_size"
+          "page_size",
+          "preferred"
         ],
         "properties": {
           "path": {
@@ -7310,6 +7311,10 @@
             "minimum": 0,
             "maximum": 65535,
             "description": "Optional zero-based segment where an imported numeric identity accepts an arbitrary legacy title prefix. The stored segment contains the numeric identity alone."
+          },
+          "preferred": {
+            "type": "boolean",
+            "description": "Select this exact Content page path for generated links and SEO canonical URLs. At most one preferred alias per Content and Comment-page offset. Other aliases remain directly usable."
           }
         },
         "additionalProperties": false,
@@ -7617,6 +7622,11 @@
             "minimum": 0,
             "maximum": 100,
             "description": "Imported page size for a pageable Label or Content route."
+          },
+          "preferred": {
+            "type": "boolean",
+            "default": false,
+            "description": "Select this exact Content page path for generated links and SEO. Requires an otherwise unassigned preferred destination at this Comment-page offset."
           }
         },
         "additionalProperties": false
@@ -7628,7 +7638,8 @@
           "target",
           "content_offset",
           "comment_offset",
-          "page_size"
+          "page_size",
+          "preferred"
         ],
         "properties": {
           "path": {
@@ -7650,6 +7661,10 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 100
+          },
+          "preferred": {
+            "type": "boolean",
+            "description": "Whether this is the selected public Content page destination."
           }
         },
         "additionalProperties": false

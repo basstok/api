@@ -25,6 +25,13 @@ function walk(value) {
 }
 walk(spec);
 
+for (const name of ["HistoricalRoute", "PublicRoute"]) {
+  assert.ok(spec.components.schemas[name].required.includes("preferred"));
+  assert.equal(spec.components.schemas[name].properties.preferred.type, "boolean");
+}
+assert.equal(spec.components.schemas.PublicRouteBody.properties.preferred.default, false);
+assert.equal(spec.components.schemas.PublicRouteBody.properties.preferred.type, "boolean");
+
 assert.deepEqual(spec.components.schemas.PrimaryColor.enum,
   ["rose", "orange", "amber", "lime", "emerald", "cyan", "blue", "violet", "fuchsia"]);
 assert.deepEqual(spec.paths["/api/v1/organization/appearance"].put.security, [{memberBearer: []}]);

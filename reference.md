@@ -337,6 +337,18 @@ See [OpenAPI](openapi.json) for the complete schemas, limits and retry rules.
 Consider [pausing activity notifications](#pause-activity-notifications)
 before either workflow.
 
+### Keep public URLs
+
+A Content item can have several public paths. Set `preferred: true` on its
+chosen route to use that exact path in generated links and SEO canonical URLs.
+Other aliases still work directly; choosing a preferred path does not change
+who may read the Content.
+
+Only one alias may be preferred for a Content item at each Comment-page
+offset. Imported `HistoricalRoute` records must include `preferred`; ordinary
+route writes default it to `false` when omitted. Route responses include the
+current value. See [OpenAPI](openapi.json) for targets and pagination fields.
+
 The following operation tables show **Agent scopes**. Signed-in clients use
 their Member session and ordinary resource permissions, as specified by
 OpenAPI. Neither authentication method creates authority beyond its current
