@@ -60,7 +60,8 @@ from those available through Agent grants.
 
 [Basstok Agents](https://github.com/basstok/agents) has ready-to-run programs
 and their results. [Basstok storage](https://github.com/basstok/storage)
-explains customer custody and portability.
+explains customer custody and portability. [Import a community](https://github.com/basstok/import)
+covers preparation, XenForo 2 uploads and adapters for other platforms.
 
 [Contributing and checks](.github/CONTRIBUTING.md) · [MIT](LICENSE)
 · [Contact Basstok](mailto:mail@basstok.com)
