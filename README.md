@@ -16,6 +16,11 @@ Want to connect a phone service rather than write code? Start with the
 vendor-neutral SIP calling, SIP MESSAGE and fax, with compatibility checks and
 the distinction between free bring-your-provider setup and planned paid assistance.
 
+For incoming mail, see the **[email connection guide](https://github.com/basstok/email)**:
+iCloud/IMAP, Gmail API, Microsoft Graph, forwarding, custom-domain MX and the
+separate SMTP sender used for account and notification email. It distinguishes
+implemented support from provider availability and receiving from personal sending.
+
 ## Start with the right Account
 
 Each personal Account or community is an Organization with its own data and

@@ -66,6 +66,10 @@ Use reported connection and operation states. A saved credential or phone number
 does not prove working calls, background ringing or fax delivery. Customer
 provider onboarding, billing and consent remain explicit.
 
+The [email guide](https://github.com/basstok/email) explains provider-specific
+receiving choices, SMTP forwarding/MX and Admin-selected notification sending.
+Receiving mail is not an outbound email API, mailbox login or Admin activation.
+
 Foreground events, in-app notifications and native push have different delivery
 purposes. Notification destinations must pass current access checks.
 Authenticate and deduplicate signed webhooks, then reread their referenced
