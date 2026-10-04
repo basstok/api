@@ -1,67 +1,50 @@
 # Basstok REST API
 
-The public API for [Basstok](https://basstok.com/): Content and discussion,
-Members, Messages, files, Calls, and community management.
+[Basstok](https://basstok.com/) brings messaging, calls, email and documents
+together. Compatible customer-owned phone services can add telephone calls,
+texts and fax. Communities are optional, not a prerequisite for using Basstok.
 
-One ordinary HTTPS/JSON interface serves native clients and external Agents.
-Each request uses the permissions of the Member or delegated grant making it.
+This is the public HTTPS/JSON contract for clients and integrations. It describes
+implemented operations, not a guarantee that every provider or device is ready.
+Telephone audio uses the native apps, not the browser.
 
-**[Read the reference](reference.md)** · **[OpenAPI contract](openapi.json)** · **[Build an Agent](https://github.com/basstok/agents)**
+**[API guide](reference.md)** · **[OpenAPI](openapi.json)** ·
+**[Deployed contract](https://basstok.com/openapi.json)**
 
-## Connect to a community
+## Start with the right Account
 
-Requests go to the community's own hostname. There is no separate central API host.
+Each personal Account or community is an Organization with its own data and
+permissions. Use its HTTPS hostname for requests. Joining a community does not
+create a separate personal Account or grant access to another one.
 
-```ts
-const response = await fetch("https://community.example/api/v1/context");
+```javascript
+const response = await fetch("https://account.example/api/v1/context");
 if (!response.ok) throw new Error(`Basstok returned ${response.status}`);
-const community = await response.json();
+const context = await response.json();
 ```
 
-This public request identifies the community. Reading or changing protected
-resources requires the appropriate authentication and resource access.
+Starting an Account does not require a password, passkey or email. Access first
+depends on that browser/device session; save a passkey or verified email login
+later in Account security. Admin activation has its own recovery-email check.
 
-## What you can build
+## Build around communication
 
-- **Community clients:** publish Content, add nested Comments, search, react,
-  and follow discussions.
-- **Messaging experiences:** work with participant-authorized Chats, Messages,
-  and attachments.
-- **Native experiences:** Member sign-in, notifications, push registration,
-  Connections, and audio/video Call signaling and recording consent.
-- **Management tools:** manage Members, moderation, a [pinned Home post](reference.md#pin-a-post-to-home),
-  official Agent installation, [custom domains](reference.md#connect-a-domain),
-  storage, community email and activity notifications.
-- **Agents and importers:** use delegated OAuth grants for automation or the
-  separately authorized [historical-import contract](reference.md#import-existing-data).
-- **Scheduled publishing:** submit future API requests once; inspect, pause,
-  correct or cancel them without keeping an Agent online.
+- Participant-authorized Chats, Messages, attachments and audio/video Calls.
+- Incoming email and connected mailboxes, with external senders distinct from Members.
+- Phone connections, explicit text recipients and document-based fax operations,
+  where the connected service supports them.
+- Content, Comments, Labels, Member profiles, discovery and notifications.
+- Admin-authorized domains, storage, imports and scoped application access.
 
-[OpenAPI](openapi.json) specifies the supported requests, schemas, and
-authentication for each operation. A community's `/openapi.json` describes its
-installed release; [view the contract served by basstok.com](https://basstok.com/openapi.json).
-Check that installed contract for operation availability before connecting.
+An App grant is revocable delegation from a Member, not a permission bypass.
+Private Chats retain their participant and history boundaries. Do not give an
+integration a human session when scoped OAuth is appropriate.
 
-## Access stays explicit
+The contract is synchronized with verified Web/backend deployments. Check the
+target Organization's `/openapi.json` before using an operation. API publication
+does not establish live carrier interoperability or physical-device behavior.
 
-Signed-in clients use a Member session. Agents use OAuth with scoped,
-revocable delegation from one responsible Member. Scopes are a limit, not a
-substitute for resource access. Private Chats require participation; newly
-added participants cannot read earlier history.
-
-Webhooks carry signed references. Fetch the referenced resource through the
-API using current authorization. Revocation stops subsequent access.
-
-The [reference](reference.md) covers authentication, permissions, safe retries,
-resource operations, and events. It also distinguishes Member-only operations
-from those available through Agent grants.
-
-## Around the API
-
-[Basstok Agents](https://github.com/basstok/agents) has ready-to-run programs
-and their results. [Basstok storage](https://github.com/basstok/storage)
-explains customer custody and portability. [Import a community](https://github.com/basstok/import)
-covers preparation, XenForo 2 uploads and adapters for other platforms.
-
-[Contributing and checks](.github/CONTRIBUTING.md) · [MIT](LICENSE)
-· [Contact Basstok](mailto:mail@basstok.com)
+[Import existing data](https://github.com/basstok/import) ·
+[Data and storage](https://github.com/basstok/storage) ·
+[Contributing](.github/CONTRIBUTING.md) · [MIT](LICENSE) ·
+[Contact](mailto:mail@basstok.com)
