@@ -57,6 +57,11 @@ explicit recipient and actual sending support. Compatible SIP accounts provide
 native telephone calling; browser telephone calling is not offered. Fax uses
 document Assets and requires compatible provider support.
 
+For customer setup, use the [vendor-neutral phone guide](https://github.com/basstok/phone).
+SIP registration, INVITE, MESSAGE and fax negotiation serve different purposes;
+one working capability does not establish the others. Human-only phone/text/fax
+operations cannot be invoked with an App grant. The API does not carry live audio.
+
 Use reported connection and operation states. A saved credential or phone number
 does not prove working calls, background ringing or fax delivery. Customer
 provider onboarding, billing and consent remain explicit.

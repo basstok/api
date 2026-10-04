@@ -11,6 +11,11 @@ Telephone audio uses the native apps, not the browser.
 **[API guide](reference.md)** · **[OpenAPI](openapi.json)** ·
 **[Deployed contract](https://basstok.com/openapi.json)**
 
+Want to connect a phone service rather than write code? Start with the
+**[phone, texts and fax guide](https://github.com/basstok/phone)**. It explains
+vendor-neutral SIP calling, SIP MESSAGE and fax, with compatibility checks and
+the distinction between free bring-your-provider setup and planned paid assistance.
+
 ## Start with the right Account
 
 Each personal Account or community is an Organization with its own data and
@@ -39,6 +44,9 @@ later in Account security. Admin activation has its own recovery-email check.
 An App grant is revocable delegation from a Member, not a permission bypass.
 Private Chats retain their participant and history boundaries. Do not give an
 integration a human session when scoped OAuth is appropriate.
+Telephone, external-text and fax actions currently require the documented human
+session authority; an App grant does not permit those sends. The calling API
+coordinates actions and status, not a telephone audio stream.
 
 The contract is synchronized with verified Web/backend deployments. Check the
 target Organization's `/openapi.json` before using an operation. API publication
