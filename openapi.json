@@ -6573,6 +6573,36 @@
         }
       }
     },
+    "/api/v1/chats/{chatId}/email/sending": {
+      "parameters": [{"$ref": "#/components/parameters/ChatId"}],
+      "get": {
+        "operationId": "readChatEmailSending", "tags": ["Chats"], "security": [{"memberBearer": []}],
+        "description": "DecisionId: DEC-CHAT-OUTGOING-EMAIL. Current human participants may read capabilities; only the current human Chat creator receives sender settings and may send. No Admin or delegated-application override. Prefer explicitly selected Chat SMTP; otherwise use its connected Google/Microsoft mailbox only with an actual sending grant. No service-email fallback. No queries or credentials in responses.",
+        "responses": {"200": {"description": "Current sending capability; Cache-Control: no-store. Readiness is not delivery evidence.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSending"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      },
+      "put": {
+        "operationId": "setChatEmailSending", "tags": ["Chats"], "security": [{"memberBearer": []}],
+        "description": "Current human Chat creator selects customer SMTP, including Amazon SES SMTP. connection_id is empty for the first SMTP selection, otherwise the exact current SMTP connection. Verify public-address TLS, authentication and MAIL FROM acceptance without submitting a message; recheck current authority/selection before durable publication. Credentials remain private and are never returned. No query parameters. Browser presence/same-origin protections apply. Body at most 128 KiB.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSmtpInput"}}}},
+        "responses": {"200": {"description": "Current sending selection; not a deliverability guarantee.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSending"}}}}, "409": {"description": "Selection changed or another operation is active; read current state."}, "422": {"description": "SMTP connection could not be verified; no new selection."}, "default": {"$ref": "#/components/responses/Error"}}
+      },
+      "delete": {
+        "operationId": "disconnectChatEmailSending", "tags": ["Chats"], "security": [{"memberBearer": []}],
+        "description": "Current human Chat creator disconnects the exact selected SMTP connection. Keep sent history. Does not cancel an admitted send or disconnect a connected receiving mailbox. An authorized Google/Microsoft mailbox may become the available sender again. No queries; browser mutation protections apply.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxSelection"}}}},
+        "responses": {"200": {"description": "Current sending capability.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSending"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/api/v1/chats/{chatId}/email/send": {
+      "parameters": [{"$ref": "#/components/parameters/ChatId"}],
+      "post": {
+        "operationId": "sendChatEmail", "tags": ["Chats"], "security": [{"memberBearer": []}],
+        "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
+        "description": "DecisionId: DEC-CHAT-OUTGOING-EMAIL. The current human Chat creator explicitly sends plain-text email to one recipient through the exact selected customer connection. No CC/BCC, attachments, scheduling, automatic resend, delegated Apps or Basstok-funded fallback. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Organization, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonalEmailInput"}}}},
+        "responses": {"200": {"description": "Saved Message with explicit outgoing_email status; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Message"}}}}, "400": {"description": "Invalid recipient, subject, body, connection or request identity."}, "403": {"description": "Not the current human Chat creator or reply history is inaccessible."}, "409": {"description": "Conflicting request, changed/unavailable sender or concurrent operation. Keep the exact send identity when checking an uncertain result."}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
     "/api/v1/chats/{chatId}/mailbox": {
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "get": {
@@ -6620,7 +6650,7 @@
       },
       "post": {
         "operationId": "beginChatGoogleConsent", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator starts 15-minute Google read-only email consent bound to this tenant, Chat, originating session/generation and primary address. Replaces only this Chat's previous pending attempt; a connected mailbox must first be explicitly disconnected. Open authorize_url in the system browser and match the server-selected return_url. This does not call Google, establish a mailbox, authenticate a Member or verify recovery. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence.",
+        "description": "Current human Chat creator starts 15-minute Google gmail.readonly plus gmail.send consent; actual sending permission is checked separately. The attempt is bound to this tenant, Chat, originating session/generation and primary address. Replaces only this Chat's previous pending attempt; a connected mailbox must first be explicitly disconnected. Open authorize_url in the system browser and match the server-selected return_url. This does not call Google, establish a mailbox, authenticate a Member or verify recovery. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["address"], "properties": {"address": {"type": "string", "format": "email", "maxLength": 254}}}}}},
         "responses": {"200": {"description": "Single consent attempt; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxConsentStart"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
@@ -6640,7 +6670,7 @@
       },
       "post": {
         "operationId": "beginChatMicrosoftConsent", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator starts 15-minute Microsoft delegated Mail.Read/User.Read and offline-access consent bound to this tenant, Chat, originating session/generation and primary address. Replaces only this Chat's previous pending attempt; a connected mailbox must first be explicitly disconnected. Open authorize_url in the system browser and match the server-selected return_url. This does not call Microsoft, establish a mailbox, authenticate a Member or verify recovery. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence.",
+        "description": "Current human Chat creator starts 15-minute Microsoft delegated Mail.Read/Mail.Send/User.Read and offline-access consent bound to this tenant, Chat, originating session/generation and primary address. Replaces only this Chat's previous pending attempt; a connected mailbox must first be explicitly disconnected. Open authorize_url in the system browser and match the server-selected return_url. This does not call Microsoft, establish a mailbox, authenticate a Member or verify recovery. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["address"], "properties": {"address": {"type": "string", "format": "email", "maxLength": 254}}}}}},
         "responses": {"200": {"description": "Single consent attempt; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxConsentStart"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
@@ -13818,6 +13848,11 @@
            "properties": {"fax": {"properties": {"direction": {"enum": ["incoming"]}, "status": {"enum": ["received"]}}}}}
         ],
         "allOf": [
+          {"if": {"required": ["outgoing_email"]}, "then": {
+            "required": ["member_id", "created_at"],
+            "not": {"anyOf": [{"required": ["email"]}, {"required": ["sms"]}, {"required": ["sip"]}, {"required": ["fax"]}, {"required": ["updated_at"]}, {"required": ["attribution"]}]},
+            "properties": {"assets": {"maxItems": 0}}
+          }},
           {"if": {"required": ["fax"]}, "then": {
             "required": ["created_at"],
             "not": {"anyOf": [{"required": ["updated_at"]}, {"required": ["attribution"]}]},
@@ -13834,7 +13869,7 @@
           "member_id": {
             "type": "string",
             "minLength": 1,
-            "description": "Present only for a Member-authored Message, including explicit outgoing phone messages. External email, incoming phone texts and faxes never authenticate or impersonate a Member."
+            "description": "Present only for a Member-authored Message, including explicit outgoing phone messages and personal email. External email, incoming phone texts and faxes never authenticate or impersonate a Member."
           },
           "created_at": {
             "type": "string"
@@ -13863,6 +13898,9 @@
           },
           "fax": {
             "$ref": "#/components/schemas/MessageFax"
+          },
+          "outgoing_email": {
+            "$ref": "#/components/schemas/MessageOutgoingEmail"
           }
         },
         "additionalProperties": false
@@ -14251,6 +14289,54 @@
           "text": {"type": "string", "minLength": 1, "description": "Plain text, at most 1024 UTF-8 bytes (not Unicode code points), normalized to literal CommonMark in history. The transport also bounds the complete SIP request, so its framing and recipient may cause a shorter text to be rejected. Provider charges may apply."}
         },
         "additionalProperties": false
+      },
+      "ChatEmailSending": {
+        "type": "object", "additionalProperties": false, "required": ["can_manage", "can_send"],
+        "properties": {
+          "can_manage": {"type": "boolean"},
+          "can_send": {"type": "boolean"},
+          "sender": {
+            "type": "object", "additionalProperties": false, "required": ["connection_id", "address", "method"],
+            "properties": {
+              "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "address": {"type": "string", "format": "email", "maxLength": 254},
+              "method": {"type": "string", "enum": ["smtp", "google", "microsoft"]},
+              "smtp": {"$ref": "#/components/schemas/SmtpEndpoint"}
+            }
+          }
+        }
+      },
+      "ChatEmailSmtpInput": {
+        "type": "object", "additionalProperties": false, "required": ["connection_id", "configuration"],
+        "properties": {
+          "connection_id": {"type": "string", "pattern": "^([0-9a-f]{64})?$", "description": "Exact current SMTP selection, or empty when no SMTP selection exists."},
+          "configuration": {"$ref": "#/components/schemas/CommunitySmtpInput"}
+        }
+      },
+      "PersonalEmailInput": {
+        "type": "object", "additionalProperties": false, "required": ["connection_id", "recipient", "subject", "body"],
+        "properties": {
+          "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "recipient": {"type": "string", "format": "email", "maxLength": 254, "description": "One plain ASCII address, without display name or header syntax."},
+          "subject": {"type": "string", "maxLength": 512, "description": "At most 512 UTF-8 bytes, without control characters; may be empty."},
+          "body": {"type": "string", "minLength": 1, "maxLength": 16384, "description": "Meaningful plain UTF-8 text, at most 16384 bytes. Rendered as escaped Markdown in Chat; not HTML."},
+          "reply_to_message_id": {"type": ["string", "null"], "format": "uuid"}
+        }
+      },
+      "MessageOutgoingEmail": {
+        "type": "object", "additionalProperties": false,
+        "required": ["connection_id", "from", "to", "subject", "message_id", "status", "text"],
+        "description": "Immutable authored email content with explicit provider-submission status. Existing Chat/history authorization applies; never accepted by ordinary Message-write operations.",
+        "properties": {
+          "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "from": {"type": "string", "format": "email", "maxLength": 254},
+          "to": {"type": "string", "format": "email", "maxLength": 254},
+          "subject": {"type": "string", "maxLength": 512},
+          "message_id": {"type": "string", "description": "Stable outgoing RFC Message-ID without angle brackets."},
+          "reply_to_message_id": {"type": "string", "format": "uuid"},
+          "status": {"type": "string", "enum": ["unconfirmed", "accepted", "failed"], "description": "Acceptance is not delivery. Unconfirmed is never automatically resubmitted."},
+          "text": {"type": "string", "description": "Derived plain-text rendering of the canonical Message body, retaining line layout. Not separately stored."}
+        }
       },
       "MessageEmail": {
         "type": "object",
