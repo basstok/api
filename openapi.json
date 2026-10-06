@@ -3,7 +3,7 @@
   "info": {
     "title": "Basstok API",
     "version": "1.0.0",
-    "description": "Basstok's external HTTP contract: Content with Comments, Chats with Messages, optional Labels, Members, and Assets. Collection POST creates return Basstok-assigned canonical IDs; item paths address existing resources. Queries filter or page representations. Successful ordinary activity mutations (existing Content edits without Label changes, Comments, reactions, follows, Messages and notification state) acknowledge live resident state and may precede durable storage. Notifications, email and webhooks may follow that acceptance without waiting for storage. Unflushed activity may be lost after a service process or compute failure, even after external delivery. Retry identity is retained while resident and after persistence; loss of unflushed activity may also lose its retry result. Security, permissions, authentication, storage changes, resource publication, import completion and scheduled-operation success retain durable acknowledgement. No imported hierarchy, audit mechanics, storage layout, or client framework leaks into this model."
+    "description": "Basstok's external HTTP contract: Content with Comments, Chats with Messages, optional Labels, Members, and Assets. Collection POST creates return Basstok-assigned canonical IDs; item paths address existing resources. Queries filter or page representations. Successful ordinary activity mutations (existing Content edits without Label changes, Comments, reactions, follows, Messages and notification state) take effect immediately and may be acknowledged before they are saved. Notifications, email and webhooks may follow that acceptance without waiting for storage. A service interruption may lose changes not yet saved, even after external delivery. The retry result for a lost change may also be lost. Security, permissions, authentication, storage changes, resource publication, import completion and scheduled-operation success retain durable acknowledgement."
   },
   "servers": [
     {
@@ -41,7 +41,7 @@
       "post": {
         "operationId": "previewOrganizationCloudflareNativeDns",
         "summary": "Review all records before native preparation",
-        "description": "DEC-DNS-PROVIDER-COPY. Current human Admin, exact verified claim and selected connection, with no pending provider work. Reads a complete bounded inventory (100 records), full-zone binding, DNS settings and DNSSEC. Proxied, configured-flattened, DNSSEC-enabled, child-delegated, unsupported or malformed data fails the whole copy. Preserves unassigned records including mail; replaces apex NS/SOA with installation identities and Auto TTL with 300 seconds. Stop external DNS edits and remove parent DS before changing nameservers. DNS records only: Cloudflare services are not transferred. Same tenant/session/browser-presence/no-store/bounded-admission and OAuth refresh rules as inspection. No provider writes or automatic retry. Returns a transient proposed first zone revision and comparison digest; no persisted preview or publication.",
+        "description": "Current human Admin, exact verified claim and selected connection, with no pending provider work. Reads a complete bounded inventory (100 records), full-zone binding, DNS settings and DNSSEC. Proxied, configured-flattened, DNSSEC-enabled, child-delegated, unsupported or malformed data fails the whole copy. Preserves unassigned records including mail; replaces apex NS/SOA with installation identities and Auto TTL with 300 seconds. Stop external DNS edits and remove parent DS before changing nameservers. DNS records only: Cloudflare services are not transferred. Same tenant/session/browser-presence/no-store/bounded-admission and OAuth refresh rules as inspection. No provider writes or automatic retry. Returns a transient proposed first zone revision and comparison digest; no persisted preview or publication.",
         "security": [
           {
             "memberBearer": []
@@ -130,7 +130,7 @@
       "post": {
         "operationId": "prepareOrganizationCloudflareNativeDns",
         "summary": "Prepare the exact reviewed Cloudflare DNS copy",
-        "description": "DEC-DNS-PROVIDER-COPY. Current human Admin, exact verified claim and selected connection, with no pending provider work. Reads a complete bounded inventory (100 records), full-zone binding, DNS settings and DNSSEC. Proxied, configured-flattened, DNSSEC-enabled, child-delegated, unsupported or malformed data fails the whole copy. Preserves unassigned records including mail; replaces apex NS/SOA with installation identities and Auto TTL with 300 seconds. Stop external DNS edits and remove parent DS before changing nameservers. DNS records only: Cloudflare services are not transferred. Same tenant/session/browser-presence/no-store/bounded-admission and OAuth refresh rules as inspection. No provider writes or automatic retry. Rereads the source and compares source_revision, bound to claim, connection, assignments, inventory and installed nameservers. Rechecks the exact canonical claim under writer leases, then durably serves Prepared records. No delegation/TLS/mail/website activation; use /native after registrar changes. Already prepared/published conflicts. If save outcome is uncertain, read saved claims/zones before explicitly retrying.",
+        "description": "Current human Admin, exact verified claim and selected connection, with no pending provider work. Reads a complete bounded inventory (100 records), full-zone binding, DNS settings and DNSSEC. Proxied, configured-flattened, DNSSEC-enabled, child-delegated, unsupported or malformed data fails the whole copy. Preserves unassigned records including mail; replaces apex NS/SOA with installation identities and Auto TTL with 300 seconds. Stop external DNS edits and remove parent DS before changing nameservers. DNS records only: Cloudflare services are not transferred. Same tenant/session/browser-presence/no-store/bounded-admission and OAuth refresh rules as inspection. No provider writes or automatic retry. Rereads the source and compares source_revision, bound to claim, connection, assignments, inventory and installed nameservers. Revalidates the claim before saving and serving the prepared records. No delegation/TLS/mail/website activation; use /native after registrar changes. Already prepared/published conflicts. If save outcome is uncertain, read saved claims/zones before explicitly retrying.",
         "security": [
           {
             "memberBearer": []
@@ -1678,7 +1678,7 @@
       "get": {
         "operationId": "getOrganizationDnsZones",
         "summary": "List Organization DNS zones",
-        "description": "DEC-DNS-ZONE-OWNERSHIP. Tenant-scoped first-party API; delegated applications are denied. Query parameters are rejected. Responses, including errors, use Cache-Control: no-store. No credentials, proof material or private provider state are returned. Current human Manager or pending founder read-only preview. Returns at most four zones and the installation-configured native_nameservers list, empty when disabled. Includes prepared as well as published zones. Join claims by ID to distinguish serving preparation from observed delegation; neither state alone proves HTTPS or email readiness.",
+        "description": "Tenant-scoped first-party API; delegated applications are denied. Query parameters are rejected. Responses, including errors, use Cache-Control: no-store. No credentials, proof material or private provider state are returned. Current human Manager or pending founder read-only preview. Returns at most four zones and the installation-configured native_nameservers list, empty when disabled. Includes prepared as well as published zones. Join claims by ID to distinguish serving preparation from observed delegation; neither state alone proves HTTPS or email readiness.",
         "security": [
           {
             "memberBearer": []
@@ -1744,7 +1744,7 @@
       "post": {
         "operationId": "prepareOrganizationNativeDnsZone",
         "summary": "Prepare native DNS before changing nameservers",
-        "description": "DEC-DNS-ZONE-OWNERSHIP. Current human Admin only; pending founders have read-only preview. Same tenant, browser-presence, bounded JSON and no-store rules as native publication. Requires the exact verified claim generation and complete reviewed records with installation-controlled NS/SOA. Durably serves those records on Basstok nameservers BEFORE registrar delegation changes; claim state becomes prepared. No parent lookup, registrar or provider write, native TLS authority, website attachment or email activation. Pending provider record changes and certificate validation must first be resolved. Ordinary Cloudflare record mutations are frozen; inspection and existing Cloudflare certificate validation remain available. Exact prepared retry performs no writes; changed records require revision-checked replacement. Published claims cannot return to preparation. Incomplete target-only output is not served; explicitly retry preparation after rereading. After changing registrar nameservers, explicitly submit the current saved records to /native for fresh parent-delegation proof. No automatic retry or persisted UI draft.",
+        "description": "Current human Admin only; pending founders have read-only preview. Same tenant, browser-presence, bounded JSON and no-store rules as native publication. Requires the exact verified claim generation and complete reviewed records with installation-controlled NS/SOA. Durably serves those records on Basstok nameservers BEFORE registrar delegation changes; claim state becomes prepared. No parent lookup, registrar or provider write, native TLS authority, website attachment or email activation. Pending provider record changes and certificate validation must first be resolved. Ordinary Cloudflare record mutations are frozen; inspection and existing Cloudflare certificate validation remain available. Exact prepared retry performs no writes; changed records require revision-checked replacement. Published claims cannot return to preparation. Incomplete target-only output is not served; explicitly retry preparation after rereading. After changing registrar nameservers, explicitly submit the current saved records to /native for fresh parent-delegation proof. No automatic retry or persisted UI draft.",
         "security": [
           {
             "memberBearer": []
@@ -1821,7 +1821,7 @@
       "post": {
         "operationId": "publishOrganizationNativeDnsZone",
         "summary": "Publish a native DNS zone",
-        "description": "DEC-DNS-ZONE-OWNERSHIP. Tenant-scoped first-party API; delegated applications are denied. Query parameters are rejected. Responses, including errors, use Cache-Control: no-store. No credentials, proof material or private provider state are returned. Current human Manager only. Browser cookie writes require browser presence, exact Origin and same-origin metadata; native bearer sessions use the same authority. Strict JSON rejects unknown or missing fields. No endpoint switches hosting. No TLS, routing or MX automation and no external provider writes. After an ambiguous write, reread current state; clients must never perform hidden replay. Native publication only: requires the exact already-verified claim generation plus fresh actual parent delegation to installation-controlled nameservers. Ownership TXT alone is insufficient. Caller cannot select proof, nameservers, hosting or tenant. Full explicit proposed records must form a valid zone with matching apex NS set and SOA primary. An already published exact retry returns established state without DNS lookup, proof acquisition or writes; changed input returns 409. A fresh explicit request with fresh proof may replace records left unpublished by an interrupted publication; it cannot change hosting. A Cloudflare zone cannot be replaced. Pending provider record creation, update, deletion or certificate validation returns 409 until resolved, including after restart. Hosting and target mutation admission is held through both durable writes; competing provider operations receive update_in_progress rather than interleave with publication. Prepared claims also require fresh parent proof and an exact match to their current saved records; activation changes only the hosting claim, preserving the record revision. Use /prepare first to serve records safely before changing registrar delegation.",
+        "description": "Tenant-scoped first-party API; delegated applications are denied. Query parameters are rejected. Responses, including errors, use Cache-Control: no-store. No credentials, proof material or private provider state are returned. Current human Manager only. Browser cookie writes require browser presence, exact Origin and same-origin metadata; native bearer sessions use the same authority. Strict JSON rejects unknown or missing fields. No endpoint switches hosting. No TLS, routing or MX automation and no external provider writes. After an ambiguous write, reread current state; clients must never perform hidden replay. Native publication only: requires the exact already-verified claim generation plus fresh actual parent delegation to installation-controlled nameservers. Ownership TXT alone is insufficient. Caller cannot select proof, nameservers, hosting or tenant. Full explicit proposed records must form a valid zone with matching apex NS set and SOA primary. An already published exact retry returns established state without DNS lookup, proof acquisition or writes; changed input returns 409. A fresh explicit request with fresh proof may replace records left unpublished by an interrupted publication; it cannot change hosting. A Cloudflare zone cannot be replaced. Pending provider record creation, update, deletion or certificate validation returns 409 until resolved, including after restart. Hosting and target mutation admission is held through both durable writes; competing provider operations receive update_in_progress rather than interleave with publication. Prepared claims also require fresh parent proof and an exact match to their current saved records; activation changes only the hosting claim, preserving the record revision. Use /prepare first to serve records safely before changing registrar delegation.",
         "security": [
           {
             "memberBearer": []
@@ -1898,7 +1898,7 @@
       "put": {
         "operationId": "replaceOrganizationDnsZoneRecords",
         "summary": "Replace native DNS zone records",
-        "description": "DEC-DNS-ZONE-OWNERSHIP. Tenant-scoped first-party API; delegated applications are denied. Query parameters are rejected. Responses, including errors, use Cache-Control: no-store. No credentials, proof material or private provider state are returned. Current human Manager only. Browser cookie writes require browser presence, exact Origin and same-origin metadata; native bearer sessions use the same authority. Strict JSON rejects unknown or missing fields. No endpoint switches hosting. No TLS, routing or MX automation and no external provider writes. After an ambiguous write, reread current state; clients must never perform hidden replay. Only an already published native zone can be updated. revision is the expected current revision precondition. Full explicit replacement must form a valid zone and preserve delegation identity: exact apex NS set and SOA primary. Stale revision or a Cloudflare-hosted zone returns 409.",
+        "description": "Tenant-scoped first-party API; delegated applications are denied. Query parameters are rejected. Responses, including errors, use Cache-Control: no-store. No credentials, proof material or private provider state are returned. Current human Manager only. Browser cookie writes require browser presence, exact Origin and same-origin metadata; native bearer sessions use the same authority. Strict JSON rejects unknown or missing fields. No endpoint switches hosting. No TLS, routing or MX automation and no external provider writes. After an ambiguous write, reread current state; clients must never perform hidden replay. Only an already published native zone can be updated. revision is the expected current revision precondition. Full explicit replacement must form a valid zone and preserve delegation identity: exact apex NS set and SOA primary. Stale revision or a Cloudflare-hosted zone returns 409.",
         "security": [
           {
             "memberBearer": []
@@ -1962,7 +1962,7 @@
       "get": {
         "operationId": "getOrganizationDnsClaims",
         "summary": "List DNS ownership claims",
-        "description": "DEC-DNS-ZONE-OWNERSHIP. Current human Manager or pending founder read-only preview; ordinary Members and delegated applications are denied. Returns only claims scoped to the current Organization. Responses use Cache-Control: no-store.",
+        "description": "Current human Manager or pending founder read-only preview; ordinary Members and delegated applications are denied. Returns only claims scoped to the current Organization. Responses use Cache-Control: no-store.",
         "security": [
           {
             "memberBearer": []
@@ -2005,7 +2005,7 @@
       "post": {
         "operationId": "addOrganizationDnsClaim",
         "summary": "Request DNS zone ownership",
-        "description": "DEC-DNS-ZONE-OWNERSHIP. Current human Manager only. Creates a pending claim or returns the existing claim and its current state on an exact retry. At most four claims per Organization. Normalizes ASCII DNS apex case and one trailing dot; the canonical apex has at most 244 characters. The basstok.com apex is reserved for the hosting Organization. Pending claims confer no authority and do not change DNS, TLS or routing. Browser cookie writes require same-origin browser presence. Responses use Cache-Control: no-store.",
+        "description": "Current human Manager only. Creates a pending claim or returns the existing claim and its current state on an exact retry. At most four claims per Organization. Normalizes ASCII DNS apex case and one trailing dot; the canonical apex has at most 244 characters. The basstok.com apex is reserved for the hosting Organization. Pending claims confer no authority and do not change DNS, TLS or routing. Browser cookie writes require same-origin browser presence. Responses use Cache-Control: no-store.",
         "security": [
           {
             "memberBearer": []
@@ -2092,7 +2092,7 @@
       "get": {
         "operationId": "getOrganizationCloudflareConnection",
         "summary": "Inspect domain DNS authorization",
-        "description": "DEC-DOMAIN-PROVIDER-AUTHORIZATION. Current human Manager or exact pending-founder preview. Provider access is separate from Basstok login and from zone publication. Pending authorization progress is visible only to its initiating Member; provider codes, credentials and PKCE verifiers are never returned.",
+        "description": "Current human Manager or exact pending-founder preview. Provider access is separate from Basstok login and from zone publication. Pending authorization progress is visible only to its initiating Member; provider codes, credentials and PKCE verifiers are never returned.",
         "security": [
           {
             "memberBearer": []
@@ -2144,7 +2144,7 @@
       "post": {
         "operationId": "beginOrganizationCloudflareAuthorization",
         "summary": "Authorize Cloudflare DNS access",
-        "description": "DEC-DOMAIN-PROVIDER-AUTHORIZATION. Current human Manager begins an expiring PKCE authorization for the exact Organization DNS claim and generation. The request is durably bound to the initiating session before returning the provider URL. This neither logs a Member in nor changes DNS, MX, TLS or routing.",
+        "description": "Current human Manager begins an expiring PKCE authorization for the exact Organization DNS claim and generation. The request is durably bound to the initiating session before returning the provider URL. This neither logs a Member in nor changes DNS, MX, TLS or routing.",
         "security": [
           {
             "memberBearer": []
@@ -2218,7 +2218,7 @@
       "delete": {
         "operationId": "disconnectOrganizationCloudflareAuthorization",
         "summary": "Disconnect Cloudflare DNS access",
-        "description": "DEC-DOMAIN-PROVIDER-AUTHORIZATION. Empty request body; current human Manager only. Durably cancels authorization, disables all stored credentials for the exact claim and removes local connection selection before contacting Cloudflare. Submits at most two distinct known refresh tokens for revocation, then removes only those exact disabled credentials. Missing provider configuration or failed, lost or cancelled provider/cleanup work leaves local access disabled and revocation_pending true; read status and explicitly retry DELETE, including after restart. New authorization waits for pending cleanup. No automatic provider retries. Acknowledgement covers submitted known tokens, not unknown grants from interrupted exchanges; revoke the application's authorization in Cloudflare for provider-wide revocation. Does not delete provider records, change delegation, login or native DNS authority.",
+        "description": "Empty request body; current human Manager only. Durably cancels authorization, disables all stored credentials for the exact claim and removes local connection selection before contacting Cloudflare. Submits at most two distinct known refresh tokens for revocation, then removes only those exact disabled credentials. Missing provider configuration or failed, lost or cancelled provider/cleanup work leaves local access disabled and revocation_pending true; read status and explicitly retry DELETE, including after restart. New authorization waits for pending cleanup. No automatic provider retries. Acknowledgement covers submitted known tokens, not unknown grants from interrupted exchanges; revoke the application's authorization in Cloudflare for provider-wide revocation. Does not delete provider records, change delegation, login or native DNS authority.",
         "security": [
           {
             "memberBearer": []
@@ -2285,7 +2285,7 @@
       "post": {
         "operationId": "completeOrganizationCloudflareAuthorization",
         "summary": "Complete domain DNS authorization",
-        "description": "DEC-DOMAIN-PROVIDER-AUTHORIZATION. The initiating authenticated session must still belong to the current human Manager. After the provider callback, consumes its exact expiring attempt before exchanging the authorization code. Checks the unique active provider zone for the exact domain and rechecks current authority before selecting durably stored private credentials. Neither callback nor connection creates a session or verifies domain ownership; a pending claim stays pending. An exchanging attempt must not automatically repeat provider work after uncertainty or restart. No DNS records or hosting mode change. Return metadata is only a wakeup: reread status and complete only the same Ready authorization_id in the still-authorized originating session. Denied/failed returns never automatically retry. After process loss, explicit Finish connecting recovers status in the same session; no timer polling.",
+        "description": "The initiating authenticated session must still belong to the current human Manager. After the provider callback, consumes its exact expiring attempt before exchanging the authorization code. Checks the unique active provider zone for the exact domain and rechecks current authority before selecting durably stored private credentials. Neither callback nor connection creates a session or verifies domain ownership; a pending claim stays pending. An exchanging attempt must not automatically repeat provider work after uncertainty or restart. No DNS records or hosting mode change. Return metadata is only a wakeup: reread status and complete only the same Ready authorization_id in the still-authorized originating session. Denied/failed returns never automatically retry. After process loss, explicit Finish connecting recovers status in the same session; no timer polling.",
         "security": [
           {
             "memberBearer": []
@@ -2374,7 +2374,7 @@
       "post": {
         "operationId": "verifyOrganizationCloudflareOwnership",
         "summary": "Create and verify the exact DNS ownership record",
-        "description": "DEC-DNS-ZONE-OWNERSHIP, DEC-DOMAIN-PROVIDER-AUTHORIZATION. Current human Manager only. Uses the selected Cloudflare connection to find or add only the claim's exact TXT challenge at _basstok.<apex>, with TTL 60. Expired access refreshes once: durably consume the exact refresh credential before provider entry, then persist replacement tokens only under the same current session/Manager, claim and connection bindings. An uncertain refresh requires reconnection rather than replay, including after restart. Does not overwrite or delete existing records. Durably records the create attempt before sending it; an uncertain create is reconciled by reads, never blindly repeated after restart, disconnect or reconnection. A definitive create rejection permits a later explicit retry. Independent DNS observation, current session/Manager authority and the same claim/connection are required before ownership becomes verified. DNS propagation may return the claim still pending; an exact retry reuses the record. An already verified claim requires no provider or DNS request. Does not publish a zone, change delegation, MX or TLS. Browser cookie writes require exact routed Origin, same-origin fetch metadata and session-bound presence. Responses use Cache-Control: no-store.",
+        "description": "Current human Manager only. Uses the selected Cloudflare connection to find or add only the claim's exact TXT challenge at _basstok.<apex>, with TTL 60. Expired access refreshes once: durably consume the exact refresh credential before provider entry, then persist replacement tokens only under the same current session/Manager, claim and connection bindings. An uncertain refresh requires reconnection rather than replay, including after restart. Does not overwrite or delete existing records. Durably records the create attempt before sending it; an uncertain create is reconciled by reads, never blindly repeated after restart, disconnect or reconnection. A definitive create rejection permits a later explicit retry. Independent DNS observation, current session/Manager authority and the same claim/connection are required before ownership becomes verified. DNS propagation may return the claim still pending; an exact retry reuses the record. An already verified claim requires no provider or DNS request. Does not publish a zone, change delegation, MX or TLS. Browser cookie writes require exact routed Origin, same-origin fetch metadata and session-bound presence. Responses use Cache-Control: no-store.",
         "security": [
           {
             "memberBearer": []
@@ -2456,7 +2456,7 @@
       "post": {
         "operationId": "assignOrganizationCloudflareDnsRecord",
         "summary": "Assign one inspected record to Basstok without changing DNS",
-        "description": "DEC-DNS-PROVIDER-RECORD-ASSIGNMENT. DEC-DOMAIN-PROVIDER-AUTHORIZATION. Current human Manager only. Explicitly accepts Basstok as sole writer for this exact existing record. Requires verified ownership and a fresh complete provider read matching every submitted record field. Persists only the assigned record baseline and exact zone/account binding under its canonical claim, not the unassigned inventory. Same-value retries preserve the assignment identity. No provider DNS write, publication, delegation change or blanket adoption. Other records remain untouched. Current authorization, credentials and assignment inventory are rechecked after I/O. Browser Origin, same-origin metadata and session-bound presence are required. Failed or ambiguous persistence requires inspection, never an invented success. Value edits and uncertain-outcome checks use the separate update/reconcile operations.",
+        "description": "Current human Manager only. Explicitly accepts Basstok as sole writer for this exact existing record. Requires verified ownership and a fresh complete provider read matching every submitted record field. Persists only the assigned record baseline and exact zone/account binding under its canonical claim, not the unassigned inventory. Same-value retries preserve the assignment identity. No provider DNS write, publication, delegation change or blanket adoption. Other records remain untouched. Current authorization, credentials and assignment inventory are rechecked after I/O. Browser Origin, same-origin metadata and session-bound presence are required. Failed or ambiguous persistence requires inspection, never an invented success. Value edits and uncertain-outcome checks use the separate update/reconcile operations.",
         "security": [{ "memberBearer": [] }],
         "requestBody": {
           "required": true,
@@ -2488,7 +2488,7 @@
       "post": {
         "operationId": "releaseOrganizationCloudflareDnsRecord",
         "summary": "Release an exact Basstok record assignment without deleting DNS",
-        "description": "DEC-DNS-PROVIDER-RECORD-ASSIGNMENT. DEC-DOMAIN-PROVIDER-AUTHORIZATION. Same current human Manager, verified claim, connected provider, refresh, bounded inspection and browser-presence requirements as record assignment. Removes only the specified canonical assignment. Never deletes or changes its provider record, even when missing or drifted. Old assignment identities cannot release a later reassignment. Unknown or already released identities fail closed. No automatic retry or provider mutation.",
+        "description": "Same current human Manager, verified claim, connected provider, refresh, bounded inspection and browser-presence requirements as record assignment. Removes only the specified canonical assignment. Never deletes or changes its provider record, even when missing or drifted. Old assignment identities cannot release a later reassignment. Unknown or already released identities fail closed. No automatic retry or provider mutation.",
         "security": [{ "memberBearer": [] }],
         "requestBody": {
           "required": true,
@@ -2525,7 +2525,7 @@
       "post": {
         "operationId": "updateOrganizationCloudflareDnsRecord",
         "summary": "Update an assigned Cloudflare DNS record",
-        "description": "DEC-DNS-PROVIDER-RECORD-UPDATE. Current human Manager only. Requires verified claim, assignment revision, exact provider binding and unchanged fresh baseline. Preserves record ID/name/type and apex delegation identity. Equivalent values are no-ops. Durably admits one pending intent per claim before one bounded PATCH, preserving unrelated provider metadata. Known completion survives request cancellation and advances the revision once; an uncertain response remains pending across restart. Never automatically retry an uncertain update. Inspect, then reconcile its exact update ID. Assignment/release/other updates are blocked while pending. No create/delete, delegation switch or publication. Browser Origin, same-origin metadata and session-bound presence are required. Private provider credentials/bindings never enter the response.",
+        "description": "Current human Manager only. Requires verified claim, assignment revision, exact provider binding and unchanged fresh baseline. Preserves record ID/name/type and apex delegation identity. Equivalent values are no-ops. Durably admits one pending intent per claim before one bounded PATCH, preserving unrelated provider metadata. Known completion survives request cancellation and advances the revision once; an uncertain response remains pending across restart. Never automatically retry an uncertain update. Inspect, then reconcile its exact update ID. Assignment/release/other updates are blocked while pending. No create/delete, delegation switch or publication. Browser Origin, same-origin metadata and session-bound presence are required. Private provider credentials/bindings never enter the response.",
         "security": [
           {
             "memberBearer": []
@@ -2582,7 +2582,7 @@
       "post": {
         "operationId": "createOrganizationCloudflareDnsRecord",
         "summary": "Create and assign one new Cloudflare DNS record",
-        "description": "DEC-DNS-PROVIDER-RECORD-CREATION. Current human Manager only. Requires a verified claim, exact generation and complete bounded inventory in the original provider account/zone. Rejects duplicate values, incompatible records, apex NS and exhausted capacity. Persists one exact claim-owned intent before one POST. Confirmed creation establishes an assignment; uncertain results remain pending across restart, never automatically replay. Other record mutations remain blocked until an exact outcome is confirmed. No caller-selected provider identity, marker or credentials; no unrelated record replacement or delegation switch. Browser Origin, same-origin metadata and session-bound presence are required.",
+        "description": "Current human Manager only. Requires a verified claim, exact generation and complete bounded inventory in the original provider account/zone. Rejects duplicate values, incompatible records, apex NS and exhausted capacity. Persists one exact claim-owned intent before one POST. Confirmed creation establishes an assignment; uncertain results remain pending across restart, never automatically replay. Other record mutations remain blocked until an exact outcome is confirmed. No caller-selected provider identity, marker or credentials; no unrelated record replacement or delegation switch. Browser Origin, same-origin metadata and session-bound presence are required.",
         "security": [{ "memberBearer": [] }],
         "requestBody": {
           "required": true,
@@ -2606,7 +2606,7 @@
       "post": {
         "operationId": "reconcileOrganizationCloudflareDnsCreation",
         "summary": "Check the exact pending DNS creation without repeating it",
-        "description": "DEC-DNS-PROVIDER-RECORD-CREATION. Current human Manager only. Complete bounded original-zone inspection and exact-comment lookup must agree on exactly one provider record with the intended values. Missing, unmarked, duplicate or drifted outcomes remain pending; 200 may still contain pending_creation. Never issues a provider write or treats absence or elapsed time as permission to replay. Requires exact claim generation and creation ID, current private connection and browser Origin, same-origin metadata and session-bound presence where applicable.",
+        "description": "Current human Manager only. Complete bounded original-zone inspection and exact-comment lookup must agree on exactly one provider record with the intended values. Missing, unmarked, duplicate or drifted outcomes remain pending; 200 may still contain pending_creation. Never issues a provider write or treats absence or elapsed time as permission to replay. Requires exact claim generation and creation ID, current private connection and browser Origin, same-origin metadata and session-bound presence where applicable.",
         "security": [{ "memberBearer": [] }],
         "requestBody": {
           "required": true,
@@ -2630,7 +2630,7 @@
       "post": {
         "operationId": "deleteOrganizationCloudflareDnsRecord",
         "summary": "Delete one explicitly assigned Cloudflare DNS record",
-        "description": "DEC-DNS-PROVIDER-RECORD-DELETION. Current human Manager only. Requires exact verified claim, assignment revision, original provider binding and freshly unchanged baseline. Cannot delete apex NS records. Durably admits one pending intent per claim before one bounded DELETE of that exact provider record ID. A confirmed acknowledgement removes only that assignment; uncertain outcomes remain pending across restart. Never automatically retry. Reconciliation resolves only absence of the original record ID in a complete original-zone inspection, not a same-name replacement or elapsed time. Browser Origin, same-origin metadata and session-bound presence are required. No delegation switch, unrelated record removal or publication; credentials stay private.",
+        "description": "Current human Manager only. Requires exact verified claim, assignment revision, original provider binding and freshly unchanged baseline. Cannot delete apex NS records. Durably admits one pending intent per claim before one bounded DELETE of that exact provider record ID. A confirmed acknowledgement removes only that assignment; uncertain outcomes remain pending across restart. Never automatically retry. Reconciliation resolves only absence of the original record ID in a complete original-zone inspection, not a same-name replacement or elapsed time. Browser Origin, same-origin metadata and session-bound presence are required. No delegation switch, unrelated record removal or publication; credentials stay private.",
         "security": [{ "memberBearer": [] }],
         "requestBody": {
           "required": true,
@@ -2664,7 +2664,7 @@
       "post": {
         "operationId": "reconcileOrganizationCloudflareDnsRecord",
         "summary": "Check the exact pending DNS update",
-        "description": "DEC-DNS-PROVIDER-RECORD-UPDATE, DEC-DNS-PROVIDER-RECORD-DELETION. Current human Manager only. Fresh complete bounded reads in the original assigned provider account/zone confirm only the exact requested result. Value updates require matching intended values and advance the revision once; absent, unchanged or different values remain pending. Deletion requires absence of the original record ID and removes only that assignment; a still-present ID remains pending even if its values changed. 200 may still contain pending_update. Never repeats a provider write or infers failure from elapsed time. Reconnect the original provider account/zone if necessary. Browser Origin, same-origin metadata and session-bound presence are required. Private provider credentials/bindings never enter the response.",
+        "description": "Current human Manager only. Fresh complete bounded reads in the original assigned provider account/zone confirm only the exact requested result. Value updates require matching intended values and advance the revision once; absent, unchanged or different values remain pending. Deletion requires absence of the original record ID and removes only that assignment; a still-present ID remains pending even if its values changed. 200 may still contain pending_update. Never repeats a provider write or infers failure from elapsed time. Reconnect the original provider account/zone if necessary. Browser Origin, same-origin metadata and session-bound presence are required. Private provider credentials/bindings never enter the response.",
         "security": [
           {
             "memberBearer": []
@@ -2733,7 +2733,7 @@
       "post": {
         "operationId": "inspectOrganizationCloudflareDnsRecords",
         "summary": "Inspect current Cloudflare DNS records without changing them",
-        "description": "DEC-DNS-PROVIDER-RECORD-ASSIGNMENT. DEC-DNS-ZONE-OWNERSHIP, DEC-DOMAIN-PROVIDER-AUTHORIZATION. Current human Manager only, after exact claim ownership is verified. Returns a transient provider observation plus existing canonical assignment baselines and their current match status. Inspection itself never assigns records or publishes DNS. Performs zone/account-bound provider GETs only, with at most 100 records and 256 KiB per response. Unsupported, incomplete, malformed, duplicate or out-of-zone records fail the whole inspection. Expired OAuth access uses the existing durable single-consumption refresh; uncertain refresh requires reconnection, never replay. Rechecks current session, Manager, claim generation and exact selected credentials after I/O. No polling or persisted inventory. Cookie requests require exact routed Origin, same-origin fetch metadata and session-bound presence. Cache-Control: no-store.",
+        "description": "Current human Manager only, after exact claim ownership is verified. Returns a transient provider observation plus existing canonical assignment baselines and their current match status. Inspection itself never assigns records or publishes DNS. Performs zone/account-bound provider GETs only, with at most 100 records and 256 KiB per response. Unsupported, incomplete, malformed, duplicate or out-of-zone records fail the whole inspection. Expired OAuth access uses the existing durable single-consumption refresh; uncertain refresh requires reconnection, never replay. Rechecks current session, Manager, claim generation and exact selected credentials after I/O. No polling or persisted inventory. Cookie requests require exact routed Origin, same-origin fetch metadata and session-bound presence. Cache-Control: no-store.",
         "security": [
           {
             "memberBearer": []
@@ -2808,7 +2808,7 @@
     "/oauth/mailbox/google/callback": {
       "get": {
         "operationId": "receiveGoogleMailboxConsent", "tags": ["Chats"], "security": [],
-        "description": "DEC-CHAT-GMAIL-RECEIVING. Exact configured hosting-apex HTTPS callback only. State plus code XOR a recognized OAuth error; duplicate/unknown keys fail. Code may include bounded scope/authuser/prompt hints, which confer no authority. Error may include ignored error_description/error_uri. Optional iss must equal https://accounts.google.com. URL at most 8192 bytes, code at most 4096, other fields at most 2048. Records the single-use response only: no exchange, session cookie, login, recovery verification or Admin activation. The originating current session must complete. Redirect contains only target Organization/Chat, the opaque authorization_id and received/denied/failed; no code, verifier or provider token. All responses no-store/no-referrer.",
+        "description": "Exact configured hosting-apex HTTPS callback only. State plus code XOR a recognized OAuth error; duplicate/unknown keys fail. Code may include bounded scope/authuser/prompt hints, which confer no authority. Error may include ignored error_description/error_uri. Optional iss must equal https://accounts.google.com. URL at most 8192 bytes, code at most 4096, other fields at most 2048. Records the single-use response only: no exchange, session cookie, login, recovery verification or Admin activation. The originating current session must complete. Redirect contains only target Organization/Chat, the opaque authorization_id and received/denied/failed; no code, verifier or provider token. All responses no-store/no-referrer.",
         "parameters": [
           {"name": "state", "in": "query", "required": true, "schema": {"type": "string", "minLength": 43, "maxLength": 43}},
           {"name": "code", "in": "query", "schema": {"type": "string", "minLength": 1, "maxLength": 4096}},
@@ -2839,7 +2839,7 @@
     "/oauth/mailbox/microsoft/callback": {
       "get": {
         "operationId": "receiveMicrosoftMailboxConsent", "tags": ["Chats"], "security": [],
-        "description": "DEC-CHAT-MICROSOFT-RECEIVING. Exact configured hosting-apex HTTPS callback only. State plus code XOR a recognized Microsoft authorization error; duplicate/unknown keys fail. Optional bounded session_state and error_description/error_uri are ignored, never authority, rendered or followed. URL at most 8192 bytes, code at most 4096, other fields at most 2048. Records one single-use provider-bound result; no token exchange, session cookie, login, recovery or Admin activation. Only the originating session completes. Redirect contains only target Organization/Chat, authorization_id and received/denied/failed. No-store/no-referrer.",
+        "description": "Exact configured hosting-apex HTTPS callback only. State plus code XOR a recognized Microsoft authorization error; duplicate/unknown keys fail. Optional bounded session_state and error_description/error_uri are ignored, never authority, rendered or followed. URL at most 8192 bytes, code at most 4096, other fields at most 2048. Records one single-use provider-bound result; no token exchange, session cookie, login, recovery or Admin activation. Only the originating session completes. Redirect contains only target Organization/Chat, authorization_id and received/denied/failed. No-store/no-referrer.",
         "parameters": [
           {"name": "state", "in": "query", "required": true, "schema": {"type": "string", "minLength": 43, "maxLength": 43}},
           {"name": "code", "in": "query", "schema": {"type": "string", "minLength": 1, "maxLength": 4096}},
@@ -2868,7 +2868,7 @@
       "get": {
         "operationId": "receiveCloudflareAuthorizationCode",
         "summary": "Receive the DNS provider callback",
-        "description": "DEC-DOMAIN-PROVIDER-AUTHORIZATION. GET only on the exact configured hosting-apex callback path. Requires state plus code XOR a standard OAuth error. Optional scope is accepted only with code as bounded printable ASCII metadata and ignored; only the authenticated token response establishes the exact granted scopes. Optional bounded error_description/error_uri are accepted only with error and ignored, never rendered or followed. Valid state records the single-use code as Ready or consumes the exact awaiting attempt on denial. Returns 303 to hosting /oauth/cloudflare/return with only target_organization_id, claim_id and result: received for code, denied for access_denied, failed for other accepted errors. Redirects contain no code, state, scope or tokens. Creates no session cookies or authority. Duplicate, unknown or malformed query parameters are rejected; complete URL is bounded to 8192 bytes. All responses use no-store/no-referrer.",
+        "description": "GET only on the exact configured hosting-apex callback path. Requires state plus code XOR a standard OAuth error. Optional scope is accepted only with code as bounded printable ASCII metadata and ignored; only the authenticated token response establishes the exact granted scopes. Optional bounded error_description/error_uri are accepted only with error and ignored, never rendered or followed. Valid state records the single-use code as Ready or consumes the exact awaiting attempt on denial. Returns 303 to hosting /oauth/cloudflare/return with only target_organization_id, claim_id and result: received for code, denied for access_denied, failed for other accepted errors. Redirects contain no code, state, scope or tokens. Creates no session cookies or authority. Duplicate, unknown or malformed query parameters are rejected; complete URL is bounded to 8192 bytes. All responses use no-store/no-referrer.",
         "security": [],
         "parameters": [
           {
@@ -3060,7 +3060,7 @@
         "operationId": "returnFromCloudflareAuthorization",
         "summary": "Return to the originating Cloudflare connection client",
         "security": [],
-        "description": "DEC-DOMAIN-PROVIDER-AUTHORIZATION. Hosting-apex GET only, a human/browser/native wakeup, not authorization evidence. Accepts exactly target_organization_id, claim_id and result as wakeup metadata; rejects duplicate, unknown or malformed parameters. Complete URL is bounded to 1024 bytes. Uses installed Organization canonical routing for the /admin/domains continuation, never a caller URL. Creates no session cookies, credentials or authority. Clients reread status and complete only the same Ready attempt in the still-authorized originating session. Denied/failed returns never automatically retry. Responses use no-store/no-referrer.",
+        "description": "Hosting-apex GET only, a human/browser/native wakeup, not authorization evidence. Accepts exactly target_organization_id, claim_id and result as wakeup metadata; rejects duplicate, unknown or malformed parameters. Complete URL is bounded to 1024 bytes. Uses installed Organization canonical routing for the /admin/domains continuation, never a caller URL. Creates no session cookies, credentials or authority. Clients reread status and complete only the same Ready attempt in the still-authorized originating session. Denied/failed returns never automatically retry. Responses use no-store/no-referrer.",
         "parameters": [
           {
             "name": "target_organization_id",
@@ -3224,7 +3224,7 @@
       "post": {
         "operationId": "cancelOrganizationDnsClaim",
         "summary": "Cancel unused DNS setup",
-        "description": "DEC-DNS-SETUP-CANCELLATION. Current human Admin only. Requires the exact claim generation and a pending or verified claim, never prepared or published serving DNS. First release all assigned records, resolve pending provider work and finish disconnecting Cloudflare, including authorization attempts and private credential revocation. Cancellation performs no provider request and deletes no domain, provider record, website attachment or mailbox. Under the existing writer and session fences it removes any incomplete, unserved target-zone output before durably removing the hosting claim. A later request gets a new identity; old proofs and callbacks cannot claim it. A missing or foreign claim returns 404, not success. On an uncertain response reread saved claims; never automatically retry. Accepts no query parameters. Browser cookie writes require same-origin browser presence. Responses use Cache-Control: no-store.",
+        "description": "Current human Admin only. Requires the exact claim generation and a pending or verified claim, never prepared or published serving DNS. First release all assigned records, resolve pending provider work and finish disconnecting Cloudflare, including authorization attempts and private credential revocation. Cancellation performs no provider request and deletes no domain, provider record, website attachment or mailbox. Under the existing writer and session fences it removes any incomplete, unserved target-zone output before durably removing the hosting claim. A later request gets a new identity; old proofs and callbacks cannot claim it. A missing or foreign claim returns 404, not success. On an uncertain response reread saved claims; never automatically retry. Accepts no query parameters. Browser cookie writes require same-origin browser presence. Responses use Cache-Control: no-store.",
         "security": [
           {
             "memberBearer": []
@@ -3314,7 +3314,7 @@
       "post": {
         "operationId": "verifyOrganizationDnsClaim",
         "summary": "Verify DNS zone ownership",
-        "description": "DEC-DNS-ZONE-OWNERSHIP. Current human Manager only, with current session and authority checked again after DNS work. Uses a bounded TXT lookup through the current system resolver. The exact verification_value must match within one TXT resource record; character strings within that record are concatenated, but separate records are never joined. No matching proof returns 200 with the claim still pending and no DNS, TLS or routing changes. A match durably admits only the exact Organization, claim and generation ownership proof; it does not authorize native delegation, Cloudflare management or zone publication. Verified or published retries return current state without fresh DNS or new writes. Stale generations return 409; missing or foreign claims return 404. Browser cookie writes require same-origin browser presence. Responses use Cache-Control: no-store.",
+        "description": "Current human Manager only, with current session and authority checked again after DNS work. Uses a bounded TXT lookup through the current system resolver. The exact verification_value must match within one TXT resource record; character strings within that record are concatenated, but separate records are never joined. No matching proof returns 200 with the claim still pending and no DNS, TLS or routing changes. A match durably admits only the exact Organization, claim and generation ownership proof; it does not authorize native delegation, Cloudflare management or zone publication. Verified or published retries return current state without fresh DNS or new writes. Stale generations return 409; missing or foreign claims return 404. Browser cookie writes require same-origin browser presence. Responses use Cache-Control: no-store.",
         "security": [
           {
             "memberBearer": []
@@ -3788,7 +3788,7 @@
     "/api/v1/organization": {
       "delete": {
         "operationId": "deleteOrganization",
-        "description": "DEC-ORG-DELETION. Irreversibly delete this entire Organization. Requires its exact current name and a current human Manager; delegated Apps and acting personas are forbidden. Durable admission immediately disables all access. Physical removal continues in the background with no recycle bin. Independent backups are excluded; retention/provider failures never imply physical completion. A hosting Organization with other tenant registrations cannot be deleted.",
+        "description": "Irreversibly delete this entire Organization. Requires its exact current name and a current human Manager; delegated Apps and acting personas are forbidden. Durable admission immediately disables all access. Physical removal continues in the background with no recycle bin. Independent backups are excluded; retention/provider failures never imply physical completion. A hosting Organization with other tenant registrations cannot be deleted.",
         "security": [
           {
             "memberBearer": []
@@ -6172,7 +6172,7 @@
       ],
       "get": {
         "operationId": "getMember",
-        "description": "Reads the public Member profile under the current Organization audience. Anonymous access is allowed where Engine authorization permits; supplied credentials must remain valid.",
+        "description": "Reads the public Member profile under the current Organization audience. Anonymous access is allowed for public profiles; supplied credentials must remain valid.",
         "security": [
           {},
           {
@@ -6202,7 +6202,7 @@
       },
       "put": {
         "operationId": "replaceMember",
-        "description": "Creates or updates a Member. An optional handle is assigned by Engine when omitted on creation; update omission preserves the immutable existing handle. Invalid handles return 400; duplicate explicit handles or attempts to change an assigned handle return 409. Stable IDs remain API and relationship identities; public profiles use /@{handle}. A delegated create produces a no-login persona controlled by the application, records the responsible human Member, and requires that human to retain Manager authority.",
+        "description": "Creates or updates a Member. A handle is assigned automatically when omitted on creation; update omission preserves the immutable existing handle. Invalid handles return 400; duplicate explicit handles or attempts to change an assigned handle return 409. Stable IDs remain API and relationship identities; public profiles use /@{handle}. A delegated create produces a no-login persona controlled by the application, records the responsible human Member, and requires that human to retain Manager authority.",
         "security": [
           {
             "memberBearer": []
@@ -6255,7 +6255,7 @@
       ],
       "get": {
         "operationId": "listMemberPosts",
-        "description": "DEC-MEMBER-AUTHORED-ACTIVITY: authored Posts in newest Content inventory order regardless of Labels. Applies current authorization, blocking and withheld-subtree semantics, including moderator-visible withheld Content as in ordinary discovery. Supports anonymous callers and human Member sessions, including native bearer sessions. Delegated OAuth is rejected because physical scan cursors disclose out-of-scope inventory, as with Search. Scans at most 64 Content aggregates per request; hydrated aggregates are fully validated within existing hard bounds. No persisted feed or index. Offsets are opaque physical scan cursors, not match counts; an empty page may have a continuation.",
+        "description": "Authored Posts in newest Content inventory order regardless of Labels. Applies current authorization, blocking and withheld-subtree semantics, including moderator-visible withheld Content as in ordinary discovery. Supports anonymous callers and human Member sessions, including native bearer sessions. Delegated OAuth access is not supported. Pagination is bounded: an empty page may still have a continuation. Use the returned offset to continue; offsets are opaque and are not match counts.",
         "security": [
           {},
           {
@@ -6298,7 +6298,7 @@
       ],
       "get": {
         "operationId": "listMemberComments",
-        "description": "DEC-MEMBER-AUTHORED-ACTIVITY: authored Comments grouped by newest Content inventory order, then newest immutable Comment sequence within each Content, not global chronological Comment order. Applies current authorization, blocking and withheld-subtree semantics, including moderator-visible withheld material as in ordinary discovery. Supports anonymous callers and human Member sessions, including native bearer sessions. Delegated OAuth is rejected because physical scan cursors disclose out-of-scope inventory, as with Search. Scans at most 64 Content aggregates and tests authorship on at most 2048 Comment positions per request. Ordering, subtree visibility and cold validation inspect bounded complete aggregates. No persisted feed or index. Offsets are opaque physical scan cursors, not match counts; an empty page may have a continuation.",
+        "description": "Authored Comments grouped by newest Content inventory order, then newest immutable Comment sequence within each Content, not global chronological Comment order. Applies current authorization, blocking and withheld-subtree semantics, including moderator-visible withheld material as in ordinary discovery. Supports anonymous callers and human Member sessions, including native bearer sessions. Delegated OAuth access is not supported. Pagination is bounded: an empty page may still have a continuation. Use the returned offset to continue; offsets are opaque and are not match counts.",
         "security": [
           {},
           {
@@ -6577,7 +6577,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "get": {
         "operationId": "readChatEmailSending", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "DecisionId: DEC-CHAT-OUTGOING-EMAIL. Current human participants may read capabilities; only the current human Chat creator receives sender settings and may send. No Admin or delegated-application override. Prefer explicitly selected Chat SMTP; otherwise use its connected Google/Microsoft mailbox only with an actual sending grant. No service-email fallback. No queries or credentials in responses.",
+        "description": "Current human participants may read capabilities; only the current human Chat creator receives sender settings and may send. No Admin or delegated-application override. Prefer explicitly selected Chat SMTP; otherwise use its connected Google/Microsoft mailbox only with an actual sending grant. No service-email fallback. No queries or credentials in responses.",
         "responses": {"200": {"description": "Current sending capability; Cache-Control: no-store. Readiness is not delivery evidence.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSending"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "put": {
@@ -6598,7 +6598,7 @@
       "post": {
         "operationId": "sendChatEmail", "tags": ["Chats"], "security": [{"memberBearer": []}],
         "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
-        "description": "DecisionId: DEC-CHAT-OUTGOING-EMAIL. The current human Chat creator explicitly sends plain-text email to one recipient through the exact selected customer connection. No CC/BCC, attachments, scheduling, automatic resend, delegated Apps or Basstok-funded fallback. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Organization, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
+        "description": "The current human Chat creator explicitly sends plain-text email to one recipient through the exact selected customer connection. No CC/BCC, attachments, scheduling, automatic resend, delegated Apps or Basstok-funded fallback. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Organization, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonalEmailInput"}}}},
         "responses": {"200": {"description": "Saved Message with explicit outgoing_email status; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Message"}}}}, "400": {"description": "Invalid recipient, subject, body, connection or request identity."}, "403": {"description": "Not the current human Chat creator or reply history is inaccessible."}, "409": {"description": "Conflicting request, changed/unavailable sender or concurrent operation. Keep the exact send identity when checking an uncertain result."}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -6607,7 +6607,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "get": {
         "operationId": "readChatMailbox", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human participants may read the connection and disposable check status. No credentials, source UIDs or source history are returned. No query parameters. DecisionId: DEC-CHAT-MAILBOX-INGESTION.",
+        "description": "Current human participants may read the connection and disposable check status. No credentials, source UIDs or source history are returned. No query parameters.",
         "responses": {"200": {"description": "Current connection; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailbox"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "put": {
@@ -6645,7 +6645,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "get": {
         "operationId": "readChatGoogleConsent", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "DEC-CHAT-GMAIL-RECEIVING. Current human Chat creator only, no Admin authority required. Installation availability and only this exact originating session's unexpired consent. Availability is configuration, not live Google/public verification readiness. No query parameters or request body. Credentials, code and verifier are never returned.",
+        "description": "Current human Chat creator only, no Admin authority required. Installation availability and only this exact originating session's unexpired consent. Availability is configuration, not live Google/public verification readiness. No query parameters or request body. Credentials, code and verifier are never returned.",
         "responses": {"200": {"description": "Current consent; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxConsent"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "post": {
@@ -6665,7 +6665,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "get": {
         "operationId": "readChatMicrosoftConsent", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "DEC-CHAT-MICROSOFT-RECEIVING. Current human Chat creator only, no Admin authority required. Installation availability and only this exact originating session's unexpired consent. Availability is configuration, not live Microsoft/public verification readiness. No query parameters or request body. Credentials, code and verifier are never returned.",
+        "description": "Current human Chat creator only, no Admin authority required. Installation availability and only this exact originating session's unexpired consent. Availability is configuration, not live Microsoft/public verification readiness. No query parameters or request body. Credentials, code and verifier are never returned.",
         "responses": {"200": {"description": "Current consent; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxConsent"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "post": {
@@ -6705,7 +6705,7 @@
       ],
       "get": {
         "operationId": "readChatIncomingEmail",
-        "description": "DecisionId: DEC-CHAT-INCOMING-EMAIL. Current human Chat participants read the receiving address. Only its current creator receives eligible published Organization domains and can_manage. Domain candidates confer no authority and each mutation rechecks them. Human sessions only; no query parameters. This read changes no DNS or receiving state.",
+        "description": "Current human Chat participants read the receiving address. Only its current creator receives eligible published Organization domains and can_manage. Domain candidates confer no authority and each mutation rechecks them. Human sessions only; no query parameters. This read changes no DNS or receiving state.",
         "security": [{"memberBearer": []}],
         "responses": {
           "200": {
@@ -6750,7 +6750,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "put": {
         "operationId": "connectChatEmailAddress",
-        "description": "DecisionId: DEC-CHAT-EXISTING-EMAIL. The current human Chat creator requests mail-only TXT verification for one exact address on a domain they control. The claim expires after 24 hours; an unexpired same-address retry preserves it. No DNS changes, account/website authority, catch-all or sending capability. Existing forwarding addresses remain independent. Human sessions only, browser presence required where applicable; no query parameters.",
+        "description": "The current human Chat creator requests mail-only TXT verification for one exact address on a domain they control. The claim expires after 24 hours; an unexpired same-address retry preserves it. No DNS changes, account/website authority, catch-all or sending capability. Existing forwarding addresses remain independent. Human sessions only, browser presence required where applicable; no query parameters.",
         "security": [{"memberBearer": []}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {
           "type": "object", "additionalProperties": false, "required": ["address"],
@@ -6790,7 +6790,7 @@
       ],
       "get": {
         "operationId": "readChatCalling",
-        "description": "DecisionId: DEC-PHONE-CALL-COORDINATION. Human Chat participants can read the selected account and registration. Credentials are never returned. Registration does not prove live media or background calling. Human sessions only; delegated applications and external origins are rejected.",
+        "description": "Human Chat participants can read the selected account and registration. Credentials are never returned. Registration does not prove live media or background calling. Human sessions only; delegated applications and external origins are rejected.",
         "security": [
           {
             "memberBearer": []
@@ -6814,7 +6814,7 @@
       },
       "put": {
         "operationId": "connectChatCalling",
-        "description": "DecisionId: DEC-PHONE-CALL-COORDINATION. Only a human Manager who is a current Chat participant may select the account and private credentials. Human sessions only; delegated applications and external origins are rejected.",
+        "description": "Only a human Manager who is a current Chat participant may select the account and private credentials. Human sessions only; delegated applications and external origins are rejected.",
         "security": [
           {
             "memberBearer": []
@@ -6859,7 +6859,7 @@
       },
       "delete": {
         "operationId": "disconnectChatCalling",
-        "description": "DecisionId: DEC-PHONE-CALL-COORDINATION. Only a human Manager Chat participant may disconnect. Empty body. Human sessions only; delegated applications and external origins are rejected.",
+        "description": "Only a human Manager Chat participant may disconnect. Empty body. Human sessions only; delegated applications and external origins are rejected.",
         "security": [
           {
             "memberBearer": []
@@ -6901,7 +6901,7 @@
       ],
       "post": {
         "operationId": "reconnectChatCalling",
-        "description": "DecisionId: DEC-PHONE-CALL-COORDINATION, DEC-PHONE-REGISTRATION-RECOVERY. Only a human Manager Chat participant may explicitly reconnect the current selection. This replaces a pending automatic retry without creating another connection or redialing a call, but does not bypass a provider Retry-After delay. Empty body; registration is not media readiness. Human sessions only; delegated applications and external origins are rejected.",
+        "description": "Only a human Manager Chat participant may explicitly reconnect the current selection. This replaces a pending automatic retry without creating another connection or redialing a call, but does not bypass a provider Retry-After delay. Empty body; registration is not media readiness. Human sessions only; delegated applications and external origins are rejected.",
         "security": [
           {
             "memberBearer": []
@@ -6939,7 +6939,7 @@
       "parameters": [{ "$ref": "#/components/parameters/ChatId" }],
       "put": {
         "operationId": "setChatFaxReceiving",
-        "description": "DecisionId: DEC-PHONE-FAX. A current human Manager participant explicitly dedicates new incoming calls on the exact current calling connection to fax instead of native ringing. Use a dedicated fax number/account. Reception accepts encrypted G.711 audio or direct T.38, with one authenticated audio-to-T.38 handoff. T.38/UDPTL is source-pinned, not encrypted. Unsupported media and insecure audio fail without voice fallback. Enabling requires configured server fax transport and matching private credentials; it does not establish carrier interoperability. Disabling remains available without working transport and cancels active fax reception without ending already-admitted voice calls. New incoming audio calls then ring normally; outgoing voice and fax are unaffected. No provider settings are changed. Repeated identical selection is idempotent; disable/re-enable rotates its private receiving generation. Human sessions only, with existing browser-presence/origin protections; delegated applications and external origins are rejected.",
+        "description": "A current human Manager participant explicitly dedicates new incoming calls on the exact current calling connection to fax instead of native ringing. Use a dedicated fax number/account. Reception accepts encrypted G.711 audio or direct T.38, with one authenticated audio-to-T.38 handoff. T.38/UDPTL is source-pinned, not encrypted. Unsupported media and insecure audio fail without voice fallback. Enabling requires configured server fax transport and matching private credentials; it does not establish carrier interoperability. Disabling remains available without working transport and cancels active fax reception without ending already-admitted voice calls. New incoming audio calls then ring normally; outgoing voice and fax are unaffected. No provider settings are changed. Repeated identical selection is idempotent; disable/re-enable rotates its private receiving generation. Human sessions only, with existing browser-presence/origin protections; delegated applications and external origins are rejected.",
         "security": [{ "memberBearer": [] }],
         "parameters": [{
           "name": "X-Basstok-Presence",
@@ -6973,7 +6973,7 @@
       "parameters": [{ "$ref": "#/components/parameters/ChatId" }],
       "post": {
         "operationId": "sendChatFax",
-        "description": "DecisionId: DEC-PHONE-FAX. A current human Chat participant explicitly sends prepared monochrome pages through the exact selected customer SIP connection. Basstok sends audio-first fax using encrypted G.711 through the verified provider TLS connection, not a provider document API or voice relay. Insecure audio answers fail closed without redial. An authenticated in-dialog T.38 re-INVITE may switch the same document session after the exact acknowledgement, without redial; negotiated T.38/UDPTL is source-pinned, not encrypted. Incoming fax requires separate explicit account-wide selection. A registered compatible provider and configured server transport are required for a new send; charges may apply. Basstok generates the canonical PDF from these exact pixels and durably publishes it with an authored Unconfirmed Message before one transport invocation. Idempotency-Key is scoped to the Member, Chat and participant-history boundary. An exact retry returns saved state without redial, including while a send is active, after restart, while transport is unavailable or after the account is disconnected. Changing the connection, recipient or document with that key conflicts. Waits for the bounded transport result (up to 21 minutes); the admitted Message is visible in existing Chat reads/SSE while sending. Request loss does not cancel an admitted send and an error/timeout may mean it was sent. Inspect the existing result; never automatically resend with a new key. Delivered requires completed T.30 document confirmation, not merely a SIP answer. No server-side arbitrary PDF/image interpretation, queue or automatic retries. Delegated/acting Members are forbidden, and browser presence/origin checks apply. At most four concurrent fax submissions, separate from calling control/read admission; at most 44804784 request bytes including JSON escaping. Web, Apple and Android share this contract and locally prepare/preview bounded PDF pages. Closing a draft does not cancel a server-admitted transmission; inspect the existing Chat before starting a new attempt.",
+        "description": "A current human Chat participant explicitly sends prepared monochrome pages through the exact selected customer SIP connection. Basstok sends audio-first fax using encrypted G.711 through the verified provider TLS connection, not a provider document API or voice relay. Insecure audio answers fail closed without redial. An authenticated in-dialog T.38 re-INVITE may switch the same document session after the exact acknowledgement, without redial; negotiated T.38/UDPTL is source-pinned, not encrypted. Incoming fax requires separate explicit account-wide selection. A registered compatible provider and configured server transport are required for a new send; charges may apply. Basstok generates the canonical PDF from these exact pixels and durably publishes it with an authored Unconfirmed Message before one transport invocation. Idempotency-Key is scoped to the Member, Chat and participant-history boundary. An exact retry returns saved state without redial, including while a send is active, after restart, while transport is unavailable or after the account is disconnected. Changing the connection, recipient or document with that key conflicts. Waits for the bounded transport result (up to 21 minutes); the admitted Message is visible in existing Chat reads/SSE while sending. Request loss does not cancel an admitted send and an error/timeout may mean it was sent. Inspect the existing result; never automatically resend with a new key. Delivered requires completed T.30 document confirmation, not merely a SIP answer. No server-side arbitrary PDF/image interpretation, queue or automatic retries. Delegated/acting Members are forbidden, and browser presence/origin checks apply. At most four concurrent fax submissions, separate from calling control/read admission; at most 44804784 request bytes including JSON escaping. Web, Apple and Android share this contract and locally prepare/preview bounded PDF pages. Closing a draft does not cancel a server-admitted transmission; inspect the existing Chat before starting a new attempt.",
         "security": [{ "memberBearer": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/IdempotencyKey" },
@@ -7002,7 +7002,7 @@
       ],
       "post": {
         "operationId": "startPhoneCall",
-        "description": "DecisionId: DEC-PHONE-CALL-COORDINATION. Explicitly call one international telephone number using this Chat's customer-owned registered calling account. Current human participants may incur carrier charges; Managers alone may select the account. Reserves one session-owned outgoing call, Connecting for at most 45 seconds. No provider INVITE is sent until that native endpoint authenticates and supplies its SDP offer. The same session/attempt UUID returns its current reservation without changing the number, Chat, selection or deadline. Terminal attempts cannot redial during their 60-second retention; attempts are transient, not durable retry jobs. Never automatically redial after failure or restart. Delegation and external browser origins are rejected; browser telephone media is unsupported.",
+        "description": "Explicitly call one international telephone number using this Chat's customer-owned registered calling account. Current human participants may incur carrier charges; Managers alone may select the account. Reserves one session-owned outgoing call, Connecting for at most 45 seconds. No provider INVITE is sent until that native endpoint authenticates and supplies its SDP offer. The same session/attempt UUID returns its current reservation without changing the number, Chat, selection or deadline. Terminal attempts cannot redial during their 60-second retention; attempts are transient, not durable retry jobs. Never automatically redial after failure or restart. Delegation and external browser origins are rejected; browser telephone media is unsupported.",
         "security": [{"memberBearer": []}],
         "parameters": [
           {
@@ -7027,7 +7027,7 @@
     "/api/v1/phone-calls": {
       "get": {
         "operationId": "listPhoneCalls",
-        "description": "DecisionId: DEC-PHONE-CALL-COORDINATION. Bounded array of currently authorized calls. Rechecks participant admission, session, current credentials and calling selection. Human sessions only; delegated applications and external origins are rejected. Member SSE phone-call, ready and reset signals prompt a current read. member_id does not identify the owning device: only the exact local answer/dial attempt and its authenticated response establish ownership. Outgoing calls never ring other Chat participants. Ignore an unclaimed incoming ring locally; leave is owner-session-only.",
+        "description": "Bounded array of currently authorized calls. Rechecks participant admission, session, current credentials and calling selection. Human sessions only; delegated applications and external origins are rejected. Member SSE phone-call, ready and reset signals prompt a current read. member_id does not identify the owning device: only the exact local answer/dial attempt and its authenticated response establish ownership. Outgoing calls never ring other Chat participants. Ignore an unclaimed incoming ring locally; leave is owner-session-only.",
         "security": [
           {
             "memberBearer": []
@@ -7070,7 +7070,7 @@
       ],
       "get": {
         "operationId": "readPhoneCall",
-        "description": "DecisionId: DEC-PHONE-CALL-COORDINATION. Rechecks participant admission, session, current credentials and calling selection. Human sessions only; delegated applications and external origins are rejected.",
+        "description": "Rechecks participant admission, session, current credentials and calling selection. Human sessions only; delegated applications and external origins are rejected.",
         "security": [
           {
             "memberBearer": []
@@ -7109,7 +7109,7 @@
       ],
       "post": {
         "operationId": "answerPhoneCall",
-        "description": "DecisionId: DEC-PHONE-CALL-COORDINATION. Incoming calls only: first authorized human session/attempt wins. Exact retry reuses that claim without extending deadlines; a Live retry returns an empty token. Other sessions, tenants and replays cannot replace the winner. The private token proves one call over TLS, not reusable login. No public confirmation endpoint exists: an authenticated real SDP answer confirms inside the runtime. Human sessions only; delegated applications and external origins are rejected.",
+        "description": "Incoming calls only: first authorized human session/attempt wins. Exact retry reuses that claim without extending deadlines; a Live retry returns an empty token. Other sessions, tenants and replays cannot replace the winner. The private token proves one call over TLS, not reusable login. No public confirmation endpoint exists: an authenticated real SDP answer confirms inside the runtime. Human sessions only; delegated applications and external origins are rejected.",
         "security": [
           {
             "memberBearer": []
@@ -7169,7 +7169,7 @@
       ],
       "post": {
         "operationId": "leavePhoneCall",
-        "description": "DecisionId: DEC-PHONE-CALL-COORDINATION. Only the winning human session may leave; current admission, session and credentials remain enforced. Empty body. Human sessions only; delegated applications and external origins are rejected.",
+        "description": "Only the winning human session may leave; current admission, session and credentials remain enforced. Empty body. Human sessions only; delegated applications and external origins are rejected.",
         "security": [
           {
             "memberBearer": []
@@ -7207,7 +7207,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "get": {
         "operationId": "readChatPhone",
-        "description": "DecisionId: DEC-PHONE-TELNYX-SETUP. Human participants inspect customer-owned text connectivity. Current provider settings are checked without changing them. Only a current human Manager participant with a selected number receives the setup projection. Receiving is ready only after authenticated durable receipt for this exact connection and a matching current webhook. This is cellular SMS, not SIP MESSAGE or telephone calling.",
+        "description": "Human participants inspect customer-owned text connectivity. Current provider settings are checked without changing them. Only a current human Manager participant with a selected number receives the setup projection. Receiving is ready only after authenticated durable receipt for this exact connection and a matching current webhook. This is cellular SMS, not SIP MESSAGE or telephone calling.",
         "security": [{"memberBearer": []}],
         "responses": {
           "200": {"description": "Current connection and actionable readiness", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatPhone"}}}},
@@ -7238,7 +7238,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "post": {
         "operationId": "configureChatPhoneReceiving",
-        "description": "DecisionId: DEC-PHONE-TELNYX-SETUP. A current human Manager participant explicitly authorizes moving incoming texts for the exact selected connection to this Chat, replacing the existing primary and backup delivery destinations. Delegated applications are forbidden. Only a dedicated Telnyx messaging profile is eligible. This operation changes only its webhook URL, API version and failover destination; it never purchases numbers, changes billing, creates profiles or assigns numbers. Shared profiles and short-code use require manual provider action. GET never configures receiving. A stale connection_id returns 409; unauthorized callers receive 403 (unauthenticated callers 401). No automatic mutation retry follows an uncertain outcome: refresh status before deciding another action. A successful provider configuration does not mark receiving ready without a real authenticated incoming receipt. Browser session mutations require presence and same-origin checks.",
+        "description": "A current human Manager participant explicitly authorizes moving incoming texts for the exact selected connection to this Chat, replacing the existing primary and backup delivery destinations. Delegated applications are forbidden. Only a dedicated Telnyx messaging profile is eligible. This operation changes only its webhook URL, API version and failover destination; it never purchases numbers, changes billing, creates profiles or assigns numbers. Shared profiles and short-code use require manual provider action. GET never configures receiving. A stale connection_id returns 409; unauthorized callers receive 403 (unauthenticated callers 401). No automatic mutation retry follows an uncertain outcome: refresh status before deciding another action. A successful provider configuration does not mark receiving ready without a real authenticated incoming receipt. Browser session mutations require presence and same-origin checks.",
         "security": [{"memberBearer": []}],
         "parameters": [{"name": "X-Basstok-Presence", "in": "header", "required": false, "description": "Required to match the presence cookie for browser session mutations.", "schema": {"type": "string"}}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatPhoneSetupInput"}}}},
@@ -7254,7 +7254,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "post": {
         "operationId": "sendChatSipMessage",
-        "description": "DecisionId: DEC-PHONE-SIP-MESSAGE. A current human Chat participant explicitly submits plain text through the selected registered calling account. Delegated applications are forbidden. Recipient must be an international E.164 number or sip:user@domain. This is SIP MESSAGE, never a cellular SMS fallback; provider support and charges vary. Ordinary Chat composition never forwards externally. Idempotency-Key binds the sender, Chat admission, recipient and text; a durable reservation precedes one dispatch. An exact retry returns existing state even while disconnected or after restart, without resending. Changed input with the same key conflicts. Unconfirmed may have been sent: inspect history/provider state before deliberately creating another send; do not automatically retry uncertain sends with a new key. Cookie-authenticated writes require matching X-Basstok-Presence and same-origin checks. No attachments, bulk recipients, delivery claims or external sender identity guarantees.",
+        "description": "A current human Chat participant explicitly submits plain text through the selected registered calling account. Delegated applications are forbidden. Recipient must be an international E.164 number or sip:user@domain. This is SIP MESSAGE, never a cellular SMS fallback; provider support and charges vary. Ordinary Chat composition never forwards externally. Idempotency-Key binds the sender, Chat admission, recipient and text; a durable reservation precedes one dispatch. An exact retry returns existing state even while disconnected or after restart, without resending. Changed input with the same key conflicts. Unconfirmed may have been sent: inspect history/provider state before deliberately creating another send; do not automatically retry uncertain sends with a new key. Cookie-authenticated writes require matching X-Basstok-Presence and same-origin checks. No attachments, bulk recipients, delivery claims or external sender identity guarantees.",
         "security": [{"memberBearer": []}],
         "parameters": [
           {"$ref": "#/components/parameters/IdempotencyKey"},
@@ -8479,7 +8479,7 @@
             ]
           }
         ],
-        "description": "Bounded foreground delivery of accepted-state freshness signals and short-lived process-local typing hints. Anonymous callers may select only currently public Content; non-public Content remains unavailable. OAuth callers may select only a Content covered by content:read or a participant Chat covered by chat:read; actor_id selects an existing controlled Member for a Chat stream and applies that Member's admission boundary. Chat streams require ordinary participant access, and Member inbox events remain Member-session-only. Re-read referenced canonical resources for current Engine state, which may include unflushed activity; events are not canonical truth or history, and typing hints may be missed or lost on restart.",
+        "description": "Bounded foreground delivery of accepted-state freshness signals and short-lived process-local typing hints. Anonymous callers may select only currently public Content; non-public Content remains unavailable. OAuth callers may select only a Content covered by content:read or a participant Chat covered by chat:read; actor_id selects an existing controlled Member for a Chat stream and applies that Member's admission boundary. Chat streams require ordinary participant access, and Member inbox events remain Member-session-only. Re-read the referenced resources for current authorized data, which may include changes not yet saved; events are change signals, not a durable history, and typing hints may be missed or lost on restart.",
         "parameters": [
           {
             "$ref": "#/components/parameters/EventCursor"
@@ -9443,7 +9443,7 @@
     "/api/v1/organization/ads": {
       "get": {
         "operationId": "getOrganizationAds",
-        "description": "DEC-ORG-ADS: Returns the three typed ad placements. Requires a current human Manager; delegated applications are denied.",
+        "description": "Returns the three typed ad placements. Requires a current human Manager; delegated applications are denied.",
         "security": [
           {
             "memberBearer": []
@@ -9471,7 +9471,7 @@
       },
       "put": {
         "operationId": "setOrganizationAds",
-        "description": "DEC-ORG-ADS: Atomically replaces all three placements; omitted or null slots clear the placement. Requires a current human Manager bearer session; delegated applications are denied. Every configured slot, even disabled, must reference an existing same-Organization Organization-owned image Asset. Repeating the desired state is safe. No scripts, tracking or rotation.",
+        "description": "Atomically replaces all three placements; omitted or null slots clear the placement. Requires a current human Manager bearer session; delegated applications are denied. Every configured slot, even disabled, must reference an existing same-Organization Organization-owned image Asset. Repeating the desired state is safe. No scripts, tracking or rotation.",
         "security": [
           {
             "memberBearer": []
@@ -11387,7 +11387,7 @@
             "type": "string",
             "maxLength": 48,
             "pattern": "^([a-z0-9][a-z0-9_-]{0,47})?$",
-            "description": "Optional creation handle. Omitted or empty lets Engine assign it. An established Member keeps its handle when omitted or empty; a differing nonempty handle conflicts."
+            "description": "Optional creation handle. Omit or leave empty to have one assigned automatically. An established Member keeps its handle when omitted or empty; a differing nonempty handle conflicts."
           },
           "description": {
             "type": "string",
@@ -12234,7 +12234,7 @@
       },
       "CertificateValidationPending": {
         "type": "boolean",
-        "description": "Engine retains an incomplete certificate DNS proof lifecycle for this exact claim, including after restart or disconnection. Ordinary record mutations remain blocked while true. Read status or inspect records again to observe progress; reconnect the original account/zone if needed. Neither value proves certificate issuance, HTTPS readiness, or provider cleanup. Reading does not retry writes or create a CA order."
+        "description": "Certificate DNS validation is awaiting completion or cleanup for this claim, including after restart or disconnection. Ordinary record mutations remain blocked while true. Read status or inspect records again to observe progress; reconnect the original account/zone if needed. Neither value proves certificate issuance, HTTPS readiness, or provider cleanup. Reading does not retry writes or create a CA order."
       },
       "DnsApiA": {
         "type": "object",
@@ -13744,7 +13744,7 @@
         "minLength": 1,
         "maxLength": 48,
         "pattern": "^[a-z0-9][a-z0-9_-]{0,47}$",
-        "description": "DEC-MEMBER-HANDLE: required canonical, Organization-unique, immutable lowercase ASCII handle. Public profile URL /@{handle}; stable Member IDs remain API and relationship identities."
+        "description": "Required canonical, Organization-unique, immutable lowercase ASCII handle. Public profile URL /@{handle}; stable Member IDs remain API and relationship identities."
       },
       "MemberWrite": {
         "type": "object",
@@ -13754,7 +13754,7 @@
         "properties": {
           "handle": {
             "$ref": "#/components/schemas/MemberHandle",
-            "description": "Optional on creation: omission lets Engine generate a lowercase ASCII display-name slug bounded to 31 characters, falling back to member; a collision appends - plus the first 16 hexadecimal digits of SHA-256 of the Member ID. If that spelling is reserved too, a numeric suffix selects an available spelling within the 48-character bound. Invalid handles return 400 and duplicate explicit handles return 409. On update, omission preserves the existing handle; a differing handle returns 409."
+            "description": "Optional on creation: omission assigns an available lowercase ASCII handle of at most 48 characters. Invalid handles return 400 and duplicate explicit handles return 409. On update, omission preserves the existing handle; a differing handle returns 409."
           },
           "display_name": {
             "type": "string",
@@ -13951,7 +13951,7 @@
       },
       "MessageSip": {
         "type": "object",
-        "description": "DecisionId: DEC-PHONE-SIP-MESSAGE. Calling-account SIP MESSAGE provenance, distinct from cellular SMS. External sender addresses are untrusted and confer no Member identity. Private connection selectors and replay hashes are omitted. Accepted reports submission acceptance only, never sent/delivered proof.",
+        "description": "Calling-account SIP MESSAGE provenance, distinct from cellular SMS. External sender addresses are untrusted and confer no Member identity. Private connection selectors and replay hashes are omitted. Accepted reports submission acceptance only, never sent/delivered proof.",
         "required": ["from", "to", "direction", "status", "text"],
         "properties": {
           "from": {"type": "string"},
@@ -13964,7 +13964,7 @@
       },
       "MessageFax": {
         "type": "object",
-        "description": "DecisionId: DEC-PHONE-FAX. Fax provenance and document receipt. Exactly one ordinary Chat-owned PDF Asset contains the document; sender addresses are untrusted external labels, never Member identity. Received SIP addresses may retain numeric hosts, ports and ordinary routing parameters; they are presentation, not permission or an automatically valid dial target. Private connection/receiving selectors and replay/document proofs are omitted. This read representation does not imply that fax sending or reception is available on a connection.",
+        "description": "Fax provenance and document receipt. Exactly one ordinary Chat-owned PDF Asset contains the document; sender addresses are untrusted external labels, never Member identity. Received SIP addresses may retain numeric hosts, ports and ordinary routing parameters; they are presentation, not permission or an automatically valid dial target. Private connection/receiving selectors and replay/document proofs are omitted. This read representation does not imply that fax sending or reception is available on a connection.",
         "required": ["from", "to", "direction", "status", "pages"],
         "properties": {
           "from": {"type": "string", "minLength": 1, "maxLength": 512},
@@ -13994,15 +13994,15 @@
           },
           "sip_message_available": {
             "type": "boolean",
-            "description": "DecisionId: DEC-PHONE-SIP-MESSAGE. True only while the active registered runtime line matches the selected account and current storage generation. Allows submission, not proof of provider SIP MESSAGE support, cellular SMS support or delivery. Existing idempotent results remain readable while false."
+            "description": "True only while the active registered runtime line matches the selected account and current storage generation. Allows submission, not proof of provider SIP MESSAGE support, cellular SMS support or delivery. Existing idempotent results remain readable while false."
           },
           "fax_receiving_supported": {
             "type": "boolean",
-            "description": "DecisionId: DEC-PHONE-FAX. The serving cell has its explicit encrypted-audio/T.38 receiving transport configured and running. This is not proof of provider fax compatibility, NAT/firewall reachability or successful document receipt. Current registration is independent. False prevents enabling, but never prevents disabling an existing selection."
+            "description": "The serving cell has its explicit encrypted-audio/T.38 receiving transport configured and running. This is not proof of provider fax compatibility, NAT/firewall reachability or successful document receipt. Current registration is independent. False prevents enabling, but never prevents disabling an existing selection."
           },
           "fax_sending_available": {
             "type": "boolean",
-            "description": "DecisionId: DEC-PHONE-FAX. Submission is available only with configured/running fax transport and a registered exact calling connection in the current storage generation. This is not a guarantee of free line capacity, provider fax support or delivery. Receiving selection is independent; exact previously admitted results remain readable while false."
+            "description": "Submission is available only with configured/running fax transport and a registered exact calling connection in the current storage generation. This is not a guarantee of free line capacity, provider fax support or delivery. Receiving selection is independent; exact previously admitted results remain readable while false."
           },
           "registration": {
             "type": "string",
@@ -14038,7 +14038,7 @@
           },
           "fax_receiving_enabled": {
             "type": "boolean",
-            "description": "DecisionId: DEC-PHONE-FAX. Explicit Admin selection for the current connection, not a carrier-readiness claim. Private receiving generations never appear in REST."
+            "description": "Explicit Admin selection for the current connection, not a carrier-readiness claim. Private receiving generations never appear in REST."
           }
         }
       },
@@ -14248,7 +14248,7 @@
       },
       "ChatPhoneSetup": {
         "type": "object",
-        "description": "DecisionId: DEC-PHONE-TELNYX-SETUP. Omitted for disconnected Chats and anyone except a current human Manager participant with a selected number. Read-only provider inspection; not authorization to mutate or proof of receiving readiness.",
+        "description": "Omitted for disconnected Chats and anyone except a current human Manager participant with a selected number. Read-only provider inspection; not authorization to mutate or proof of receiving readiness.",
         "required": ["connection_id", "state"],
         "properties": {
           "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$", "minLength": 64, "maxLength": 64},
@@ -14285,7 +14285,7 @@
         "type": "object",
         "required": ["recipient", "text"],
         "properties": {
-          "recipient": {"type": "string", "description": "Explicit international E.164 number or sip:user@domain, validated and normalized by Engine; no display names, URI parameters, headers or caller-selected transport."},
+          "recipient": {"type": "string", "description": "Explicit international E.164 number or sip:user@domain, validated and normalized by Basstok; no display names, URI parameters, headers or caller-selected transport."},
           "text": {"type": "string", "minLength": 1, "description": "Plain text, at most 1024 UTF-8 bytes (not Unicode code points), normalized to literal CommonMark in history. The transport also bounds the complete SIP request, so its framing and recipient may cause a shorter text to be rejected. Provider charges may apply."}
         },
         "additionalProperties": false
@@ -15751,7 +15751,7 @@
       },
       "ForegroundEvent": {
         "type": "object",
-        "description": "DecisionId: DEC-PHONE-CALL-COORDINATION. The open event vocabulary includes member-scoped phone-call foreground reference signals. Re-read GET /api/v1/phone-calls under current authority; no call, token or body payload is delivered. This is not notification, push or background calling behavior.",
+        "description": "The open event vocabulary includes member-scoped phone-call foreground reference signals. Re-read GET /api/v1/phone-calls under current authority; no call, token or body payload is delivered. This is not notification, push or background calling behavior.",
         "required": [
           "id",
           "type"
