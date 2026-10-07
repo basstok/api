@@ -6577,18 +6577,18 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "get": {
         "operationId": "readChatEmailSending", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human participants may read capabilities; only the current human Chat creator receives sender settings and may send. No Admin or delegated-application override. Prefer explicitly selected Chat SMTP; otherwise use its connected Google/Microsoft mailbox only with an actual sending grant. No service-email fallback. No queries or credentials in responses.",
+        "description": "Current human participants may read capabilities; only the current human Chat creator receives their personal sending choices and may send. SMTP is connected once per address for this Member and reused across their Chats. Owned connected Google/Microsoft mailboxes require a current sending grant and continuing access to their receiving Chat. Explicit SMTP takes precedence for the same address. Choices prefer this Chat's receiving address, otherwise sort by address; send always requires an exact connection_id. No Admin or delegated-application override, service-email fallback, queries or credentials in responses.",
         "responses": {"200": {"description": "Current sending capability; Cache-Control: no-store. Readiness is not delivery evidence.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSending"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "put": {
         "operationId": "setChatEmailSending", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator selects customer SMTP, including Amazon SES SMTP. connection_id is empty for the first SMTP selection, otherwise the exact current SMTP connection. Verify public-address TLS, authentication and MAIL FROM acceptance without submitting a message; recheck current authority/selection before durable publication. Credentials remain private and are never returned. No query parameters. Browser presence/same-origin protections apply. Body at most 128 KiB.",
+        "description": "Current human Chat creator adds or replaces their personal SMTP connection, including Amazon SES SMTP. Reuse it across their Chats without repeating setup. connection_id is empty to add a different address, otherwise the exact connection being replaced. Up to eight SMTP addresses per Member; tenant capacity is bounded. Verify public-address TLS, authentication and MAIL FROM acceptance without submitting a message; recheck current authority and selection before saving. Replacing settings affects every Chat using this connection. Credentials remain private and are never returned. No query parameters. Browser presence/same-origin protections apply. Body at most 128 KiB.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSmtpInput"}}}},
         "responses": {"200": {"description": "Current sending selection; not a deliverability guarantee.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSending"}}}}, "409": {"description": "Selection changed or another operation is active; read current state."}, "422": {"description": "SMTP connection could not be verified; no new selection."}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "delete": {
         "operationId": "disconnectChatEmailSending", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator disconnects the exact selected SMTP connection. Keep sent history. Does not cancel an admitted send or disconnect a connected receiving mailbox. An authorized Google/Microsoft mailbox may become the available sender again. No queries; browser mutation protections apply.",
+        "description": "Current human Chat creator disconnects their exact personal SMTP connection across all their Chats. Keep sent history. Does not cancel an admitted send or disconnect a receiving mailbox. A separately authorized Google/Microsoft sender for that address may become available again. No queries; browser mutation protections apply.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxSelection"}}}},
         "responses": {"200": {"description": "Current sending capability.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSending"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -14291,25 +14291,25 @@
         "additionalProperties": false
       },
       "ChatEmailSending": {
-        "type": "object", "additionalProperties": false, "required": ["can_manage", "can_send"],
+        "type": "object", "additionalProperties": false, "required": ["can_manage", "senders"],
         "properties": {
           "can_manage": {"type": "boolean"},
-          "can_send": {"type": "boolean"},
-          "sender": {
-            "type": "object", "additionalProperties": false, "required": ["connection_id", "address", "method"],
+          "senders": {"type": "array", "maxItems": 40, "items": {
+            "type": "object", "additionalProperties": false, "required": ["connection_id", "address", "method", "can_send"],
             "properties": {
               "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
               "address": {"type": "string", "format": "email", "maxLength": 254},
               "method": {"type": "string", "enum": ["smtp", "google", "microsoft"]},
+              "can_send": {"type": "boolean"},
               "smtp": {"$ref": "#/components/schemas/SmtpEndpoint"}
             }
-          }
+          }}
         }
       },
       "ChatEmailSmtpInput": {
         "type": "object", "additionalProperties": false, "required": ["connection_id", "configuration"],
         "properties": {
-          "connection_id": {"type": "string", "pattern": "^([0-9a-f]{64})?$", "description": "Exact current SMTP selection, or empty when no SMTP selection exists."},
+          "connection_id": {"type": "string", "pattern": "^([0-9a-f]{64})?$", "description": "Exact personal SMTP connection to replace, or empty to add a different sending address. The connection is reusable across this Member's Chats."},
           "configuration": {"$ref": "#/components/schemas/CommunitySmtpInput"}
         }
       },
@@ -14511,6 +14511,10 @@
           "phone_number": {
             "type": "string",
             "description": "Customer-owned number connected for cellular texts. Inspect the phone resource for current readiness; this field does not promise calling support."
+          },
+          "calling_address": {
+            "type": "string",
+            "description": "Address of this Chat's connected calling account. Inspect the calling resource before use; this is not a readiness or permission claim. No credentials are included."
           },
           "attribution": {
             "type": "string",
