@@ -3,7 +3,7 @@
   "info": {
     "title": "Basstok API",
     "version": "1.0.0",
-    "description": "Basstok's external HTTP contract: Content with Comments, Chats with Messages, optional Labels, Members, and Assets. Collection POST creates return Basstok-assigned canonical IDs; item paths address existing resources. Queries filter or page representations. Successful ordinary activity mutations (existing Content edits without Label changes, Comments, reactions, follows, Messages and notification state) take effect immediately and may be acknowledged before they are saved. Notifications, email and webhooks may follow that acceptance without waiting for storage. A service interruption may lose changes not yet saved, even after external delivery. The retry result for a lost change may also be lost. Security, permissions, authentication, storage changes, resource publication, import completion and scheduled-operation success retain durable acknowledgement."
+    "description": "Basstok's external HTTP contract: Content with Comments, Chats with Messages, optional Labels, Members, and Assets. Collection POST creates return Basstok-assigned canonical IDs; item paths address existing resources. Queries filter or page representations. Successful ordinary activity mutations (existing Content edits without Label changes, Comments, reactions, follows, Messages and notification state) take effect immediately and may be acknowledged before they are saved. Notifications, email and webhooks may follow that acceptance without waiting for storage. A service interruption may lose changes not yet saved, even after external delivery. The retry result for a lost change may also be lost. Security, permissions, authentication, storage changes, resource publication, import completion and scheduled-operation success retain durable acknowledgement. Every Member must verify a phone number once before ordinary authenticated use, including new Accounts and existing-Organization membership. Public anonymous reading remains available. Phone verification is not repeated at ordinary sign-in and is not itself a login or recovery credential."
   },
   "servers": [
     {
@@ -434,7 +434,7 @@
     "/api/v1/account/phone": {
       "get": {
         "operationId": "getAccountPhone",
-        "description": "Own-account human session only; no Member selector, delegated application or query parameters. Returns current allowed destination countries, provider availability, private verified phone-control fact and this exact session's still-valid pending challenge. A verified phone is not a login, recovery or identity credential.",
+        "description": "Own-account human session only; no Member selector, delegated application or query parameters. Returns current allowed destination countries, verification availability, private verified phone-control fact and this exact session's still-valid pending challenge. A verified phone is not a login, recovery or identity credential. Available before phone verification so a valid current Member session can complete onboarding.",
         "security": [
           {
             "memberBearer": []
@@ -458,7 +458,7 @@
             "description": "A current first-party Member session is required."
           },
           "403": {
-            "description": "The Organization or country is not approved, or the proof does not belong to this current session."
+            "description": "The destination country is not supported, or the proof does not belong to this current Member, Organization and session."
           },
           "429": {
             "description": "A durable phone-verification send or code-check limit was reached. A new request is never sent automatically."
@@ -473,7 +473,7 @@
       },
       "delete": {
         "operationId": "removeAccountPhone",
-        "description": "Removes this Member's verified phone-control fact and invalidates every prior challenge through a durable Account revision. Available even after the Organization grant is revoked or the provider is unavailable. Does not revoke passkeys, email, sessions or Manager authority.",
+        "description": "Removes this Member's verified phone-control fact and invalidates every prior challenge. Ordinary authenticated access stops until verification succeeds again, including other existing sessions. Credentials, sessions and Admin authority are not deleted. Works even when the SMS provider is unavailable.",
         "security": [
           {
             "memberBearer": []
@@ -508,7 +508,7 @@
             "description": "A current first-party Member session is required."
           },
           "403": {
-            "description": "The Organization or country is not approved, or the proof does not belong to this current session."
+            "description": "The destination country is not supported, or the proof does not belong to this current Member, Organization and session."
           },
           "429": {
             "description": "A durable phone-verification send or code-check limit was reached. A new request is never sent automatically."
@@ -525,7 +525,7 @@
     "/api/v1/account/phone/verification": {
       "post": {
         "operationId": "requestAccountPhoneVerification",
-        "description": "Explicitly request one SMS for the same authenticated Member. Requires a current Basstok-issued Organization grant and an allowed country confirmed through an exact-number provider lookup. Initially supports US, Paraguay and Germany. Durable per-Member, destination, source, Organization and platform limits are charged before provider work, including failed or uncertain requests. Codes expire five minutes after admission; no automatic resend. Sending a replacement does not remove an already verified phone.",
+        "description": "Explicitly request one SMS for the same authenticated Member. Available to every current Member session, including pending onboarding. Requires an allowed country confirmed through an exact-number provider lookup. Initially supports US, Paraguay and Germany. Durable per-Member, destination, source, Organization and platform limits are charged before provider work, including failed or uncertain requests. Codes expire five minutes after admission; no automatic resend. Sending a replacement does not remove an already verified phone.",
         "security": [
           {
             "memberBearer": []
@@ -570,7 +570,7 @@
             "description": "A current first-party Member session is required."
           },
           "403": {
-            "description": "The Organization or country is not approved, or the proof does not belong to this current session."
+            "description": "The destination country is not supported, or the proof does not belong to this current Member, Organization and session."
           },
           "429": {
             "description": "A durable phone-verification send or code-check limit was reached. A new request is never sent automatically."
@@ -587,7 +587,7 @@
     "/api/v1/account/phone/verification/complete": {
       "post": {
         "operationId": "completeAccountPhoneVerification",
-        "description": "Checks the six-digit code against the exact private provider verification ID bound to this public challenge. The caller cannot supply a provider ID, country, Member or Organization. Requires the original current session, credential generation, Account revision and grant; at most five checks before expiry. Replay, revoked grants/sessions, other Members/Organizations and stale phone revisions fail closed. No authentication session or authority is created.",
+        "description": "Checks the six-digit code locally against the exact pending challenge. Completion needs no SMS-provider request. The caller cannot supply a provider ID, country, Member or Organization. Requires the original current session, credential generation, Account revision and hosting security identity; at most five checks before expiry. Replay, revoked sessions, other Members/Organizations and stale phone revisions fail closed. No new authentication session or Admin authority is created.",
         "security": [
           {
             "memberBearer": []
@@ -632,92 +632,13 @@
             "description": "A current first-party Member session is required."
           },
           "403": {
-            "description": "The Organization or country is not approved, or the proof does not belong to this current session."
+            "description": "The destination country is not supported, or the proof does not belong to this current Member, Organization and session."
           },
           "429": {
             "description": "A durable phone-verification send or code-check limit was reached. A new request is never sent automatically."
           },
           "503": {
             "description": "Verification is unavailable or busy. An uncertain SMS dispatch is never retried automatically."
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      }
-    },
-    "/api/v1/hosting/phone-verification/{organizationId}": {
-      "parameters": [
-        {
-          "name": "organizationId",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "Stable ID of an established hosted Organization, or the hosting Organization itself."
-        }
-      ],
-      "put": {
-        "operationId": "grantOrganizationPhoneVerification",
-        "description": "Only a current human Manager authenticated on the hosting basstok.com Organization may approve SMS verification for this Organization and a nonempty subset of US, PY and DE. A tenant Manager, pending founder or App cannot grant this entitlement. This is not a generic feature editor or billing action. Changing the country allowance replaces the grant identity and invalidates earlier challenges.",
-        "security": [
-          {
-            "memberBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "X-Basstok-Presence",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Required for browser cookie-authenticated mutations; must match the current session presence cookie. Cross-origin browser mutations are rejected."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PhoneVerificationGrantInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "Grant durably recorded. An unchanged exact retry preserves it."
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      },
-      "delete": {
-        "operationId": "revokeOrganizationPhoneVerification",
-        "description": "Current human Manager on hosting basstok.com only. Durably revokes SMS eligibility. Previously sent SMS may still arrive, but their challenges cannot complete. A later regrant never reactivates them. Existing verified phone-control facts remain private and removable.",
-        "security": [
-          {
-            "memberBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "X-Basstok-Presence",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Required for browser cookie-authenticated mutations; must match the current session presence cookie. Cross-origin browser mutations are rejected."
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Grant is absent."
           },
           "default": {
             "$ref": "#/components/responses/Error"
@@ -1620,7 +1541,7 @@
       },
       "post": {
         "operationId": "createBasstok",
-        "description": "Create a separately stored Basstok Account (an Organization) and return its authenticated ordinary founder session after canonical and private security durability, TLS readiness and routing publication. Omit hostname, or provide an empty value, to assign a stable address and the initial name Personal. An explicit hostname retains named creation. Exact retries retain the same identity and cannot revive a revoked session; changing the address mode for an existing attempt fails closed. No credential or Terms acceptance is required; Admin activation remains separate recovery-email verification. This creates no membership or authority in the hosting basstok.com Organization. Joining an existing Organization remains a different operation and never provisions a personal Account or bucket. Browsers require same-origin JSON and X-Basstok-Auth matching completion_token, then the existing host-bound session handoff.",
+        "description": "Create a separately stored Basstok Account (an Organization) and return its founder session pending phone verification after canonical and private security durability, TLS readiness and routing publication. Omit hostname, or provide an empty value, to assign a stable address and the initial name Personal. An explicit hostname retains named creation. Exact retries retain the same identity and cannot revive a revoked session; changing the address mode for an existing attempt fails closed. Verify a phone number before ordinary authenticated use. No passkey, email or Terms acceptance is required at creation; Admin activation remains separate recovery-email verification. This creates no membership or authority in the hosting basstok.com Organization. Joining an existing Organization remains a different operation and never provisions a personal Account or bucket. Browsers require same-origin JSON and X-Basstok-Auth matching completion_token, then the existing host-bound session handoff.",
         "security": [],
         "parameters": [
           {
@@ -4426,7 +4347,7 @@
     "/api/v1/auth/session": {
       "get": {
         "operationId": "getSessionPrincipal",
-        "description": "Returns the responsible Member identity for the current Member session or delegated OAuth grant.",
+        "description": "Returns the responsible Member identity and phone_verified for a current Member session or delegated OAuth grant. An unverified Member session is retained for SMS verification, not ordinary participation.",
         "security": [
           {
             "memberBearer": []
@@ -9935,7 +9856,7 @@
     "/api/v1/auth/join": {
       "post": {
         "operationId": "joinMember",
-        "description": "Starts ordinary membership in the current Organization after durable admission. The hosting basstok.com Organization rejects this operation with 409 account_creation_required; direct signup uses POST /api/v1/basstoks to create a separately stored Account. Ordinary community joining creates no personal Account, hosting membership or additional bucket. Only completion_token is accepted. Member presentation is derived from the Organization. Terms acceptance and durable sign-in setup remain optional. A client presenting a current Member session receives 409 already_authenticated, preserving that account instead of creating another Member. Invalid presented authentication fails closed. Browsers require same-origin JSON and X-Basstok-Auth matching completion_token. Sets an HttpOnly host-only binding cookie for later session installation; no prior binding cookie is needed.",
+        "description": "Bootstraps membership in the current Organization after durable admission. The hosting basstok.com Organization rejects this operation with 409 account_creation_required; direct signup uses POST /api/v1/basstoks to create a separately stored Account. Ordinary community joining creates no personal Account, hosting membership or additional bucket. Only completion_token is accepted. Member presentation is derived from the Organization. Phone verification is required before ordinary authenticated use; Terms acceptance and durable sign-in setup remain later actions. A client presenting a current Member session receives 409 already_authenticated, preserving that account instead of creating another Member. Invalid presented authentication fails closed. Browsers require same-origin JSON and X-Basstok-Auth matching completion_token. Sets an HttpOnly host-only binding cookie for later session installation; no prior binding cookie is needed.",
         "security": [],
         "parameters": [
           {
@@ -15043,29 +14964,6 @@
           }
         }
       },
-      "PhoneVerificationGrantInput": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "allowed_countries"
-        ],
-        "properties": {
-          "allowed_countries": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 3,
-            "uniqueItems": true,
-            "items": {
-              "type": "string",
-              "enum": [
-                "US",
-                "PY",
-                "DE"
-              ]
-            }
-          }
-        }
-      },
       "AccountNameInput": {
         "type": "object",
         "additionalProperties": false,
@@ -15805,11 +15703,16 @@
       "Principal": {
         "type": "object",
         "required": [
-          "member_id"
+          "member_id",
+          "phone_verified"
         ],
         "properties": {
           "member_id": {
             "type": "string"
+          },
+          "phone_verified": {
+            "type": "boolean",
+            "description": "Whether this Member has verified a phone number. False limits the current access to verification, authentication transfer and logout; ordinary authenticated operations return 403 phone_verification_required."
           }
         },
         "additionalProperties": false
