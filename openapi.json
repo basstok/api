@@ -7077,7 +7077,7 @@
       "parameters": [{ "$ref": "#/components/parameters/ChatId" }],
       "post": {
         "operationId": "sendChatFax",
-        "description": "Send prepared monochrome pages to an explicit recipient and retain the PDF and delivery state in this Chat. Omit connection_id (or use null) to send through Basstok using this Account's allowance: requires its admitted human creator and sufficient balance, not a purchase, saved login, Admin role or customer calling connection. Direct Account creation includes starter credit; community membership alone does not. Supply connection_id to use that exact registered customer SIP connection instead; this never falls back to Account spending. Basstok fax accepts E.164 numbers; customer SIP additionally accepts strict SIP addresses. Incoming fax selection is separate. The exact PDF and authored Unconfirmed Message are durable before sending. Idempotency-Key is scoped to the Member, Chat and participant-history boundary. Exact retries return saved state without redial, including after restart or service disconnection; changing route, recipient or document conflicts. Waits up to 21 minutes, bounded further by the Account allowance; the Message is visible in Chat reads/SSE while sending. Losing the request or closing a draft does not cancel an admitted transmission. Errors, timeouts and Unconfirmed may mean it was sent: inspect the existing Chat and never automatically resend with a new key. Delivered requires document confirmation, not merely an answered call. A failed answered fax may still consume connected time. Delegated/acting Members are forbidden; browser presence/origin checks apply. At most four concurrent submissions and 44804784 request bytes. Clients render and preview bounded pages locally; arbitrary source PDFs are not accepted by this endpoint.",
+        "description": "Send prepared monochrome pages to an explicit recipient and retain the PDF and delivery state in this Chat. Omit connection_id (or use null) to send through Basstok using this Account's allowance: requires its admitted human creator, a currently verified phone number and sufficient balance, not a purchase, saved login, Admin role or customer calling connection. Direct Account creation includes starter credit; community membership alone does not. Supply connection_id to use that exact registered customer SIP connection instead; this never falls back to Account spending. Basstok fax accepts E.164 numbers; customer SIP additionally accepts strict SIP addresses. Incoming fax selection is separate. The exact PDF and authored Unconfirmed Message are durable before sending. Idempotency-Key is scoped to the Member, Chat and participant-history boundary. Exact retries return saved state without redial, including after restart or service disconnection; changing route, recipient or document conflicts. Waits up to 21 minutes, bounded further by the Account allowance; the Message is visible in Chat reads/SSE while sending. Losing the request or closing a draft does not cancel an admitted transmission. Errors, timeouts and Unconfirmed may mean it was sent: inspect the existing Chat and never automatically resend with a new key. Delivered requires document confirmation, not merely an answered call. A failed answered fax may still consume connected time. Delegated/acting Members are forbidden; browser presence/origin checks apply. At most four concurrent submissions and 44804784 request bytes. Clients render and preview bounded pages locally; arbitrary source PDFs are not accepted by this endpoint.",
         "security": [{ "memberBearer": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/IdempotencyKey" },
@@ -7131,13 +7131,13 @@
     "/api/v1/phone-calls": {
       "post": {
         "operationId": "startAccountPhoneCall",
-        "description": "Start an outgoing telephone call from this Account. Requires its admitted human creator, available calling service and sufficient funded usage; Admin activation is not required. Supply one E.164 number and a fresh attempt UUID. The response authorizes a single native endpoint connection, not a connected recipient. Exact setup retries preserve the original call and expiry and never start another dialing job; connected or ended attempts cannot enroll another endpoint. Register the returned callee endpoint using its exact TLS certificate and proof. Preparation begins only after that authenticated connection. The call uses the Account's allowance and Basstok's customer tariff, fixed for the attempt; supplier charges do not determine the customer charge. Read this call or react to Member phone-call events for current state; Live means the recipient is connected. Leave through the ordinary owner-session call endpoint. No automatic redial after failure or restart, no Chat or reusable calling credentials, and no browser media implementation. At most 256 body bytes; unknown fields, duplicate fields and query parameters are rejected. Cookie-authenticated writes require matching presence and same-origin checks.",
+        "description": "Start an outgoing telephone call from this Account. Requires its admitted human creator with a currently verified phone number, available calling service and sufficient funded usage; Admin activation is not required. Supply one E.164 number and a fresh lowercase UUIDv4 attempt identifier. The response authorizes a single native endpoint connection, not a connected recipient. Exact setup retries preserve the original call and expiry and never start another dialing job; connected or ended attempts cannot enroll another endpoint. Connect the returned native SIP endpoint using its exact TLS certificate and proof. Dialing requires that authenticated connection. The call uses the Account's allowance and Basstok's customer tariff, fixed for the attempt; supplier charges do not determine the customer charge. Read this call or react to Member phone-call events for current state; Live means the recipient is connected. Leave through the ordinary owner-session call endpoint. No automatic redial after failure or restart, no Chat or reusable calling credentials, and no browser media implementation. At most 256 body bytes; unknown fields, duplicate fields and query parameters are rejected. Cookie-authenticated writes require matching presence and same-origin checks.",
         "security": [{"memberBearer": []}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {
           "type": "object", "additionalProperties": false, "required": ["number", "attempt_id"],
           "properties": {
             "number": {"type": "string", "pattern": "^\\+[1-9][0-9]{7,14}$", "maxLength": 16},
-            "attempt_id": {"type": "string", "format": "uuid"}
+            "attempt_id": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}
           }
         }}}},
         "responses": {
@@ -7397,56 +7397,6 @@
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatSmsInput"}}}},
         "responses": {
           "200": {"description": "Current Message; acceptance is not delivery", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Message"}}}},
-          "default": {"$ref": "#/components/responses/Error"}
-        }
-      }
-    },
-    "/api/v1/phone/managed/stop": {
-      "post": {
-        "operationId": "stopManagedPhoneCall",
-        "description": "The currently admitted human Account creator may stop an exact existing managed call attempt, including from another authenticated device. Account identity comes from the request hostname, not the body. The stop is saved before success and prevents further dialing for this attempt. Basstok attempts any due hangups without treating command acceptance as proof of termination or a refund. An exact retry is safe while the attempt remains retained. Invalid, expired, revoked, delegated, non-creator and cross-Account access fails closed. This operation neither starts a call nor grants credit. No query parameters; at most 1024 body bytes. Browser mutations require the usual same-origin and presence checks.",
-        "security": [{"memberBearer": []}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {
-          "type": "object", "additionalProperties": false,
-          "required": ["sequence", "operation_id"],
-          "properties": {
-            "sequence": {"type": "integer", "format": "uint64", "minimum": 1, "maximum": 18446744073709551615},
-            "operation_id": {"type": "string", "format": "uuid"}
-          }
-        }}}},
-        "responses": {
-          "202": {"description": "Stop durably accepted. Remote termination and final usage may still be pending."},
-          "default": {"$ref": "#/components/responses/Error"}
-        }
-      }
-    },
-    "/api/v1/phone/managed/events": {
-      "post": {
-        "operationId": "receiveManagedPhoneEvent",
-        "description": "Provider-only delivery endpoint on the configured Basstok service origin. Route parameters identify an existing call attempt; they grant no authority. Exact raw bytes require valid Ed25519 signature and timestamp headers within 300 seconds, matching the saved Account, attempt, leg and provider identities. At most 16384 body bytes and 512 query bytes. Authenticated observations and any resulting usage settlement are saved before success. Exact duplicates are harmless. Conflicting authenticated evidence is retained for reconciliation, not used to release credit. No Member login, dispatch, credit grant or refund request is supported here.",
-        "security": [],
-        "parameters": [
-          {"name": "account", "in": "query", "required": true, "description": "Account ID of the Account that owns the call attempt.", "schema": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9_.-]+$"}},
-          {"name": "sequence", "in": "query", "required": true, "schema": {"type": "string", "pattern": "^[1-9][0-9]{0,19}$"}, "description": "Positive unsigned 64-bit call-attempt sequence, without leading zeroes."},
-          {"name": "operation", "in": "query", "required": true, "schema": {"type": "string", "format": "uuid"}},
-          {"name": "leg", "in": "query", "required": true, "schema": {"type": "integer", "enum": [0, 1]}},
-          {"name": "telnyx-signature-ed25519", "in": "header", "required": true, "schema": {"type": "string", "maxLength": 128}},
-          {"name": "telnyx-timestamp", "in": "header", "required": true, "schema": {"type": "string", "maxLength": 19}}
-        ],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {
-          "type": "object", "required": ["data"], "properties": {"data": {
-            "type": "object", "required": ["id", "record_type", "event_type", "occurred_at", "payload"],
-            "properties": {
-              "id": {"type": "string", "format": "uuid"},
-              "record_type": {"type": "string", "enum": ["event"]},
-              "event_type": {"type": "string", "enum": ["call.initiated", "call.answered", "call.bridged", "call.hangup", "call.cost"]},
-              "occurred_at": {"type": "string", "format": "date-time"},
-              "payload": {"type": "object", "description": "Provider lifecycle or cost fields, verified against the existing call attempt."}
-            }
-          }}
-        }}}},
-        "responses": {
-          "204": {"description": "Authenticated observation durably handled, or exact duplicate; no session is created."},
           "default": {"$ref": "#/components/responses/Error"}
         }
       }
@@ -14224,7 +14174,7 @@
           },
           "fax_sending_available": {
             "type": "boolean",
-            "description": "With connection present, submission uses that exact registered customer calling connection. Without connection, this human Account creator can submit through Basstok using the Account allowance, without purchase or Admin activation. Requires running fax service; not a guarantee of remaining balance, capacity, recipient support or delivery. Receiving selection is independent. Exact saved results remain readable while false."
+            "description": "With connection present, submission uses that exact registered customer calling connection. Without connection, this human Account creator with a currently verified phone number can submit through Basstok using the Account allowance, without purchase or Admin activation. Requires running fax service; not a guarantee of remaining balance, capacity, recipient support or delivery. Receiving selection is independent. Exact saved results remain readable while false."
           },
           "registration": {
             "type": "string",
@@ -15225,6 +15175,7 @@
           "blocked_members",
           "pending_initial_founder",
           "can_read_administration",
+          "can_use_managed_phone",
           "has_passkey"
         ],
         "properties": {
@@ -15249,6 +15200,10 @@
           },
           "recovery_email_verified_at": {
             "type": "string"
+          },
+          "can_use_managed_phone": {
+            "type": "boolean",
+            "description": "This Member may use the Account's managed phone allowance. This is not a guarantee of service availability or remaining credit. Ordinary community membership does not grant it."
           },
           "pending_initial_founder": {
             "type": "boolean"
