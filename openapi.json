@@ -3,7 +3,7 @@
   "info": {
     "title": "Basstok API",
     "version": "1.0.0",
-    "description": "Basstok's external HTTP contract: Content with Comments, Chats with Messages, optional Labels, Members, and Assets. Collection POST creates return Basstok-assigned canonical IDs; item paths address existing resources. Queries filter or page representations. Successful ordinary activity mutations (existing Content edits without Label changes, Comments, reactions, follows, Messages and notification state) take effect immediately and may be acknowledged before they are saved. Notifications, email and webhooks may follow that acceptance without waiting for storage. A service interruption may lose changes not yet saved, even after external delivery. The retry result for a lost change may also be lost. Security, permissions, authentication, storage changes, resource publication, import completion and scheduled-operation success retain durable acknowledgement. Every Member must verify a phone number once before ordinary authenticated use, including new Accounts and existing-Organization membership. Public anonymous reading remains available. Phone verification is not repeated at ordinary sign-in and is not itself a login or recovery credential."
+    "description": "Basstok's external HTTP contract: Content with Comments, Chats with Messages, optional Labels, Members, and Assets. Collection POST creates return Basstok-assigned canonical IDs; item paths address existing resources. Queries filter or page representations. Successful ordinary activity mutations (existing Content edits without Label changes, Comments, reactions, follows, Messages and notification state) take effect immediately and may be acknowledged before they are saved. Notifications, email and webhooks may follow that acceptance without waiting for storage. A service interruption may lose changes not yet saved, even after external delivery. The retry result for a lost change may also be lost. Security, permissions, authentication, storage changes, resource publication, import completion and scheduled-operation success retain durable acknowledgement. Members require native app verification or phone verification before ordinary authenticated use, including new Accounts and existing-Account membership. Public anonymous reading remains available. Admission is not repeated at ordinary sign-in and is not itself a login or recovery credential."
   },
   "servers": [
     {
@@ -24,7 +24,38 @@
     }
   ],
   "paths": {
-    "/api/v1/organization/dns/claims/{claimId}/cloudflare/native-preview": {
+    "/api/v1/account/phone-usage": {
+      "get": {
+        "operationId": "readAccountPhoneUsage",
+        "summary": "Read Account phone usage",
+        "description": "Current human Admin only; delegated applications are rejected. Returns up to 13 active UTC calendar months of SIP usage across the Account's lines, with incoming and outgoing totals separated. Calls count admitted attempts; connected time is rounded up to seconds, not minutes. Pending call time is a conservative reservation, not measured duration or a carrier invoice. Texts count admitted SIP MESSAGE operations, not cellular SMS. Faxes count admitted outgoing documents and incoming document publication, with their pages. Retries of the same retained operation do not add usage. No phone numbers, recipients or credentials are returned.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {
+            "description": "Account usage and outgoing limits. No-store.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PhoneUsageSummary"}}}
+          },
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/account/phone-usage/limits": {
+      "put": {
+        "operationId": "setAccountPhoneUsageLimits",
+        "summary": "Set monthly outgoing phone limits",
+        "description": "Current human Admin only; delegated applications are rejected. Replaces the Account's UTC calendar-month limits for customer-owned SIP lines. Omitted or null fields remove that limit; zero disables new operations of that kind. Does not clear usage, shorten calls already admitted, purchase credit, grant a subscription or change provider billing. Call-time reservations count toward the limit before connecting. A call is admitted for at most the remaining time and ends at that deadline. Browser cookie requests require the usual presence header.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PhoneUsageLimits"}}}
+        },
+        "responses": {
+          "204": {"description": "Limits saved."},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/account/dns/claims/{claimId}/cloudflare/native-preview": {
       "parameters": [
         {
           "name": "claimId",
@@ -39,7 +70,7 @@
         }
       ],
       "post": {
-        "operationId": "previewOrganizationCloudflareNativeDns",
+        "operationId": "previewAccountCloudflareNativeDns",
         "summary": "Review all records before native preparation",
         "description": "Current human Admin, exact verified claim and selected connection, with no pending provider work. Reads a complete bounded inventory (100 records), full-zone binding, DNS settings and DNSSEC. Proxied, configured-flattened, DNSSEC-enabled, child-delegated, unsupported or malformed data fails the whole copy. Preserves unassigned records including mail; replaces apex NS/SOA with installation identities and Auto TTL with 300 seconds. Stop external DNS edits and remove parent DS before changing nameservers. DNS records only: Cloudflare services are not transferred. Same tenant/session/browser-presence/no-store/bounded-admission and OAuth refresh rules as inspection. No provider writes or automatic retry. Returns a transient proposed first zone revision and comparison digest; no persisted preview or publication.",
         "security": [
@@ -99,7 +130,7 @@
             "description": "Current human Manager authority, browser presence or proof binding is missing."
           },
           "404": {
-            "description": "The claim does not belong to this Organization."
+            "description": "The claim does not belong to this Account."
           },
           "409": {
             "description": "dns_copy_blocked: unsupported provider behavior. dns_spf_conflict: multiple SPF policies at one owner; correct provider records before copying, with no writes performed by this request. dns_copy_conflict: source/claim changed, pending work, native hosting unavailable, or already prepared/published. Read saved state then review again. update_in_progress: bounded admission busy."
@@ -113,7 +144,7 @@
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/cloudflare/native-prepare": {
+    "/api/v1/account/dns/claims/{claimId}/cloudflare/native-prepare": {
       "parameters": [
         {
           "name": "claimId",
@@ -128,7 +159,7 @@
         }
       ],
       "post": {
-        "operationId": "prepareOrganizationCloudflareNativeDns",
+        "operationId": "prepareAccountCloudflareNativeDns",
         "summary": "Prepare the exact reviewed Cloudflare DNS copy",
         "description": "Current human Admin, exact verified claim and selected connection, with no pending provider work. Reads a complete bounded inventory (100 records), full-zone binding, DNS settings and DNSSEC. Proxied, configured-flattened, DNSSEC-enabled, child-delegated, unsupported or malformed data fails the whole copy. Preserves unassigned records including mail; replaces apex NS/SOA with installation identities and Auto TTL with 300 seconds. Stop external DNS edits and remove parent DS before changing nameservers. DNS records only: Cloudflare services are not transferred. Same tenant/session/browser-presence/no-store/bounded-admission and OAuth refresh rules as inspection. No provider writes or automatic retry. Rereads the source and compares source_revision, bound to claim, connection, assignments, inventory and installed nameservers. Revalidates the claim before saving and serving the prepared records. No delegation/TLS/mail/website activation; use /native after registrar changes. Already prepared/published conflicts. If save outcome is uncertain, read saved claims/zones before explicitly retrying.",
         "security": [
@@ -195,7 +226,7 @@
             "description": "Current human Manager authority, browser presence or proof binding is missing."
           },
           "404": {
-            "description": "The claim does not belong to this Organization."
+            "description": "The claim does not belong to this Account."
           },
           "409": {
             "description": "dns_copy_blocked: unsupported provider behavior. dns_spf_conflict: multiple SPF policies at one owner; correct provider records before copying, with no writes performed by this request. dns_copy_conflict: source/claim changed, pending work, native hosting unavailable, or already prepared/published. Read saved state then review again. update_in_progress: bounded admission busy."
@@ -431,10 +462,116 @@
         "description": "Served without redirect at basstok.com and routed managed subdomains. Declares com.basstok.app with configured signing SHA-256 for get_login_creds and handle_all_urls. Native intent filters bound recovery link paths. Missing BASSTOK_ANDROID_SIGNING_SHA256 fails closed."
       }
     },
-    "/api/v1/account/phone": {
+    "/api/v1/account/plan": {
+      "get": {
+        "operationId": "getAccountPlan",
+        "description": "Read the Account creator's subscription, including before ordinary admission or Admin activation. The Account is the current Account, not the device or a global user. No selectors or query parameters. Saved status expires at paid_until_ms and records its verification time; it is not a promise of immediate refund reconciliation.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Private current plan; Cache-Control: no-store. A paid plan changes no permissions, verification, calling setup or usage allowance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPlan"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "A current first-party Member session is required."
+          },
+          "403": {
+            "description": "Only the Account creator may manage the plan."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/account/plan/apple": {
+      "post": {
+        "operationId": "verifyAppleAccountPlan",
+        "description": "Verify an Apple purchase through a fresh server lookup, bound to the current Account's app_account_token and configured monthly product. Send the original transaction ID after a verified native purchase or restore; omit it or use null to refresh the already bound subscription. Native purchase completion follows the durable response. Does not authenticate, admit the Member, activate Admin authority, issue credit or configure services. No purchase transfer between Accounts. Browser requests require same-origin presence protection. Cancellation of renewal preserves the unexpired period; expired, revoked and billing-retry subscriptions are not paid. Sandbox is reported separately and never funds service. Unknown fields and query parameters reject.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplePlanVerification"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Private current plan; Cache-Control: no-store. A paid plan changes no permissions, verification, calling setup or usage allowance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "description": "A current first-party Member session is required."
+          },
+          "403": {
+            "description": "Only the Account creator may manage the plan."
+          },
+          "409": {
+            "description": "Wrong Account/product binding or concurrent plan change. Read current state before retrying; never purchase again to resolve a lost response."
+          },
+          "503": {
+            "description": "Purchases or verification are unavailable. No successful verification is implied."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/account/plan/google": {
+      "post": {
+        "operationId": "verifyGoogleAccountPlan",
+        "description": "Verify or reconcile a Google Play subscription for the authenticated Account creator, including before ordinary admission or Admin activation. Pass app_account_token as BillingClient's obfuscated account ID when purchasing the configured product and base plan. Supply the purchase token after purchase or restore; omit it or use null to reconcile the saved purchase. The token is private and is never returned. The server durably publishes the bound entitlement before acknowledging Google; clients must not acknowledge independently. An uncertain response requires reconciliation of the same purchase, never another purchase. Store ownership persists through expiry: an Apple-owned Account cannot attach a Google purchase, and purchases cannot transfer between Accounts. Pending purchases have no paid access. Test purchases never fund production service. This operation does not grant admission, Admin authority, starter credit or service setup. Browser requests require same-origin presence protection. Unknown fields and query parameters reject.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/GooglePlanVerification"}}}
+        },
+        "responses": {
+          "200": {
+            "description": "Private current plan; Cache-Control: no-store. acknowledgement_pending remains true when a pending or unusable purchase cannot yet be acknowledged.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccountPlan"}}}
+          },
+          "400": {"$ref": "#/components/responses/Error"},
+          "401": {"description": "A current first-party Member session is required."},
+          "403": {"description": "Only the Account creator may manage the plan."},
+          "409": {"description": "Wrong purchase binding, another owning store or concurrent plan change. Read current state and reconcile before retrying."},
+          "503": {"description": "Verification or acknowledgement is unavailable or uncertain. The entitlement may already be saved. Reconcile the same purchase."},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/member-access/phone": {
       "get": {
         "operationId": "getAccountPhone",
-        "description": "Own-account human session only; no Member selector, delegated application or query parameters. Returns current allowed destination countries, verification availability, private verified phone-control fact and this exact session's still-valid pending challenge. A verified phone is not a login, recovery or identity credential. Available before phone verification so a valid current Member session can complete onboarding.",
+        "description": "Own-account human session only; no Member selector, delegated application or query parameters. Returns allowed destination countries, configured delivery channels, private verified phone-control fact and this exact session's still-valid pending challenge. Pending and verified state preserve the delivery channel. A verified phone is not a login, recovery or identity credential. Available before phone verification so a valid current Member session can complete onboarding.",
         "security": [
           {
             "memberBearer": []
@@ -446,7 +583,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccountPhone"
+                  "$ref": "#/components/schemas/MemberPhone"
                 }
               }
             }
@@ -458,13 +595,13 @@
             "description": "A current first-party Member session is required."
           },
           "403": {
-            "description": "The destination country is not supported, or the proof does not belong to this current Member, Organization and session."
+            "description": "The destination country is not supported, or the proof does not belong to this current Member, Account and session."
           },
           "429": {
             "description": "A durable phone-verification send or code-check limit was reached. A new request is never sent automatically."
           },
           "503": {
-            "description": "Verification is unavailable or busy. An uncertain SMS dispatch is never retried automatically."
+            "description": "Verification is unavailable or busy. An uncertain verification-code dispatch is never retried automatically."
           },
           "default": {
             "$ref": "#/components/responses/Error"
@@ -473,7 +610,7 @@
       },
       "delete": {
         "operationId": "removeAccountPhone",
-        "description": "Removes this Member's verified phone-control fact and invalidates every prior challenge. Ordinary authenticated access stops until verification succeeds again, including other existing sessions. Credentials, sessions and Admin authority are not deleted. Works even when the SMS provider is unavailable.",
+        "description": "Removes this Member's verified phone-control fact and invalidates prior phone challenges. Ordinary authenticated access stops across existing sessions unless the Member also has native app admission. Credentials, sessions and Admin authority are not deleted. Works even when delivery providers are unavailable.",
         "security": [
           {
             "memberBearer": []
@@ -496,7 +633,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccountPhone"
+                  "$ref": "#/components/schemas/MemberPhone"
                 }
               }
             }
@@ -508,13 +645,13 @@
             "description": "A current first-party Member session is required."
           },
           "403": {
-            "description": "The destination country is not supported, or the proof does not belong to this current Member, Organization and session."
+            "description": "The destination country is not supported, or the proof does not belong to this current Member, Account and session."
           },
           "429": {
             "description": "A durable phone-verification send or code-check limit was reached. A new request is never sent automatically."
           },
           "503": {
-            "description": "Verification is unavailable or busy. An uncertain SMS dispatch is never retried automatically."
+            "description": "Verification is unavailable or busy. An uncertain verification-code dispatch is never retried automatically."
           },
           "default": {
             "$ref": "#/components/responses/Error"
@@ -522,10 +659,10 @@
         }
       }
     },
-    "/api/v1/account/phone/verification": {
+    "/api/v1/member-access/phone/verification": {
       "post": {
         "operationId": "requestAccountPhoneVerification",
-        "description": "Explicitly request one SMS for the same authenticated Member. Available to every current Member session, including pending onboarding. Requires an allowed country confirmed through an exact-number provider lookup. Initially supports US, Paraguay and Germany. Durable per-Member, destination, source, Organization and platform limits are charged before provider work, including failed or uncertain requests. Codes expire five minutes after admission; no automatic resend. Sending a replacement does not remove an already verified phone.",
+        "description": "Explicitly request one verification code for the same authenticated Member. Select a configured channel; omission selects SMS. Available to current Member sessions, including pending onboarding. Requires an allowed country confirmed through exact-number lookup: US, Paraguay or Germany. Both channels share durable per-Member, destination, source, Account and platform limits, charged before provider work including failed or uncertain requests. Codes expire five minutes after admission. A new admitted attempt replaces the pending code without removing an already verified phone. A send-limit rejection preserves the existing pending code and does not prevent its completion. No automatic resend or fallback to another channel.",
         "security": [
           {
             "memberBearer": []
@@ -558,7 +695,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccountPhone"
+                  "$ref": "#/components/schemas/MemberPhone"
                 }
               }
             }
@@ -570,13 +707,19 @@
             "description": "A current first-party Member session is required."
           },
           "403": {
-            "description": "The destination country is not supported, or the proof does not belong to this current Member, Organization and session."
+            "description": "The destination country is not supported, or the proof does not belong to this current Member, Account and session."
           },
           "429": {
-            "description": "A durable phone-verification send or code-check limit was reached. A new request is never sent automatically."
+            "description": "phone_verification_limited: no new code was sent. Retry-After accounts for all currently exhausted send limits; later activity can extend the wait. The existing pending code is unchanged. A new request is never sent automatically.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before explicitly requesting another code.",
+                "schema": {"type": "integer", "minimum": 1, "maximum": 4294967295}
+              }
+            }
           },
           "503": {
-            "description": "Verification is unavailable or busy. An uncertain SMS dispatch is never retried automatically."
+            "description": "Verification is unavailable or busy. An uncertain verification-code dispatch is never retried automatically."
           },
           "default": {
             "$ref": "#/components/responses/Error"
@@ -584,10 +727,10 @@
         }
       }
     },
-    "/api/v1/account/phone/verification/complete": {
+    "/api/v1/member-access/phone/verification/complete": {
       "post": {
         "operationId": "completeAccountPhoneVerification",
-        "description": "Checks the six-digit code locally against the exact pending challenge. Completion needs no SMS-provider request. The caller cannot supply a provider ID, country, Member or Organization. Requires the original current session, credential generation, Account revision and hosting security identity; at most five checks before expiry. Replay, revoked sessions, other Members/Organizations and stale phone revisions fail closed. No new authentication session or Admin authority is created.",
+        "description": "Checks the six-digit code locally against the exact pending challenge. Completion needs no provider request and cannot change the delivery channel. Send limits do not prevent checking an existing valid code. The caller cannot supply a provider ID, country, Member or Account. Requires the original current session, credential generation, Member phone-control revision and hosting security identity; at most five checks before expiry. An exhausted challenge requires an explicitly requested new code, not another check of the old code. An exact successful replay returns the established result without another send or grant; revoked sessions, other Members/Accounts and stale phone revisions fail closed. No new authentication session or Admin authority is created.",
         "security": [
           {
             "memberBearer": []
@@ -620,7 +763,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccountPhone"
+                  "$ref": "#/components/schemas/MemberPhone"
                 }
               }
             }
@@ -632,13 +775,13 @@
             "description": "A current first-party Member session is required."
           },
           "403": {
-            "description": "The destination country is not supported, or the proof does not belong to this current Member, Organization and session."
+            "description": "The destination country is not supported, or the proof does not belong to this current Member, Account and session."
           },
           "429": {
-            "description": "A durable phone-verification send or code-check limit was reached. A new request is never sent automatically."
+            "description": "phone_code_exhausted: all code checks were consumed. Explicitly request a new code, subject to the shared send limits. The old challenge cannot be retried, so no Retry-After header is returned. No automatic resend occurs."
           },
           "503": {
-            "description": "Verification is unavailable or busy. An uncertain SMS dispatch is never retried automatically."
+            "description": "Verification is unavailable or busy. An uncertain verification-code dispatch is never retried automatically."
           },
           "default": {
             "$ref": "#/components/responses/Error"
@@ -646,10 +789,10 @@
         }
       }
     },
-    "/api/v1/account": {
+    "/api/v1/member-access": {
       "get": {
-        "operationId": "getAccount",
-        "description": "Current human may read their own Account, selected by default. Reading another Member's Account requires current Manager authority. Founder preview does not admit other Accounts. Proof revisions and founder claim identifiers are not exposed. Recovery-email verification is the only supported email change.",
+        "operationId": "getMemberAccess",
+        "description": "Read the current Member's private access record, selected by default. Reading another Member's record requires current Manager authority. Founder preview does not admit other Members' private access. Proof revisions and founder claim identifiers are not exposed. Recovery-email verification is the only supported email change.",
         "security": [
           {
             "memberBearer": []
@@ -667,11 +810,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Private Account data; never shared-cacheable",
+            "description": "Private Member access data; never shared-cacheable",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Account"
+                  "$ref": "#/components/schemas/MemberAccess"
                 }
               }
             }
@@ -682,10 +825,10 @@
         }
       }
     },
-    "/api/v1/accounts": {
+    "/api/v1/member-accesses": {
       "get": {
-        "operationId": "listAccounts",
-        "description": "Current Manager only. Founder administration preview never grants access to private Accounts.",
+        "operationId": "listMemberAccesses",
+        "description": "List private Member access records in this Account. Requires current Manager authority; founder administration preview does not grant access.",
         "security": [
           {
             "memberBearer": []
@@ -714,11 +857,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Private Account data; never shared-cacheable",
+            "description": "Private Member access data; never shared-cacheable",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccountPage"
+                  "$ref": "#/components/schemas/MemberAccessPage"
                 }
               }
             }
@@ -738,7 +881,7 @@
             "memberBearer": []
           }
         ],
-        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Organization. One current preparation, at most three inputs. Returns null when none exists.",
+        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Account. One current preparation, at most three inputs. Returns null when none exists.",
         "responses": {
           "200": {
             "description": "Current preparation or null; no-store.",
@@ -785,7 +928,7 @@
             "memberBearer": []
           }
         ],
-        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Organization. Send a new opaque input ID to replace the same named input before starting. Identical retries are safe. No contents are parsed by this request. Up to three files, each 1 byte–8 GiB. Upload parts after declaring the file. File identities must not be reused for different metadata or bytes.",
+        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Account. Send a new opaque input ID to replace the same named input before starting. Identical retries are safe. No contents are parsed by this request. Up to three files, each 1 byte–8 GiB. Upload parts after declaring the file. File identities must not be reused for different metadata or bytes.",
         "requestBody": {
           "required": true,
           "content": {
@@ -856,7 +999,7 @@
             "memberBearer": []
           }
         ],
-        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Organization. Sequential zero-based parts, 16 MiB except the last. Exact retries compare the admitted bytes. A frozen preparation accepts only identical already uploaded parts.",
+        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Account. Sequential zero-based parts, 16 MiB except the last. Exact retries compare the admitted bytes. A frozen preparation accepts only identical already uploaded parts.",
         "requestBody": {
           "required": true,
           "content": {
@@ -893,7 +1036,7 @@
             "memberBearer": []
           }
         ],
-        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Organization. Only completely uploaded parts can be read; changed or missing bytes fail closed.",
+        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Account. Only completely uploaded parts can be read; changed or missing bytes fail closed.",
         "responses": {
           "200": {
             "description": "Exact input part; no-store.",
@@ -935,7 +1078,7 @@
             "memberBearer": []
           }
         ],
-        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Organization. Requires the sql input and every declared input completely uploaded. sql accepts raw .sql or ZIP with exactly one root .sql file and optional root data/ and internal_data/ folders. Optional inputs named data and internal_data accept ZIPs containing their named root folder. Freezes the input set, then starts the complete import using this current human session. An already running import is not duplicated. An interrupted or failed attempt must start again from the original inputs, not a saved position. Expired authority requires a fresh sign-in. Only complete validated publication is reported as success.",
+        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Account. Requires the sql input and every declared input completely uploaded. sql accepts raw .sql or ZIP with exactly one root .sql file and optional root data/ and internal_data/ folders. Optional inputs named data and internal_data accept ZIPs containing their named root folder. Freezes the input set, then starts the complete import using this current human session. An already running import is not duplicated. An interrupted or failed attempt must start again from the original inputs, not a saved position. Expired authority requires a fresh sign-in. Only complete validated publication is reported as success.",
         "responses": {
           "200": {
             "description": "Current prepared input metadata and upload progress. No-store.",
@@ -975,7 +1118,7 @@
             "memberBearer": []
           }
         ],
-        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Organization. Reopens inputs only when no importer is running and no normalized import declaration has been admitted. Restart an admitted import from its unchanged original inputs.",
+        "description": "Requires the current human Manager who owns these inputs. Delegated applications are rejected. The hostname selects the Account. Reopens inputs only when no importer is running and no normalized import declaration has been admitted. Restart an admitted import from its unchanged original inputs.",
         "responses": {
           "200": {
             "description": "Current prepared input metadata and upload progress. No-store.",
@@ -1205,7 +1348,7 @@
       "put": {
         "operationId": "beginHistoricalImport",
         "summary": "Declare a historical import",
-        "description": "Requires the current human Manager who owns the import. Delegated application tokens are rejected. The hostname selects the Organization. Import authority does not permit reading private Chats without ordinary participation. One import attempt runs at a time. Beginning an unchanged incomplete import starts the whole attempt again from its original source. An already completed identical import returns its completed result. Changing an admitted declaration is a conflict. At most 128 import records per Organization.",
+        "description": "Requires the current human Manager who owns the import. Delegated application tokens are rejected. The hostname selects the Account. Import authority does not permit reading private Chats without ordinary participation. One import attempt runs at a time. Beginning an unchanged incomplete import starts the whole attempt again from its original source. An already completed identical import returns its completed result. Changing an admitted declaration is a conflict. At most 128 import records per Account.",
         "security": [
           {
             "memberBearer": []
@@ -1255,7 +1398,7 @@
       "get": {
         "operationId": "getHistoricalImport",
         "summary": "Read import progress",
-        "description": "Requires the current human Manager who owns the import. Delegated application tokens are rejected. The hostname selects the Organization. Import authority does not permit reading private Chats without ordinary participation.",
+        "description": "Requires the current human Manager who owns the import. Delegated application tokens are rejected. The hostname selects the Account. Import authority does not permit reading private Chats without ordinary participation.",
         "security": [
           {
             "memberBearer": []
@@ -1339,7 +1482,7 @@
       "put": {
         "operationId": "applyHistoricalImportBatch",
         "summary": "Receive the next bounded historical input",
-        "description": "Requires the current human Manager who owns the import. Delegated application tokens are rejected. The hostname selects the Organization. Import authority does not permit reading private Chats without ordinary participation. Bodies are at most 64 MiB. Source parts come first, each 16 MiB except the last, and must match the declared whole-file digest. The final batch is report. JSON kind-to-schema: labels=Label[], members=HistoricalMembers, stage-content/publish-content=HistoricalContentBatch, stage-chats/publish-chats=HistoricalChatBatch, asset=HistoricalAssetBatch, routes=HistoricalRoute[], report=ImportTransformReport. Stage owning resources before their Assets; publish the identical resource facts afterward. The digest chain starts with 64 ASCII zeroes; each step is lowercase SHA256(previous_chain + ':' + kind + ':' + lowercase SHA256(exact_body)), except asset uses its ordered descriptor digest as documented by HistoricalAssetBatch. Send each resource family contiguously. Input is assembled into bounded aggregates for concurrent bulk upload. HTTP 202 acknowledges input in the current attempt, not import success or a durable progress checkpoint. After failure or interruption, begin the whole import again and send the complete unchanged source and recipe from sequence zero.",
+        "description": "Requires the current human Manager who owns the import. Delegated application tokens are rejected. The hostname selects the Account. Import authority does not permit reading private Chats without ordinary participation. Bodies are at most 64 MiB. Source parts come first, each 16 MiB except the last, and must match the declared whole-file digest. The final batch is report. JSON kind-to-schema: labels=Label[], members=HistoricalMembers, stage-content/publish-content=HistoricalContentBatch, stage-chats/publish-chats=HistoricalChatBatch, asset=HistoricalAssetBatch, routes=HistoricalRoute[], report=ImportTransformReport. Stage owning resources before their Assets; publish the identical resource facts afterward. The digest chain starts with 64 ASCII zeroes; each step is lowercase SHA256(previous_chain + ':' + kind + ':' + lowercase SHA256(exact_body)), except asset uses its ordered descriptor digest as documented by HistoricalAssetBatch. Send each resource family contiguously. Input is assembled into bounded aggregates for concurrent bulk upload. HTTP 202 acknowledges input in the current attempt, not import success or a durable progress checkpoint. After failure or interruption, begin the whole import again and send the complete unchanged source and recipe from sequence zero.",
         "security": [
           {
             "memberBearer": []
@@ -1442,7 +1585,7 @@
       "post": {
         "operationId": "completeHistoricalImport",
         "summary": "Confirm import completion",
-        "description": "Requires the current human Manager who owns the import. Delegated application tokens are rejected. The hostname selects the Organization. Import authority does not permit reading private Chats without ordinary participation. Requires all declared batches and the verified recipe digest. An exact repeated completion is safe.",
+        "description": "Requires the current human Manager who owns the import. Delegated application tokens are rejected. The hostname selects the Account. Import authority does not permit reading private Chats without ordinary participation. Requires all declared batches and the verified recipe digest. An exact repeated completion is safe.",
         "security": [
           {
             "memberBearer": []
@@ -1541,7 +1684,7 @@
       },
       "post": {
         "operationId": "createBasstok",
-        "description": "Create a separately stored Basstok Account (an Organization) and return its founder session pending phone verification after canonical and private security durability, TLS readiness and routing publication. Omit hostname, or provide an empty value, to assign a stable address and the initial name Personal. An explicit hostname retains named creation. Exact retries retain the same identity and cannot revive a revoked session; changing the address mode for an existing attempt fails closed. Verify a phone number before ordinary authenticated use. No passkey, email or Terms acceptance is required at creation; Admin activation remains separate recovery-email verification. This creates no membership or authority in the hosting basstok.com Organization. Joining an existing Organization remains a different operation and never provisions a personal Account or bucket. Browsers require same-origin JSON and X-Basstok-Auth matching completion_token, then the existing host-bound session handoff.",
+        "description": "Create a separately stored Basstok Account with its one-time starter communication allowance and return its founder session pending verification after canonical and private security durability, TLS readiness and routing publication. Omit hostname, or provide an empty value, to assign a stable address and the initial name Personal. An explicit hostname retains named creation. Exact retries retain the same identity and cannot revive a revoked session; changing the address mode for an existing attempt fails closed. Native app verification or phone verification admits ordinary authenticated use. No passkey, email or Terms acceptance is required at creation; Admin activation remains separate recovery-email verification. This creates no membership or authority in the hosting basstok.com Account. Joining an existing Account remains a different operation and never provisions a personal Account or bucket. Browsers require same-origin JSON and X-Basstok-Auth matching completion_token, then the existing host-bound session handoff.",
         "security": [],
         "parameters": [
           {
@@ -1595,10 +1738,10 @@
         }
       }
     },
-    "/api/v1/organization/dns/zones": {
+    "/api/v1/account/dns/zones": {
       "get": {
-        "operationId": "getOrganizationDnsZones",
-        "summary": "List Organization DNS zones",
+        "operationId": "getAccountDnsZones",
+        "summary": "List Account DNS zones",
         "description": "Tenant-scoped first-party API; delegated applications are denied. Query parameters are rejected. Responses, including errors, use Cache-Control: no-store. No credentials, proof material or private provider state are returned. Current human Manager or pending founder read-only preview. Returns at most four zones and the installation-configured native_nameservers list, empty when disabled. Includes prepared as well as published zones. Join claims by ID to distinguish serving preparation from observed delegation; neither state alone proves HTTPS or email readiness.",
         "security": [
           {
@@ -1634,7 +1777,7 @@
             "description": "Current human Manager required; reads also allow pending founder preview. Invalid browser write presence/origin is denied."
           },
           "404": {
-            "description": "Claim or zone does not exist in this Organization."
+            "description": "Claim or zone does not exist in this Account."
           },
           "409": {
             "description": "Stale generation/revision, changed publication retry, conflicting ownership/hosting or delegation identity. dns_spf_conflict is a definitive non-retryable refusal of multiple SPF policies at one owner: correct the local draft, preserving existing senders. delegation_unverified means fresh actual parent delegation could not be established. update_in_progress means bounded DNS or canonical mutation admission is busy; Retry-After applies."
@@ -1648,7 +1791,7 @@
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/prepare": {
+    "/api/v1/account/dns/claims/{claimId}/prepare": {
       "parameters": [
         {
           "name": "claimId",
@@ -1663,7 +1806,7 @@
         }
       ],
       "post": {
-        "operationId": "prepareOrganizationNativeDnsZone",
+        "operationId": "prepareAccountNativeDnsZone",
         "summary": "Prepare native DNS before changing nameservers",
         "description": "Current human Admin only; pending founders have read-only preview. Same tenant, browser-presence, bounded JSON and no-store rules as native publication. Requires the exact verified claim generation and complete reviewed records with installation-controlled NS/SOA. Durably serves those records on Basstok nameservers BEFORE registrar delegation changes; claim state becomes prepared. No parent lookup, registrar or provider write, native TLS authority, website attachment or email activation. Pending provider record changes and certificate validation must first be resolved. Ordinary Cloudflare record mutations are frozen; inspection and existing Cloudflare certificate validation remain available. Exact prepared retry performs no writes; changed records require revision-checked replacement. Published claims cannot return to preparation. Incomplete target-only output is not served; explicitly retry preparation after rereading. After changing registrar nameservers, explicitly submit the current saved records to /native for fresh parent-delegation proof. No automatic retry or persisted UI draft.",
         "security": [
@@ -1700,7 +1843,7 @@
             "description": "Current human Manager required; reads also allow pending founder preview. Invalid browser write presence/origin is denied."
           },
           "404": {
-            "description": "Claim or zone does not exist in this Organization."
+            "description": "Claim or zone does not exist in this Account."
           },
           "409": {
             "description": "Stale generation/revision, changed publication retry, conflicting ownership/hosting or delegation identity. dns_spf_conflict is a definitive non-retryable refusal of multiple SPF policies at one owner: correct the local draft, preserving existing senders. delegation_unverified means fresh actual parent delegation could not be established. update_in_progress means bounded DNS or canonical mutation admission is busy; Retry-After applies."
@@ -1725,7 +1868,7 @@
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/native": {
+    "/api/v1/account/dns/claims/{claimId}/native": {
       "parameters": [
         {
           "name": "claimId",
@@ -1740,7 +1883,7 @@
         }
       ],
       "post": {
-        "operationId": "publishOrganizationNativeDnsZone",
+        "operationId": "publishAccountNativeDnsZone",
         "summary": "Publish a native DNS zone",
         "description": "Tenant-scoped first-party API; delegated applications are denied. Query parameters are rejected. Responses, including errors, use Cache-Control: no-store. No credentials, proof material or private provider state are returned. Current human Manager only. Browser cookie writes require browser presence, exact Origin and same-origin metadata; native bearer sessions use the same authority. Strict JSON rejects unknown or missing fields. No endpoint switches hosting. No TLS, routing or MX automation and no external provider writes. After an ambiguous write, reread current state; clients must never perform hidden replay. Native publication only: requires the exact already-verified claim generation plus fresh actual parent delegation to installation-controlled nameservers. Ownership TXT alone is insufficient. Caller cannot select proof, nameservers, hosting or tenant. Full explicit proposed records must form a valid zone with matching apex NS set and SOA primary. An already published exact retry returns established state without DNS lookup, proof acquisition or writes; changed input returns 409. A fresh explicit request with fresh proof may replace records left unpublished by an interrupted publication; it cannot change hosting. A Cloudflare zone cannot be replaced. Pending provider record creation, update, deletion or certificate validation returns 409 until resolved, including after restart. Hosting and target mutation admission is held through both durable writes; competing provider operations receive update_in_progress rather than interleave with publication. Prepared claims also require fresh parent proof and an exact match to their current saved records; activation changes only the hosting claim, preserving the record revision. Use /prepare first to serve records safely before changing registrar delegation.",
         "security": [
@@ -1777,7 +1920,7 @@
             "description": "Current human Manager required; reads also allow pending founder preview. Invalid browser write presence/origin is denied."
           },
           "404": {
-            "description": "Claim or zone does not exist in this Organization."
+            "description": "Claim or zone does not exist in this Account."
           },
           "409": {
             "description": "Stale generation/revision, changed publication retry, conflicting ownership/hosting or delegation identity. dns_spf_conflict is a definitive non-retryable refusal of multiple SPF policies at one owner: correct the local draft, preserving existing senders. delegation_unverified means fresh actual parent delegation could not be established. update_in_progress means bounded DNS or canonical mutation admission is busy; Retry-After applies."
@@ -1802,7 +1945,7 @@
         }
       }
     },
-    "/api/v1/organization/dns/zones/{zoneId}/records": {
+    "/api/v1/account/dns/zones/{zoneId}/records": {
       "parameters": [
         {
           "name": "zoneId",
@@ -1817,7 +1960,7 @@
         }
       ],
       "put": {
-        "operationId": "replaceOrganizationDnsZoneRecords",
+        "operationId": "replaceAccountDnsZoneRecords",
         "summary": "Replace native DNS zone records",
         "description": "Tenant-scoped first-party API; delegated applications are denied. Query parameters are rejected. Responses, including errors, use Cache-Control: no-store. No credentials, proof material or private provider state are returned. Current human Manager only. Browser cookie writes require browser presence, exact Origin and same-origin metadata; native bearer sessions use the same authority. Strict JSON rejects unknown or missing fields. No endpoint switches hosting. No TLS, routing or MX automation and no external provider writes. After an ambiguous write, reread current state; clients must never perform hidden replay. Only an already published native zone can be updated. revision is the expected current revision precondition. Full explicit replacement must form a valid zone and preserve delegation identity: exact apex NS set and SOA primary. Stale revision or a Cloudflare-hosted zone returns 409.",
         "security": [
@@ -1854,7 +1997,7 @@
             "description": "Current human Manager required; reads also allow pending founder preview. Invalid browser write presence/origin is denied."
           },
           "404": {
-            "description": "Claim or zone does not exist in this Organization."
+            "description": "Claim or zone does not exist in this Account."
           },
           "409": {
             "description": "Stale generation/revision, changed publication retry, conflicting ownership/hosting or delegation identity. dns_spf_conflict is a definitive non-retryable refusal of multiple SPF policies at one owner: correct the local draft, preserving existing senders. delegation_unverified means fresh actual parent delegation could not be established. update_in_progress means bounded DNS or canonical mutation admission is busy; Retry-After applies."
@@ -1879,11 +2022,11 @@
         }
       }
     },
-    "/api/v1/organization/dns/claims": {
+    "/api/v1/account/dns/claims": {
       "get": {
-        "operationId": "getOrganizationDnsClaims",
+        "operationId": "getAccountDnsClaims",
         "summary": "List DNS ownership claims",
-        "description": "Current human Manager or pending founder read-only preview; ordinary Members and delegated applications are denied. Returns only claims scoped to the current Organization. Responses use Cache-Control: no-store.",
+        "description": "Current human Manager or pending founder read-only preview; ordinary Members and delegated applications are denied. Returns only claims scoped to the current Account. Responses use Cache-Control: no-store.",
         "security": [
           {
             "memberBearer": []
@@ -1891,7 +2034,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Current DNS ownership claims for this Organization. A pending result does not establish ownership.",
+            "description": "Current DNS ownership claims for this Account. A pending result does not establish ownership.",
             "headers": {
               "Cache-Control": {
                 "description": "Ownership responses are not cached.",
@@ -1904,7 +2047,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationDnsClaims"
+                  "$ref": "#/components/schemas/AccountDnsClaims"
                 }
               }
             }
@@ -1924,9 +2067,9 @@
         }
       },
       "post": {
-        "operationId": "addOrganizationDnsClaim",
+        "operationId": "addAccountDnsClaim",
         "summary": "Request DNS zone ownership",
-        "description": "Current human Manager only. Creates a pending claim or returns the existing claim and its current state on an exact retry. At most four claims per Organization. Normalizes ASCII DNS apex case and one trailing dot; the canonical apex has at most 244 characters. The basstok.com apex is reserved for the hosting Organization. Pending claims confer no authority and do not change DNS, TLS or routing. Browser cookie writes require same-origin browser presence. Responses use Cache-Control: no-store.",
+        "description": "Current human Manager only. Creates a pending claim or returns the existing claim and its current state on an exact retry. At most four claims per Account. Normalizes ASCII DNS apex case and one trailing dot; the canonical apex has at most 244 characters. The basstok.com apex is reserved for the hosting Account. Pending claims confer no authority and do not change DNS, TLS or routing. Browser cookie writes require same-origin browser presence. Responses use Cache-Control: no-store.",
         "security": [
           {
             "memberBearer": []
@@ -1957,7 +2100,7 @@
         },
         "responses": {
           "200": {
-            "description": "Current DNS ownership claims for this Organization. A pending result does not establish ownership.",
+            "description": "Current DNS ownership claims for this Account. A pending result does not establish ownership.",
             "headers": {
               "Cache-Control": {
                 "description": "Ownership responses are not cached.",
@@ -1970,7 +2113,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationDnsClaims"
+                  "$ref": "#/components/schemas/AccountDnsClaims"
                 }
               }
             }
@@ -1996,7 +2139,7 @@
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/cloudflare": {
+    "/api/v1/account/dns/claims/{claimId}/cloudflare": {
       "parameters": [
         {
           "name": "claimId",
@@ -2011,7 +2154,7 @@
         }
       ],
       "get": {
-        "operationId": "getOrganizationCloudflareConnection",
+        "operationId": "getAccountCloudflareConnection",
         "summary": "Inspect domain DNS authorization",
         "description": "Current human Manager or exact pending-founder preview. Provider access is separate from Basstok login and from zone publication. Pending authorization progress is visible only to its initiating Member; provider codes, credentials and PKCE verifiers are never returned.",
         "security": [
@@ -2049,7 +2192,7 @@
             "description": "Current human Manager authority and exact authorization/session binding are required. Pending founders can inspect only. Cookie writes require exact routed Origin, same-origin fetch metadata and session-bound presence."
           },
           "404": {
-            "description": "The DNS claim does not belong to this Organization."
+            "description": "The DNS claim does not belong to this Account."
           },
           "409": {
             "description": "Claim, connection or authorization state changed, or provider configuration is unavailable. Read current state."
@@ -2063,9 +2206,9 @@
         }
       },
       "post": {
-        "operationId": "beginOrganizationCloudflareAuthorization",
+        "operationId": "beginAccountCloudflareAuthorization",
         "summary": "Authorize Cloudflare DNS access",
-        "description": "Current human Manager begins an expiring PKCE authorization for the exact Organization DNS claim and generation. The request is durably bound to the initiating session before returning the provider URL. This neither logs a Member in nor changes DNS, MX, TLS or routing.",
+        "description": "Current human Manager begins an expiring PKCE authorization for the exact Account DNS claim and generation. The request is durably bound to the initiating session before returning the provider URL. This neither logs a Member in nor changes DNS, MX, TLS or routing.",
         "security": [
           {
             "memberBearer": []
@@ -2123,7 +2266,7 @@
             "description": "Current human Manager authority and exact authorization/session binding are required. Pending founders can inspect only. Cookie writes require exact routed Origin, same-origin fetch metadata and session-bound presence."
           },
           "404": {
-            "description": "The DNS claim does not belong to this Organization."
+            "description": "The DNS claim does not belong to this Account."
           },
           "409": {
             "description": "Claim, connection or authorization state changed, or provider configuration is unavailable. Read current state."
@@ -2137,7 +2280,7 @@
         }
       },
       "delete": {
-        "operationId": "disconnectOrganizationCloudflareAuthorization",
+        "operationId": "disconnectAccountCloudflareAuthorization",
         "summary": "Disconnect Cloudflare DNS access",
         "description": "Empty request body; current human Manager only. Durably cancels authorization, disables all stored credentials for the exact claim and removes local connection selection before contacting Cloudflare. Submits at most two distinct known refresh tokens for revocation, then removes only those exact disabled credentials. Missing provider configuration or failed, lost or cancelled provider/cleanup work leaves local access disabled and revocation_pending true; read status and explicitly retry DELETE, including after restart. New authorization waits for pending cleanup. No automatic provider retries. Acknowledgement covers submitted known tokens, not unknown grants from interrupted exchanges; revoke the application's authorization in Cloudflare for provider-wide revocation. Does not delete provider records, change delegation, login or native DNS authority.",
         "security": [
@@ -2175,7 +2318,7 @@
             "description": "Current human Manager authority and exact authorization/session binding are required. Pending founders can inspect only. Cookie writes require exact routed Origin, same-origin fetch metadata and session-bound presence."
           },
           "404": {
-            "description": "The DNS claim does not belong to this Organization."
+            "description": "The DNS claim does not belong to this Account."
           },
           "409": {
             "description": "Claim, connection or authorization state changed, or provider configuration is unavailable. Read current state."
@@ -2189,7 +2332,7 @@
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/cloudflare/complete": {
+    "/api/v1/account/dns/claims/{claimId}/cloudflare/complete": {
       "parameters": [
         {
           "name": "claimId",
@@ -2204,7 +2347,7 @@
         }
       ],
       "post": {
-        "operationId": "completeOrganizationCloudflareAuthorization",
+        "operationId": "completeAccountCloudflareAuthorization",
         "summary": "Complete domain DNS authorization",
         "description": "The initiating authenticated session must still belong to the current human Manager. After the provider callback, consumes its exact expiring attempt before exchanging the authorization code. Checks the unique active provider zone for the exact domain and rechecks current authority before selecting durably stored private credentials. Neither callback nor connection creates a session or verifies domain ownership; a pending claim stays pending. An exchanging attempt must not automatically repeat provider work after uncertainty or restart. No DNS records or hosting mode change. Return metadata is only a wakeup: reread status and complete only the same Ready authorization_id in the still-authorized originating session. Denied/failed returns never automatically retry. After process loss, explicit Finish connecting recovers status in the same session; no timer polling.",
         "security": [
@@ -2264,7 +2407,7 @@
             "description": "Current human Manager authority and exact authorization/session binding are required. Pending founders can inspect only. Cookie writes require exact routed Origin, same-origin fetch metadata and session-bound presence."
           },
           "404": {
-            "description": "The DNS claim does not belong to this Organization."
+            "description": "The DNS claim does not belong to this Account."
           },
           "409": {
             "description": "Claim, connection or authorization state changed, or provider configuration is unavailable. Read current state."
@@ -2278,7 +2421,7 @@
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/cloudflare/verify": {
+    "/api/v1/account/dns/claims/{claimId}/cloudflare/verify": {
       "parameters": [
         {
           "name": "claimId",
@@ -2293,7 +2436,7 @@
         }
       ],
       "post": {
-        "operationId": "verifyOrganizationCloudflareOwnership",
+        "operationId": "verifyAccountCloudflareOwnership",
         "summary": "Create and verify the exact DNS ownership record",
         "description": "Current human Manager only. Uses the selected Cloudflare connection to find or add only the claim's exact TXT challenge at _basstok.<apex>, with TTL 60. Expired access refreshes once: durably consume the exact refresh credential before provider entry, then persist replacement tokens only under the same current session/Manager, claim and connection bindings. An uncertain refresh requires reconnection rather than replay, including after restart. Does not overwrite or delete existing records. Durably records the create attempt before sending it; an uncertain create is reconciled by reads, never blindly repeated after restart, disconnect or reconnection. A definitive create rejection permits a later explicit retry. Independent DNS observation, current session/Manager authority and the same claim/connection are required before ownership becomes verified. DNS propagation may return the claim still pending; an exact retry reuses the record. An already verified claim requires no provider or DNS request. Does not publish a zone, change delegation, MX or TLS. Browser cookie writes require exact routed Origin, same-origin fetch metadata and session-bound presence. Responses use Cache-Control: no-store.",
         "security": [
@@ -2326,7 +2469,7 @@
         },
         "responses": {
           "200": {
-            "description": "Current Organization DNS claims. Pending means the exact DNS proof is not yet observed; provider creation alone does not verify ownership.",
+            "description": "Current Account DNS claims. Pending means the exact DNS proof is not yet observed; provider creation alone does not verify ownership.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -2338,7 +2481,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationDnsClaims"
+                  "$ref": "#/components/schemas/AccountDnsClaims"
                 }
               }
             }
@@ -2353,7 +2496,7 @@
             "description": "Current human Manager authority, browser presence or proof binding is missing."
           },
           "404": {
-            "description": "The claim does not belong to this Organization."
+            "description": "The claim does not belong to this Account."
           },
           "409": {
             "description": "The claim/connection changed, credentials require reconnection, ownership conflicts, bounded admission is busy, or an uncertain create cannot yet be reconciled. Read current claims; their exact TXT instructions remain available for independent verification."
@@ -2367,7 +2510,7 @@
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/cloudflare/records/assign": {
+    "/api/v1/account/dns/claims/{claimId}/cloudflare/records/assign": {
       "parameters": [
         {
           "name": "claimId", "in": "path", "required": true,
@@ -2375,7 +2518,7 @@
         }
       ],
       "post": {
-        "operationId": "assignOrganizationCloudflareDnsRecord",
+        "operationId": "assignAccountCloudflareDnsRecord",
         "summary": "Assign one inspected record to Basstok without changing DNS",
         "description": "Current human Manager only. Explicitly accepts Basstok as sole writer for this exact existing record. Requires verified ownership and a fresh complete provider read matching every submitted record field. Persists only the assigned record baseline and exact zone/account binding under its canonical claim, not the unassigned inventory. Same-value retries preserve the assignment identity. No provider DNS write, publication, delegation change or blanket adoption. Other records remain untouched. Current authorization, credentials and assignment inventory are rechecked after I/O. Browser Origin, same-origin metadata and session-bound presence are required. Failed or ambiguous persistence requires inspection, never an invented success. Value edits and uncertain-outcome checks use the separate update/reconcile operations.",
         "security": [{ "memberBearer": [] }],
@@ -2392,14 +2535,14 @@
           "400": { "description": "Invalid claim, generation, record or bounded body." },
           "401": { "description": "Current session required." },
           "403": { "description": "Current human Manager authority or browser presence missing." },
-          "404": { "description": "Claim is not in the current Organization." },
+          "404": { "description": "Claim is not in the current Account." },
           "409": { "description": "Record, assignment, credentials or authority changed; inspect again. No automatic adoption of drift." },
           "503": { "description": "Provider read, refresh or canonical persistence failed. Inspect before retrying." },
           "default": { "$ref": "#/components/responses/Error" }
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/cloudflare/records/release": {
+    "/api/v1/account/dns/claims/{claimId}/cloudflare/records/release": {
       "parameters": [
         {
           "name": "claimId", "in": "path", "required": true,
@@ -2407,7 +2550,7 @@
         }
       ],
       "post": {
-        "operationId": "releaseOrganizationCloudflareDnsRecord",
+        "operationId": "releaseAccountCloudflareDnsRecord",
         "summary": "Release an exact Basstok record assignment without deleting DNS",
         "description": "Same current human Manager, verified claim, connected provider, refresh, bounded inspection and browser-presence requirements as record assignment. Removes only the specified canonical assignment. Never deletes or changes its provider record, even when missing or drifted. Old assignment identities cannot release a later reassignment. Unknown or already released identities fail closed. No automatic retry or provider mutation.",
         "security": [{ "memberBearer": [] }],
@@ -2424,14 +2567,14 @@
           "400": { "description": "Invalid claim, generation, identity or bounded body." },
           "401": { "description": "Current session required." },
           "403": { "description": "Current human Manager authority or browser presence missing." },
-          "404": { "description": "Claim or assignment does not exist in the current Organization." },
+          "404": { "description": "Claim or assignment does not exist in the current Account." },
           "409": { "description": "Assignments, claim or connection changed; inspect again." },
           "503": { "description": "Provider read, refresh or canonical persistence failed. Inspect before retrying." },
           "default": { "$ref": "#/components/responses/Error" }
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/cloudflare/records/update": {
+    "/api/v1/account/dns/claims/{claimId}/cloudflare/records/update": {
       "parameters": [
         {
           "name": "claimId",
@@ -2444,7 +2587,7 @@
         }
       ],
       "post": {
-        "operationId": "updateOrganizationCloudflareDnsRecord",
+        "operationId": "updateAccountCloudflareDnsRecord",
         "summary": "Update an assigned Cloudflare DNS record",
         "description": "Current human Manager only. Requires verified claim, assignment revision, exact provider binding and unchanged fresh baseline. Preserves record ID/name/type and apex delegation identity. Equivalent values are no-ops. Durably admits one pending intent per claim before one bounded PATCH, preserving unrelated provider metadata. Known completion survives request cancellation and advances the revision once; an uncertain response remains pending across restart. Never automatically retry an uncertain update. Inspect, then reconcile its exact update ID. Assignment/release/other updates are blocked while pending. No create/delete, delegation switch or publication. Browser Origin, same-origin metadata and session-bound presence are required. Private provider credentials/bindings never enter the response.",
         "security": [
@@ -2484,7 +2627,7 @@
             "description": "Human Manager authority or browser presence missing."
           },
           "404": {
-            "description": "Claim or assignment does not belong to this Organization."
+            "description": "Claim or assignment does not belong to this Account."
           },
           "409": {
             "description": "Stale claim, connection, baseline, revision or pending identity; inspect before another action. dns_spf_conflict definitively refuses a second SPF policy at the same owner in the fresh complete inventory, including unassigned records. No provider write is dispatched; edit the existing policy rather than replacing unrelated senders."
@@ -2498,10 +2641,10 @@
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/cloudflare/records/create": {
+    "/api/v1/account/dns/claims/{claimId}/cloudflare/records/create": {
       "parameters": [{ "name": "claimId", "in": "path", "required": true, "schema": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }],
       "post": {
-        "operationId": "createOrganizationCloudflareDnsRecord",
+        "operationId": "createAccountCloudflareDnsRecord",
         "summary": "Create and assign one new Cloudflare DNS record",
         "description": "Current human Manager only. Requires a verified claim, exact generation and complete bounded inventory in the original provider account/zone. Rejects duplicate values, incompatible records, apex NS and exhausted capacity. Persists one exact claim-owned intent before one POST. Confirmed creation establishes an assignment; uncertain results remain pending across restart, never automatically replay. Other record mutations remain blocked until an exact outcome is confirmed. No caller-selected provider identity, marker or credentials; no unrelated record replacement or delegation switch. Browser Origin, same-origin metadata and session-bound presence are required.",
         "security": [{ "memberBearer": [] }],
@@ -2515,17 +2658,17 @@
           "400": { "description": "Invalid bounded record or request." },
           "401": { "description": "Current session required." },
           "403": { "description": "Human Manager authority or browser presence missing." },
-          "404": { "description": "Claim does not belong to this Organization." },
+          "404": { "description": "Claim does not belong to this Account." },
           "409": { "description": "Stale claim, connection, conflicting records, pending mutation or exhausted capacity. Inspect before another action. dns_spf_conflict definitively refuses a second SPF policy at the same owner, including unassigned records, without dispatching a provider write. No automatic retry." },
           "503": { "description": "Provider or storage outcome uncertain. Inspect and check pending creation; never automatically repeat a write." },
           "default": { "$ref": "#/components/responses/Error" }
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/cloudflare/records/reconcile-creation": {
+    "/api/v1/account/dns/claims/{claimId}/cloudflare/records/reconcile-creation": {
       "parameters": [{ "name": "claimId", "in": "path", "required": true, "schema": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }],
       "post": {
-        "operationId": "reconcileOrganizationCloudflareDnsCreation",
+        "operationId": "reconcileAccountCloudflareDnsCreation",
         "summary": "Check the exact pending DNS creation without repeating it",
         "description": "Current human Manager only. Complete bounded original-zone inspection and exact-comment lookup must agree on exactly one provider record with the intended values. Missing, unmarked, duplicate or drifted outcomes remain pending; 200 may still contain pending_creation. Never issues a provider write or treats absence or elapsed time as permission to replay. Requires exact claim generation and creation ID, current private connection and browser Origin, same-origin metadata and session-bound presence where applicable.",
         "security": [{ "memberBearer": [] }],
@@ -2539,17 +2682,17 @@
           "400": { "description": "Invalid bounded request." },
           "401": { "description": "Current session required." },
           "403": { "description": "Human Manager authority or browser presence missing." },
-          "404": { "description": "Claim does not belong to this Organization." },
+          "404": { "description": "Claim does not belong to this Account." },
           "409": { "description": "Stale claim, connection or pending identity; inspect before another action." },
           "503": { "description": "Provider or storage outcome could not be confirmed; never automatically repeat a write." },
           "default": { "$ref": "#/components/responses/Error" }
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/cloudflare/records/delete": {
+    "/api/v1/account/dns/claims/{claimId}/cloudflare/records/delete": {
       "parameters": [{ "name": "claimId", "in": "path", "required": true, "schema": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }],
       "post": {
-        "operationId": "deleteOrganizationCloudflareDnsRecord",
+        "operationId": "deleteAccountCloudflareDnsRecord",
         "summary": "Delete one explicitly assigned Cloudflare DNS record",
         "description": "Current human Manager only. Requires exact verified claim, assignment revision, original provider binding and freshly unchanged baseline. Cannot delete apex NS records. Durably admits one pending intent per claim before one bounded DELETE of that exact provider record ID. A confirmed acknowledgement removes only that assignment; uncertain outcomes remain pending across restart. Never automatically retry. Reconciliation resolves only absence of the original record ID in a complete original-zone inspection, not a same-name replacement or elapsed time. Browser Origin, same-origin metadata and session-bound presence are required. No delegation switch, unrelated record removal or publication; credentials stay private.",
         "security": [{ "memberBearer": [] }],
@@ -2563,14 +2706,14 @@
           "400": { "description": "Invalid bounded request or protected apex delegation record." },
           "401": { "description": "Current session required." },
           "403": { "description": "Human Manager authority or browser presence missing." },
-          "404": { "description": "Claim or assignment does not belong to this Organization." },
+          "404": { "description": "Claim or assignment does not belong to this Account." },
           "409": { "description": "Stale claim, connection, baseline, revision or pending identity; inspect before another action." },
           "503": { "description": "Provider or storage outcome uncertain. Inspect current state; never automatically repeat a write." },
           "default": { "$ref": "#/components/responses/Error" }
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/cloudflare/records/reconcile": {
+    "/api/v1/account/dns/claims/{claimId}/cloudflare/records/reconcile": {
       "parameters": [
         {
           "name": "claimId",
@@ -2583,7 +2726,7 @@
         }
       ],
       "post": {
-        "operationId": "reconcileOrganizationCloudflareDnsRecord",
+        "operationId": "reconcileAccountCloudflareDnsRecord",
         "summary": "Check the exact pending DNS update",
         "description": "Current human Manager only. Fresh complete bounded reads in the original assigned provider account/zone confirm only the exact requested result. Value updates require matching intended values and advance the revision once; absent, unchanged or different values remain pending. Deletion requires absence of the original record ID and removes only that assignment; a still-present ID remains pending even if its values changed. 200 may still contain pending_update. Never repeats a provider write or infers failure from elapsed time. Reconnect the original provider account/zone if necessary. Browser Origin, same-origin metadata and session-bound presence are required. Private provider credentials/bindings never enter the response.",
         "security": [
@@ -2623,7 +2766,7 @@
             "description": "Human Manager authority or browser presence missing."
           },
           "404": {
-            "description": "Claim or assignment does not belong to this Organization."
+            "description": "Claim or assignment does not belong to this Account."
           },
           "409": {
             "description": "Stale claim, connection, baseline, revision or pending identity; inspect before another action."
@@ -2637,7 +2780,7 @@
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/cloudflare/records": {
+    "/api/v1/account/dns/claims/{claimId}/cloudflare/records": {
       "parameters": [
         {
           "name": "claimId",
@@ -2652,7 +2795,7 @@
         }
       ],
       "post": {
-        "operationId": "inspectOrganizationCloudflareDnsRecords",
+        "operationId": "inspectAccountCloudflareDnsRecords",
         "summary": "Inspect current Cloudflare DNS records without changing them",
         "description": "Current human Manager only, after exact claim ownership is verified. Returns a transient provider observation plus existing canonical assignment baselines and their current match status. Inspection itself never assigns records or publishes DNS. Performs zone/account-bound provider GETs only, with at most 100 records and 256 KiB per response. Unsupported, incomplete, malformed, duplicate or out-of-zone records fail the whole inspection. Expired OAuth access uses the existing durable single-consumption refresh; uncertain refresh requires reconnection, never replay. Rechecks current session, Manager, claim generation and exact selected credentials after I/O. No polling or persisted inventory. Cookie requests require exact routed Origin, same-origin fetch metadata and session-bound presence. Cache-Control: no-store.",
         "security": [
@@ -2712,7 +2855,7 @@
             "description": "Current human Manager authority, browser presence or proof binding is missing."
           },
           "404": {
-            "description": "The claim does not belong to this Organization."
+            "description": "The claim does not belong to this Account."
           },
           "409": {
             "description": "Ownership remains pending, claim or connection changed, credentials require reconnection, or bounded admission is busy."
@@ -2729,7 +2872,7 @@
     "/oauth/mailbox/google/callback": {
       "get": {
         "operationId": "receiveGoogleMailboxConsent", "tags": ["Chats"], "security": [],
-        "description": "Exact configured hosting-apex HTTPS callback only. State plus code XOR a recognized OAuth error; duplicate/unknown keys fail. Code may include bounded scope/authuser/prompt hints, which confer no authority. Error may include ignored error_description/error_uri. Optional iss must equal https://accounts.google.com. URL at most 8192 bytes, code at most 4096, other fields at most 2048. Records the single-use response only: no exchange, session cookie, login, recovery verification or Admin activation. The originating current session must complete. Redirect contains only target Organization/Chat, the opaque authorization_id and received/denied/failed; no code, verifier or provider token. All responses no-store/no-referrer.",
+        "description": "Exact configured hosting-apex HTTPS callback only. State plus code XOR a recognized OAuth error; duplicate/unknown keys fail. Code may include bounded scope/authuser/prompt hints, which confer no authority. Error may include ignored error_description/error_uri. Optional iss must equal https://accounts.google.com. URL at most 8192 bytes, code at most 4096, other fields at most 2048. Records the single-use response only: no exchange, session cookie, login, recovery verification or Admin activation. The originating current session must complete. Redirect contains only target Account/Chat, the opaque authorization_id and received/denied/failed; no code, verifier or provider token. All responses no-store/no-referrer.",
         "parameters": [
           {"name": "state", "in": "query", "required": true, "schema": {"type": "string", "minLength": 43, "maxLength": 43}},
           {"name": "code", "in": "query", "schema": {"type": "string", "minLength": 1, "maxLength": 4096}},
@@ -2749,7 +2892,7 @@
         "operationId": "returnGoogleMailboxConsent", "tags": ["Chats"], "security": [],
         "description": "Hosting-apex non-mutating browser/native return. Exactly four bounded parameters, complete URL at most 1024 bytes. The result is a navigation hint, not proof of success. HTML links only to the configured target origin and exact Chat email settings; no arbitrary redirect, session creation or provider code. Native clients must re-read authorized consent status in the originating session before completing. No-store/no-referrer.",
         "parameters": [
-          {"name": "target_organization_id", "in": "query", "required": true, "schema": {"type": "string"}},
+          {"name": "target_account_id", "in": "query", "required": true, "schema": {"type": "string"}},
           {"name": "chat_id", "in": "query", "required": true, "schema": {"type": "string", "minLength": 36, "maxLength": 36, "pattern": "^[0-9a-f-]+$"}},
           {"name": "authorization_id", "in": "query", "required": true, "schema": {"type": "string", "minLength": 43, "maxLength": 43, "pattern": "^[A-Za-z0-9_-]+$"}},
           {"name": "result", "in": "query", "required": true, "schema": {"type": "string", "enum": ["received", "denied", "failed"]}}
@@ -2760,7 +2903,7 @@
     "/oauth/mailbox/microsoft/callback": {
       "get": {
         "operationId": "receiveMicrosoftMailboxConsent", "tags": ["Chats"], "security": [],
-        "description": "Exact configured hosting-apex HTTPS callback only. State plus code XOR a recognized Microsoft authorization error; duplicate/unknown keys fail. Optional bounded session_state and error_description/error_uri are ignored, never authority, rendered or followed. URL at most 8192 bytes, code at most 4096, other fields at most 2048. Records one single-use provider-bound result; no token exchange, session cookie, login, recovery or Admin activation. Only the originating session completes. Redirect contains only target Organization/Chat, authorization_id and received/denied/failed. No-store/no-referrer.",
+        "description": "Exact configured hosting-apex HTTPS callback only. State plus code XOR a recognized Microsoft authorization error; duplicate/unknown keys fail. Optional bounded session_state and error_description/error_uri are ignored, never authority, rendered or followed. URL at most 8192 bytes, code at most 4096, other fields at most 2048. Records one single-use provider-bound result; no token exchange, session cookie, login, recovery or Admin activation. Only the originating session completes. Redirect contains only target Account/Chat, authorization_id and received/denied/failed. No-store/no-referrer.",
         "parameters": [
           {"name": "state", "in": "query", "required": true, "schema": {"type": "string", "minLength": 43, "maxLength": 43}},
           {"name": "code", "in": "query", "schema": {"type": "string", "minLength": 1, "maxLength": 4096}},
@@ -2777,7 +2920,7 @@
         "operationId": "returnMicrosoftMailboxConsent", "tags": ["Chats"], "security": [],
         "description": "Hosting-apex non-mutating browser/native return. Exactly four bounded parameters, complete URL at most 1024 bytes. The result is a navigation hint, not proof of success. HTML links only to the configured target origin and exact Chat email settings; no arbitrary redirect, session creation or provider code. Native clients must re-read authorized consent status in the originating session before completing. No-store/no-referrer.",
         "parameters": [
-          {"name": "target_organization_id", "in": "query", "required": true, "schema": {"type": "string"}},
+          {"name": "target_account_id", "in": "query", "required": true, "schema": {"type": "string"}},
           {"name": "chat_id", "in": "query", "required": true, "schema": {"type": "string", "minLength": 36, "maxLength": 36, "pattern": "^[0-9a-f-]+$"}},
           {"name": "authorization_id", "in": "query", "required": true, "schema": {"type": "string", "minLength": 43, "maxLength": 43, "pattern": "^[A-Za-z0-9_-]+$"}},
           {"name": "result", "in": "query", "required": true, "schema": {"type": "string", "enum": ["received", "denied", "failed"]}}
@@ -2789,7 +2932,7 @@
       "get": {
         "operationId": "receiveCloudflareAuthorizationCode",
         "summary": "Receive the DNS provider callback",
-        "description": "GET only on the exact configured hosting-apex callback path. Requires state plus code XOR a standard OAuth error. Optional scope is accepted only with code as bounded printable ASCII metadata and ignored; only the authenticated token response establishes the exact granted scopes. Optional bounded error_description/error_uri are accepted only with error and ignored, never rendered or followed. Valid state records the single-use code as Ready or consumes the exact awaiting attempt on denial. Returns 303 to hosting /oauth/cloudflare/return with only target_organization_id, claim_id and result: received for code, denied for access_denied, failed for other accepted errors. Redirects contain no code, state, scope or tokens. Creates no session cookies or authority. Duplicate, unknown or malformed query parameters are rejected; complete URL is bounded to 8192 bytes. All responses use no-store/no-referrer.",
+        "description": "GET only on the exact configured hosting-apex callback path. Requires state plus code XOR a standard OAuth error. Optional scope is accepted only with code as bounded printable ASCII metadata and ignored; only the authenticated token response establishes the exact granted scopes. Optional bounded error_description/error_uri are accepted only with error and ignored, never rendered or followed. Valid state records the single-use code as Ready or consumes the exact awaiting attempt on denial. Returns 303 to hosting /oauth/cloudflare/return with only target_account_id, claim_id and result: received for code, denied for access_denied, failed for other accepted errors. Redirects contain no code, state, scope or tokens. Creates no session cookies or authority. Duplicate, unknown or malformed query parameters are rejected; complete URL is bounded to 8192 bytes. All responses use no-store/no-referrer.",
         "security": [],
         "parameters": [
           {
@@ -2945,7 +3088,7 @@
                 }
               },
               "Location": {
-                "description": "Hosting HTTPS origin plus /oauth/cloudflare/return?target_organization_id=...&claim_id=...&result=received|denied|failed; no provider secrets or caller-selected destination.",
+                "description": "Hosting HTTPS origin plus /oauth/cloudflare/return?target_account_id=...&claim_id=...&result=received|denied|failed; no provider secrets or caller-selected destination.",
                 "schema": {
                   "type": "string",
                   "format": "uri"
@@ -2981,16 +3124,16 @@
         "operationId": "returnFromCloudflareAuthorization",
         "summary": "Return to the originating Cloudflare connection client",
         "security": [],
-        "description": "Hosting-apex GET only, a human/browser/native wakeup, not authorization evidence. Accepts exactly target_organization_id, claim_id and result as wakeup metadata; rejects duplicate, unknown or malformed parameters. Complete URL is bounded to 1024 bytes. Uses installed Organization canonical routing for the /admin/domains continuation, never a caller URL. Creates no session cookies, credentials or authority. Clients reread status and complete only the same Ready attempt in the still-authorized originating session. Denied/failed returns never automatically retry. Responses use no-store/no-referrer.",
+        "description": "Hosting-apex GET only, a human/browser/native wakeup, not authorization evidence. Accepts exactly target_account_id, claim_id and result as wakeup metadata; rejects duplicate, unknown or malformed parameters. Complete URL is bounded to 1024 bytes. Uses installed Account canonical routing for the /admin/domains continuation, never a caller URL. Creates no session cookies, credentials or authority. Clients reread status and complete only the same Ready attempt in the still-authorized originating session. Denied/failed returns never automatically retry. Responses use no-store/no-referrer.",
         "parameters": [
           {
-            "name": "target_organization_id",
+            "name": "target_account_id",
             "in": "query",
             "required": true,
             "schema": {
               "type": "string"
             },
-            "description": "Installed Organization identity."
+            "description": "Installed Account identity."
           },
           {
             "name": "claim_id",
@@ -3086,7 +3229,7 @@
             }
           },
           "404": {
-            "description": "Organization is not installed.",
+            "description": "Account is not installed.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -3128,7 +3271,7 @@
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/cancel": {
+    "/api/v1/account/dns/claims/{claimId}/cancel": {
       "parameters": [
         {
           "name": "claimId",
@@ -3143,7 +3286,7 @@
         }
       ],
       "post": {
-        "operationId": "cancelOrganizationDnsClaim",
+        "operationId": "cancelAccountDnsClaim",
         "summary": "Cancel unused DNS setup",
         "description": "Current human Admin only. Requires the exact claim generation and a pending or verified claim, never prepared or published serving DNS. First release all assigned records, resolve pending provider work and finish disconnecting Cloudflare, including authorization attempts and private credential revocation. Cancellation performs no provider request and deletes no domain, provider record, website attachment or mailbox. Under the existing writer and session fences it removes any incomplete, unserved target-zone output before durably removing the hosting claim. A later request gets a new identity; old proofs and callbacks cannot claim it. A missing or foreign claim returns 404, not success. On an uncertain response reread saved claims; never automatically retry. Accepts no query parameters. Browser cookie writes require same-origin browser presence. Responses use Cache-Control: no-store.",
         "security": [
@@ -3176,7 +3319,7 @@
         },
         "responses": {
           "200": {
-            "description": "Current Organization claims, excluding the cancelled request.",
+            "description": "Current Account claims, excluding the cancelled request.",
             "headers": {
               "Cache-Control": {
                 "description": "Ownership responses are not cached.",
@@ -3189,7 +3332,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationDnsClaims"
+                  "$ref": "#/components/schemas/AccountDnsClaims"
                 }
               }
             }
@@ -3213,12 +3356,12 @@
             "$ref": "#/components/responses/Error"
           },
           "404": {
-            "description": "The claim does not exist in this Organization."
+            "description": "The claim does not exist in this Account."
           }
         }
       }
     },
-    "/api/v1/organization/dns/claims/{claimId}/verify": {
+    "/api/v1/account/dns/claims/{claimId}/verify": {
       "parameters": [
         {
           "name": "claimId",
@@ -3233,9 +3376,9 @@
         }
       ],
       "post": {
-        "operationId": "verifyOrganizationDnsClaim",
+        "operationId": "verifyAccountDnsClaim",
         "summary": "Verify DNS zone ownership",
-        "description": "Current human Manager only, with current session and authority checked again after DNS work. Uses a bounded TXT lookup through the current system resolver. The exact verification_value must match within one TXT resource record; character strings within that record are concatenated, but separate records are never joined. No matching proof returns 200 with the claim still pending and no DNS, TLS or routing changes. A match durably admits only the exact Organization, claim and generation ownership proof; it does not authorize native delegation, Cloudflare management or zone publication. Verified or published retries return current state without fresh DNS or new writes. Stale generations return 409; missing or foreign claims return 404. Browser cookie writes require same-origin browser presence. Responses use Cache-Control: no-store.",
+        "description": "Current human Manager only, with current session and authority checked again after DNS work. Uses a bounded TXT lookup through the current system resolver. The exact verification_value must match within one TXT resource record; character strings within that record are concatenated, but separate records are never joined. No matching proof returns 200 with the claim still pending and no DNS, TLS or routing changes. A match durably admits only the exact Account, claim and generation ownership proof; it does not authorize native delegation, Cloudflare management or zone publication. Verified or published retries return current state without fresh DNS or new writes. Stale generations return 409; missing or foreign claims return 404. Browser cookie writes require same-origin browser presence. Responses use Cache-Control: no-store.",
         "security": [
           {
             "memberBearer": []
@@ -3266,7 +3409,7 @@
         },
         "responses": {
           "200": {
-            "description": "Current DNS ownership claims for this Organization. A pending result does not establish ownership.",
+            "description": "Current DNS ownership claims for this Account. A pending result does not establish ownership.",
             "headers": {
               "Cache-Control": {
                 "description": "Ownership responses are not cached.",
@@ -3279,7 +3422,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationDnsClaims"
+                  "$ref": "#/components/schemas/AccountDnsClaims"
                 }
               }
             }
@@ -3303,12 +3446,12 @@
             "$ref": "#/components/responses/Error"
           },
           "404": {
-            "description": "The claim does not exist in this Organization."
+            "description": "The claim does not exist in this Account."
           }
         }
       }
     },
-    "/api/v1/organization/domains/availability": {
+    "/api/v1/account/domains/availability": {
       "get": {
         "operationId": "inspectDomainAvailability",
         "summary": "Check a domain name without reserving or purchasing it",
@@ -3348,9 +3491,9 @@
         }
       }
     },
-    "/api/v1/organization/domains": {
+    "/api/v1/account/domains": {
       "get": {
-        "operationId": "getOrganizationDomains",
+        "operationId": "getAccountDomains",
         "summary": "List your custom domains",
         "description": "Current human Manager or pending founder read-only preview; ordinary Members and delegated applications are denied. Returns only this Basstok's requests, not a public domain directory. The permanent Basstok address is always retained.",
         "security": [
@@ -3364,7 +3507,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationDomains"
+                  "$ref": "#/components/schemas/AccountDomains"
                 }
               }
             }
@@ -3393,7 +3536,7 @@
         }
       },
       "post": {
-        "operationId": "addOrganizationDomain",
+        "operationId": "addAccountDomain",
         "summary": "Add a custom domain",
         "description": "Current human Manager only; unavailable to delegated applications. Accepts an ASCII DNS hostname (including punycode), without scheme, port or path. Case and one trailing dot are normalized. Basstok-provided names, wildcards and IP literals are not custom domains. At most four saved requests per Basstok. An exact retry returns the same request. Adding creates a pending request; it does not change routing or prove ownership.",
         "security": [
@@ -3407,7 +3550,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationDomains"
+                  "$ref": "#/components/schemas/AccountDomains"
                 }
               }
             }
@@ -3457,7 +3600,7 @@
         }
       }
     },
-    "/api/v1/organization/domains/{domainId}/verify": {
+    "/api/v1/account/domains/{domainId}/verify": {
       "parameters": [
         {
           "name": "domainId",
@@ -3470,7 +3613,7 @@
         }
       ],
       "post": {
-        "operationId": "verifyOrganizationDomain",
+        "operationId": "verifyAccountDomain",
         "summary": "Verify and connect a domain",
         "description": "Current human Manager only. Publish the returned TXT verification record and point the hostname to the permanent Basstok address. Every resolved A/AAAA address must be public and match that address. For a subdomain use a CNAME; for an apex use the DNS provider's ALIAS/ANAME equivalent or matching A/AAAA records. Basstok never changes DNS. Returns pending when DNS is not ready; repeat verification later. HTTPS must be provisioned before activation. DNS/HTTPS failures preserve the request. Active retries are idempotent; only one Basstok may own an active hostname.",
         "security": [
@@ -3484,7 +3627,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationDomains"
+                  "$ref": "#/components/schemas/AccountDomains"
                 }
               }
             }
@@ -3513,7 +3656,7 @@
         }
       }
     },
-    "/api/v1/organization/domains/{domainId}": {
+    "/api/v1/account/domains/{domainId}": {
       "parameters": [
         {
           "name": "domainId",
@@ -3526,7 +3669,7 @@
         }
       ],
       "delete": {
-        "operationId": "removeOrganizationDomain",
+        "operationId": "removeAccountDomain",
         "summary": "Remove a custom domain",
         "description": "Current human Manager only. Removes pending or active attachment. Subsequent requests to that hostname no longer route to this Basstok. Its permanent hostname and all other data remain unchanged. Removal is idempotent by request ID, including after a lost response; an old ID cannot remove a newly added request. Clients using the removed origin should switch to permanent_origin and authenticate there.",
         "security": [
@@ -3540,7 +3683,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationDomains"
+                  "$ref": "#/components/schemas/AccountDomains"
                 }
               }
             }
@@ -3569,7 +3712,7 @@
         }
       }
     },
-    "/api/v1/organization/pin": {
+    "/api/v1/account/pin": {
       "get": {
         "operationId": "getHomePin",
         "summary": "Read the ordinary Content pinned to Home",
@@ -3624,11 +3767,11 @@
         },
         "responses": {
           "200": {
-            "description": "Updated Organization",
+            "description": "Updated Account",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Organization"
+                  "$ref": "#/components/schemas/Account"
                 }
               }
             }
@@ -3639,7 +3782,7 @@
         }
       }
     },
-    "/api/v1/organization/notifications": {
+    "/api/v1/account/notifications": {
       "put": {
         "operationId": "setNotificationPause",
         "summary": "Pause or resume member-facing activity delivery",
@@ -3670,11 +3813,11 @@
         },
         "responses": {
           "200": {
-            "description": "Updated Organization",
+            "description": "Updated Account",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Organization"
+                  "$ref": "#/components/schemas/Account"
                 }
               }
             }
@@ -3706,10 +3849,10 @@
         }
       }
     },
-    "/api/v1/organization": {
+    "/api/v1/account": {
       "delete": {
-        "operationId": "deleteOrganization",
-        "description": "Irreversibly delete this entire Organization. Requires its exact current name and a current human Manager; delegated Apps and acting personas are forbidden. Durable admission immediately disables all access. Physical removal continues in the background with no recycle bin. Independent backups are excluded; retention/provider failures never imply physical completion. A hosting Organization with other tenant registrations cannot be deleted.",
+        "operationId": "deleteAccount",
+        "description": "Irreversibly delete this entire Account. Requires its exact current name and a current human Manager; delegated Apps and acting personas are forbidden. Durable admission immediately disables all access. Physical removal continues in the background with no recycle bin. Independent backups are excluded; retention/provider failures never imply physical completion. A hosting Account with other tenant registrations cannot be deleted.",
         "security": [
           {
             "memberBearer": []
@@ -3768,7 +3911,7 @@
             "description": "Current human Manager required; delegated or acting authority rejected"
           },
           "409": {
-            "description": "Organization operation conflict or hosted tenant registrations remain"
+            "description": "Account operation conflict or hosted tenant registrations remain"
           },
           "503": {
             "description": "Durable deletion admission unavailable"
@@ -3776,7 +3919,7 @@
         }
       },
       "get": {
-        "operationId": "getOrganization",
+        "operationId": "getAccount",
         "security": [
           {},
           {
@@ -3789,7 +3932,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Organization"
+                  "$ref": "#/components/schemas/Account"
                 }
               }
             }
@@ -3800,7 +3943,7 @@
         }
       },
       "put": {
-        "operationId": "replaceOrganization",
+        "operationId": "replaceAccount",
         "security": [
           {
             "memberBearer": []
@@ -3822,7 +3965,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Organization"
+                  "$ref": "#/components/schemas/Account"
                 }
               }
             }
@@ -3833,10 +3976,10 @@
         }
       }
     },
-    "/api/v1/organization/management": {
+    "/api/v1/account/management": {
       "get": {
-        "operationId": "getManagedOrganization",
-        "description": "Reads the current Organization for a current Manager or the exact pending initial founder's read-only administration preview. Returns the same public Organization fields as getOrganization; no storage credentials or operational details. A successful read never grants Manager writes; clients use AccountSafety.pending_initial_founder to stage activation and local draft retry.",
+        "operationId": "getManagedAccount",
+        "description": "Reads the current Account for a current Manager or the exact pending initial founder's read-only administration preview. Returns the same public Account fields as getAccount; no storage credentials or operational details. A successful read never grants Manager writes; clients use MemberSafety.pending_initial_founder to stage activation and local draft retry.",
         "security": [
           {
             "memberBearer": []
@@ -3844,11 +3987,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Current Organization under administration-read authorization",
+            "description": "Current Account under administration-read authorization",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Organization"
+                  "$ref": "#/components/schemas/Account"
                 }
               }
             }
@@ -3859,9 +4002,9 @@
         }
       }
     },
-    "/api/v1/organization/email": {
+    "/api/v1/account/email": {
       "get": {
-        "operationId": "getOrganizationEmail",
+        "operationId": "getAccountEmail",
         "summary": "Read the community's email settings",
         "description": "Current human Managers only, with the same authority required for storage management. Returns only the selected SMTP sender and connection settings. An absent smtp field means the default mail service is selected. Credentials are never returned. Delegated application tokens are not accepted. Responses are not cacheable.",
         "security": [
@@ -3875,7 +4018,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationEmail"
+                  "$ref": "#/components/schemas/AccountEmail"
                 }
               }
             }
@@ -3892,7 +4035,7 @@
         }
       },
       "put": {
-        "operationId": "replaceOrganizationEmail",
+        "operationId": "replaceAccountEmail",
         "summary": "Check and use a community SMTP server",
         "description": "Current human Managers only. Establishes verified TLS, authenticates, checks acceptance of the exact configured MAIL FROM and resets the transaction with RSET, then selects this connection for subsequent community email. No recipient or message is submitted. This does not establish sender-domain approval, SPF/DKIM/DMARC correctness, recipient acceptance or deliverability. Authority is checked again after verification. The full input is required when changing any setting, including credentials. An exact retry selects the same connection. A failed connection check leaves delivery unchanged; if a save response is lost, read settings or repeat the exact request. Credentials are retained privately and never returned. Delivery does not fall back to another provider on failure. Required email, optional email preferences and Basstok unsubscribe behavior remain unchanged. The server must resolve to public Internet addresses. Request JSON is limited to 4 KiB; errors never echo credentials or provider diagnostics.",
         "security": [
@@ -3916,7 +4059,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationEmail"
+                  "$ref": "#/components/schemas/AccountEmail"
                 }
               }
             }
@@ -3942,11 +4085,11 @@
         }
       }
     },
-    "/api/v1/organization/email/dns-check": {
+    "/api/v1/account/email/dns-check": {
       "post": {
-        "operationId": "checkOrganizationEmailDns",
+        "operationId": "checkAccountEmailDns",
         "summary": "Compare an exact email-provider record with current DNS",
-        "description": "Current human Admin only, before and after the lookup. Requires the current generation of this Organization's verified, prepared or published DNS claim and a record inside its apex. Browser sessions require same-origin presence. One cancellable system-resolver query, five-second deadline, no background retries, four shared DNS control slots. TXT comparison concatenates strings within one RR, never across RRs; targets compare case-insensitively, MX also checks priority. Only answers at the exact owner count; no alias-following verification. Results are transient, non-cacheable and not persisted. DNS may be cached; matched is not provider approval, DNS authority, SPF evaluation, SMTP deliverability, or proof that all required records exist. No provider API call, DNS mutation, SMTP activation or account authority change occurs. Request body is bounded to 8192 bytes.",
+        "description": "Current human Admin only, before and after the lookup. Requires the current generation of this Account's verified, prepared or published DNS claim and a record inside its apex. Browser sessions require same-origin presence. One cancellable system-resolver query, five-second deadline, no background retries, four shared DNS control slots. TXT comparison concatenates strings within one RR, never across RRs; targets compare case-insensitively, MX also checks priority. Only answers at the exact owner count; no alias-following verification. Results are transient, non-cacheable and not persisted. DNS may be cached; matched is not provider approval, DNS authority, SPF evaluation, SMTP deliverability, or proof that all required records exist. No provider API call, DNS mutation, SMTP activation or account authority change occurs. Request body is bounded to 8192 bytes.",
         "security": [{ "memberBearer": [] }],
         "requestBody": {
           "required": true,
@@ -3964,17 +4107,17 @@
           "400": { "description": "Invalid record, out-of-zone name, unsupported type or oversized input." },
           "401": { "description": "Invalid or revoked session." },
           "403": { "description": "Current human Admin or browser presence is missing." },
-          "404": { "description": "Claim not found in this Organization, including deletion during lookup." },
+          "404": { "description": "Claim not found in this Account, including deletion during lookup." },
           "409": { "description": "Claim is unverified or its generation changed, or DNS admission is busy." },
           "default": { "$ref": "#/components/responses/Error" }
         }
       }
     },
-    "/api/v1/organization/email/verify": {
+    "/api/v1/account/email/verify": {
       "post": {
-        "operationId": "verifyOrganizationEmail",
+        "operationId": "verifyAccountEmail",
         "summary": "Check SMTP settings without changing delivery",
-        "description": "Current human Managers only, including when the check finishes. Verifies TLS, the server hostname, SMTP authentication and acceptance of the exact configured MAIL FROM, then requires a successful RSET. No recipient or message is submitted; credentials are not retained and delivery is unchanged. A passed check does not activate this server, guarantee future availability or establish sender-domain approval, SPF/DKIM/DMARC correctness, recipient acceptance or deliverability. Failed or cancelled checks close the connection and do not retry automatically. Uses the same bounded input and public-address restriction as replaceOrganizationEmail. Errors never echo credentials or provider diagnostics.",
+        "description": "Current human Managers only, including when the check finishes. Verifies TLS, the server hostname, SMTP authentication and acceptance of the exact configured MAIL FROM, then requires a successful RSET. No recipient or message is submitted; credentials are not retained and delivery is unchanged. A passed check does not activate this server, guarantee future availability or establish sender-domain approval, SPF/DKIM/DMARC correctness, recipient acceptance or deliverability. Failed or cancelled checks close the connection and do not retry automatically. Uses the same bounded input and public-address restriction as replaceAccountEmail. Errors never echo credentials or provider diagnostics.",
         "security": [
           {
             "memberBearer": []
@@ -4022,9 +4165,9 @@
         }
       }
     },
-    "/api/v1/organization/storage": {
+    "/api/v1/account/storage": {
       "get": {
-        "operationId": "getOrganizationStorage",
+        "operationId": "getAccountStorage",
         "summary": "Read the community's storage selection",
         "description": "Current human Managers only. Returns the customer-selected target when customer-managed storage is in use. Never returns credentials or details of Basstok-managed storage. Delegated application tokens are not accepted.",
         "security": [
@@ -4038,7 +4181,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationStorage"
+                  "$ref": "#/components/schemas/AccountStorage"
                 }
               }
             }
@@ -4055,9 +4198,9 @@
         }
       }
     },
-    "/api/v1/organization/storage/verify": {
+    "/api/v1/account/storage/verify": {
       "post": {
-        "operationId": "verifyOrganizationStorage",
+        "operationId": "verifyAccountStorage",
         "summary": "Check S3 settings without changing community storage",
         "description": "Current human Managers only. Checks the supplied HTTPS target and credentials using bounded temporary objects and multipart uploads, then removes those probes. Does not retain the submitted credentials, select the bucket or move community data. A target other than the currently enrolled target must be empty and dedicated to this community. The endpoint must be a public HTTPS origin without a path, query, fragment or embedded credentials. Customer lifecycle rules and browser CORS rules are not read, changed or verified. A successful check is not authorization to use the bucket and does not guarantee its future availability. Exact repeated checks are safe. Request JSON is limited to 32 KiB; secrets and provider diagnostics are never echoed in an error response.",
         "security": [
@@ -4104,11 +4247,11 @@
         }
       }
     },
-    "/api/v1/organization/storage/activate": {
+    "/api/v1/account/storage/activate": {
       "post": {
-        "operationId": "activateOrganizationStorage",
+        "operationId": "activateAccountStorage",
         "summary": "Move community data to a customer-owned bucket",
-        "description": "Current human Managers only. Checks a dedicated empty S3-compatible bucket, then durably starts a transfer. Ordinary community activity pauses while data moves; unfinished uploads may need to be started again. The operation continues independently of the requesting client and resumes after a service restart. Credentials are retained privately for the connection and are never returned. GET organization/storage reports progress and the completed selection. Exact repeated requests are safe; a different pending or active connection returns 409. This operation moves Basstok-managed data to a customer-owned bucket; it does not replace an already connected customer bucket. Request JSON is limited to 32 KiB.",
+        "description": "Current human Managers only. Checks a dedicated empty S3-compatible bucket, then durably starts a transfer. Ordinary community activity pauses while data moves; unfinished uploads may need to be started again. The operation continues independently of the requesting client and resumes after a service restart. Credentials are retained privately for the connection and are never returned. GET account/storage reports progress and the completed selection. Exact repeated requests are safe; a different pending or active connection returns 409. This operation moves Basstok-managed data to a customer-owned bucket; it does not replace an already connected customer bucket. Request JSON is limited to 32 KiB.",
         "security": [
           {
             "memberBearer": []
@@ -4130,7 +4273,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationStorage"
+                  "$ref": "#/components/schemas/AccountStorage"
                 }
               }
             }
@@ -4140,7 +4283,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationStorage"
+                  "$ref": "#/components/schemas/AccountStorage"
                 }
               }
             }
@@ -4166,9 +4309,9 @@
         }
       }
     },
-    "/api/v1/organization/storage/resume": {
+    "/api/v1/account/storage/resume": {
       "post": {
-        "operationId": "resumeOrganizationStorage",
+        "operationId": "resumeAccountStorage",
         "summary": "Resume the current storage transfer",
         "description": "Current human Managers only. Uses the already admitted connection; send an empty request body. Does not replace its target or credentials. A transfer already running returns 409; an already completed transfer returns 200. Failed transfers remain paused until their connection can be used again.",
         "security": [
@@ -4182,7 +4325,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationStorage"
+                  "$ref": "#/components/schemas/AccountStorage"
                 }
               }
             }
@@ -4192,7 +4335,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationStorage"
+                  "$ref": "#/components/schemas/AccountStorage"
                 }
               }
             }
@@ -4215,10 +4358,10 @@
         }
       }
     },
-    "/api/v1/organization/audience": {
+    "/api/v1/account/audience": {
       "put": {
-        "operationId": "replaceOrganizationAudienceLabel",
-        "description": "Applies one fixed Basstok audience Label to the Organization, or makes the Organization public when label is null.",
+        "operationId": "replaceAccountAudienceLabel",
+        "description": "Applies one fixed Basstok audience Label to the Account, or makes the Account public when label is null.",
         "security": [
           {
             "memberBearer": []
@@ -4236,11 +4379,11 @@
         },
         "responses": {
           "200": {
-            "description": "Updated Organization",
+            "description": "Updated Account",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Organization"
+                  "$ref": "#/components/schemas/Account"
                 }
               }
             }
@@ -4284,7 +4427,7 @@
       },
       "put": {
         "operationId": "putPublicRoute",
-        "description": "Assign an exact public URI path to an existing canonical resource. Requires Organization management access. Reusing a path is idempotent only when its target and pagination semantics are unchanged.",
+        "description": "Assign an exact public URI path to an existing canonical resource. Requires Account management access. Reusing a path is idempotent only when its target and pagination semantics are unchanged.",
         "security": [
           {
             "memberBearer": []
@@ -4323,7 +4466,7 @@
       },
       "delete": {
         "operationId": "deletePublicRoute",
-        "description": "Remove one exact public URI assignment. Requires Organization management access and is idempotent when the path is already unassigned.",
+        "description": "Remove one exact public URI assignment. Requires Account management access and is idempotent when the path is already unassigned.",
         "security": [
           {
             "memberBearer": []
@@ -4344,10 +4487,50 @@
         }
       }
     },
+    "/api/v1/auth/app/challenge": {
+      "post": {
+        "operationId": "beginAppVerification",
+        "description": "Begin native app verification for the current first-party Member session, including a pending session. No delegated application, Member selector or query parameters. The challenge expires after five minutes and is bound to this Member, Account and session. Repeating a still-pending request returns the same challenge without extending it. Browser mutations require same-origin presence. Verification does not save a login method, prove phone ownership, activate an Admin or grant calling credit.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AppVerificationRequest"}}}
+        },
+        "responses": {
+          "200": {
+            "description": "Session-bound challenge; Cache-Control: no-store.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AppVerificationChallenge"}}}
+          },
+          "409": {"description": "Verification is already complete or this challenge was already attempted."},
+          "503": {"description": "App verification is unavailable. Phone verification remains separate."},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/auth/app/verify": {
+      "post": {
+        "operationId": "completeAppVerification",
+        "description": "Submit an Apple App Attest attestation or Android standard Play Integrity token for this session's challenge. Hash the UTF-8 challenge with SHA-256; Apple uses those bytes as clientDataHash, Android uses their unpadded base64url encoding as requestHash. Only a verified platform proof admits ordinary authenticated use by the same Member. No client-supplied verdict is accepted. An exact completion retry may return an already verified result until the original expiry, without rechecking the provider. A failed or uncertain provider attempt consumes that challenge; do not resubmit it with another proof. No query parameters or delegated applications. Browser mutations require same-origin presence.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AppVerificationProof"}}}
+        },
+        "responses": {
+          "200": {
+            "description": "The same Member is admitted; no new session is created. Cache-Control: no-store.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Principal"}}}
+          },
+          "403": {"description": "Proof rejected, expired, consumed or bound to another session, Member or Account."},
+          "503": {"description": "App verification could not finish; acceptance must not be inferred."},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/auth/session": {
       "get": {
         "operationId": "getSessionPrincipal",
-        "description": "Returns the responsible Member identity and phone_verified for a current Member session or delegated OAuth grant. An unverified Member session is retained for SMS verification, not ordinary participation.",
+        "description": "Returns the responsible Member identity and whether verification admits ordinary authenticated access. A pending Member session is retained for verification, authentication transfer and logout. Admission is not proof of phone ownership or Admin authority.",
         "security": [
           {
             "memberBearer": []
@@ -4389,7 +4572,7 @@
         }
       }
     },
-    "/api/v1/account/safety": {
+    "/api/v1/member-access/safety": {
       "get": {
         "operationId": "getAccountSafety",
         "security": [
@@ -4403,7 +4586,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccountSafety"
+                  "$ref": "#/components/schemas/MemberSafety"
                 }
               }
             }
@@ -4414,7 +4597,7 @@
         }
       }
     },
-    "/api/v1/account/name": {
+    "/api/v1/member-access/name": {
       "put": {
         "operationId": "setAccountDisplayName",
         "description": "Changes only the authenticated human Member's display name. No target Member, handle, authority, acting identity or delegated application is accepted. Browser requests require the current X-Basstok-Presence binding. Returns 204; re-read Account for the current name. This optional account action is separate from onboarding and Terms acceptance.",
@@ -4443,7 +4626,7 @@
         }
       }
     },
-    "/api/v1/account/notification-preferences": {
+    "/api/v1/member-access/notification-preferences": {
       "get": {
         "operationId": "getAccountNotificationPreferences",
         "description": "Current authenticated human Member only; no target Member or delegated application is accepted. Query parameters are rejected. Controls only optional notification email; required authentication, security, recovery and account email are unaffected.",
@@ -4504,7 +4687,7 @@
         }
       }
     },
-    "/api/v1/account/terms": {
+    "/api/v1/member-access/terms": {
       "put": {
         "operationId": "acceptTerms",
         "security": [
@@ -4532,7 +4715,7 @@
         }
       }
     },
-    "/api/v1/account/blocked-members/{memberId}": {
+    "/api/v1/member-access/blocked-members/{memberId}": {
       "parameters": [
         {
           "$ref": "#/components/parameters/MemberId"
@@ -4571,7 +4754,7 @@
         }
       }
     },
-    "/api/v1/account/deletion": {
+    "/api/v1/member-access/deletion": {
       "delete": {
         "operationId": "requestAccountDeletion",
         "description": "Records a deletion request and revokes authentication. Shared records and moderation evidence follow the published retention policy.",
@@ -4811,7 +4994,7 @@
       },
       "delete": {
         "operationId": "deleteContent",
-        "description": "Remove dependency-free Content. Requires Organization management access and is idempotent after the Content is absent.",
+        "description": "Remove dependency-free Content. Requires Account management access and is idempotent after the Content is absent.",
         "security": [
           {
             "memberBearer": []
@@ -4891,7 +5074,7 @@
       ],
       "put": {
         "operationId": "replaceContentAudienceLabel",
-        "description": "Applies one fixed Basstok audience Label, or clears the local Content audience so it inherits the Organization audience when label is null.",
+        "description": "Applies one fixed Basstok audience Label, or clears the local Content audience so it inherits the Account audience when label is null.",
         "security": [
           {
             "memberBearer": []
@@ -6093,7 +6276,7 @@
       ],
       "get": {
         "operationId": "getMember",
-        "description": "Reads the public Member profile under the current Organization audience. Anonymous access is allowed for public profiles; supplied credentials must remain valid.",
+        "description": "Reads the public Member profile under the current Account audience. Anonymous access is allowed for public profiles; supplied credentials must remain valid.",
         "security": [
           {},
           {
@@ -6402,7 +6585,7 @@
       },
       "post": {
         "operationId": "createChat",
-        "description": "Creates a Chat with a Basstok-assigned opaque identity. creator_id may select a no-login Member created and controlled by this application and that Member must be among the participants. Exactly two initial participants identify one titleless direct Chat. Retry an ambiguous outcome with the exact same Idempotency-Key and body; a changed body with the same key conflicts.",
+        "description": "Creates a Chat with a Basstok-assigned opaque identity. creator_id may select a no-login Member created and controlled by this application and that Member must be among the participants. Exactly two initial participants identify one titleless direct Chat. An untitled Chat with only the creator reuses an existing untitled personal Chat that still has only that participant, preserving its history and connected transports. Titled and shared Chats remain separate; histories are not merged. Retry an ambiguous outcome with the exact same Idempotency-Key and body; a changed body with the same key conflicts.",
         "security": [
           {
             "memberBearer": []
@@ -6430,7 +6613,7 @@
         },
         "responses": {
           "200": {
-            "description": "Created Chat, exact retry, or existing direct Chat for the unordered participant pair",
+            "description": "Created Chat, exact retry, existing personal Chat, or existing direct Chat for the unordered participant pair",
             "content": {
               "application/json": {
                 "schema": {
@@ -6519,7 +6702,7 @@
       "post": {
         "operationId": "sendChatEmail", "tags": ["Chats"], "security": [{"memberBearer": []}],
         "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
-        "description": "The current human Chat creator explicitly sends plain-text email to one recipient through the exact selected customer connection. No CC/BCC, attachments, scheduling, automatic resend, delegated Apps or Basstok-funded fallback. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Organization, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
+        "description": "The current human Chat creator explicitly sends plain-text email to one recipient through the exact selected customer connection. No CC/BCC, attachments, scheduling, automatic resend, delegated Apps or Basstok-funded fallback. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Account, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonalEmailInput"}}}},
         "responses": {"200": {"description": "Saved Message with explicit outgoing_email status; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Message"}}}}, "400": {"description": "Invalid recipient, subject, body, connection or request identity."}, "403": {"description": "Not the current human Chat creator or reply history is inaccessible."}, "409": {"description": "Conflicting request, changed/unavailable sender or concurrent operation. Keep the exact send identity when checking an uncertain result."}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -6626,7 +6809,7 @@
       ],
       "get": {
         "operationId": "readChatIncomingEmail",
-        "description": "Current human Chat participants read the receiving address. Only its current creator receives eligible published Organization domains and can_manage. Domain candidates confer no authority and each mutation rechecks them. Human sessions only; no query parameters. This read changes no DNS or receiving state.",
+        "description": "Current human Chat participants read the receiving address. Only its current creator receives eligible published Account domains and can_manage. Domain candidates confer no authority and each mutation rechecks them. Human sessions only; no query parameters. This read changes no DNS or receiving state.",
         "security": [{"memberBearer": []}],
         "responses": {
           "200": {
@@ -6638,7 +6821,7 @@
       },
       "put": {
         "operationId": "enableChatIncomingEmail",
-        "description": "The current human Chat creator, who must still be a participant, enables external mail on a verified domain belonging to this Organization. Repeating the same domain preserves the receiving address. No DNS records change and senders gain no access to Chat history. Disable then enable to replace an address.",
+        "description": "The current human Chat creator, who must still be a participant, enables external mail on a verified domain belonging to this Account. Repeating the same domain preserves the receiving address. No DNS records change and senders gain no access to Chat history. Disable then enable to replace an address.",
         "security": [{"memberBearer": []}],
         "requestBody": {
           "required": true,
@@ -6894,7 +7077,7 @@
       "parameters": [{ "$ref": "#/components/parameters/ChatId" }],
       "post": {
         "operationId": "sendChatFax",
-        "description": "A current human Chat participant explicitly sends prepared monochrome pages through the exact selected customer SIP connection. Basstok sends audio-first fax using encrypted G.711 through the verified provider TLS connection, not a provider document API or voice relay. Insecure audio answers fail closed without redial. An authenticated in-dialog T.38 re-INVITE may switch the same document session after the exact acknowledgement, without redial; negotiated T.38/UDPTL is source-pinned, not encrypted. Incoming fax requires separate explicit account-wide selection. A registered compatible provider and configured server transport are required for a new send; charges may apply. Basstok generates the canonical PDF from these exact pixels and durably publishes it with an authored Unconfirmed Message before one transport invocation. Idempotency-Key is scoped to the Member, Chat and participant-history boundary. An exact retry returns saved state without redial, including while a send is active, after restart, while transport is unavailable or after the account is disconnected. Changing the connection, recipient or document with that key conflicts. Waits for the bounded transport result (up to 21 minutes); the admitted Message is visible in existing Chat reads/SSE while sending. Request loss does not cancel an admitted send and an error/timeout may mean it was sent. Inspect the existing result; never automatically resend with a new key. Delivered requires completed T.30 document confirmation, not merely a SIP answer. No server-side arbitrary PDF/image interpretation, queue or automatic retries. Delegated/acting Members are forbidden, and browser presence/origin checks apply. At most four concurrent fax submissions, separate from calling control/read admission; at most 44804784 request bytes including JSON escaping. Web, Apple and Android share this contract and locally prepare/preview bounded PDF pages. Closing a draft does not cancel a server-admitted transmission; inspect the existing Chat before starting a new attempt.",
+        "description": "Send prepared monochrome pages to an explicit recipient and retain the PDF and delivery state in this Chat. Omit connection_id (or use null) to send through Basstok using this Account's allowance: requires its admitted human creator and sufficient balance, not a purchase, saved login, Admin role or customer calling connection. Direct Account creation includes starter credit; community membership alone does not. Supply connection_id to use that exact registered customer SIP connection instead; this never falls back to Account spending. Basstok fax accepts E.164 numbers; customer SIP additionally accepts strict SIP addresses. Incoming fax selection is separate. The exact PDF and authored Unconfirmed Message are durable before sending. Idempotency-Key is scoped to the Member, Chat and participant-history boundary. Exact retries return saved state without redial, including after restart or service disconnection; changing route, recipient or document conflicts. Waits up to 21 minutes, bounded further by the Account allowance; the Message is visible in Chat reads/SSE while sending. Losing the request or closing a draft does not cancel an admitted transmission. Errors, timeouts and Unconfirmed may mean it was sent: inspect the existing Chat and never automatically resend with a new key. Delivered requires document confirmation, not merely an answered call. A failed answered fax may still consume connected time. Delegated/acting Members are forbidden; browser presence/origin checks apply. At most four concurrent submissions and 44804784 request bytes. Clients render and preview bounded pages locally; arbitrary source PDFs are not accepted by this endpoint.",
         "security": [{ "memberBearer": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/IdempotencyKey" },
@@ -6946,6 +7129,22 @@
       }
     },
     "/api/v1/phone-calls": {
+      "post": {
+        "operationId": "startAccountPhoneCall",
+        "description": "Start an outgoing telephone call from this Account. Requires its admitted human creator, available calling service and sufficient funded usage; Admin activation is not required. Supply one E.164 number and a fresh attempt UUID. The response authorizes a single native endpoint connection, not a connected recipient. Exact setup retries preserve the original call and expiry and never start another dialing job; connected or ended attempts cannot enroll another endpoint. Register the returned callee endpoint using its exact TLS certificate and proof. Preparation begins only after that authenticated connection. The call uses the Account's allowance and Basstok's customer tariff, fixed for the attempt; supplier charges do not determine the customer charge. Read this call or react to Member phone-call events for current state; Live means the recipient is connected. Leave through the ordinary owner-session call endpoint. No automatic redial after failure or restart, no Chat or reusable calling credentials, and no browser media implementation. At most 256 body bytes; unknown fields, duplicate fields and query parameters are rejected. Cookie-authenticated writes require matching presence and same-origin checks.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {
+          "type": "object", "additionalProperties": false, "required": ["number", "attempt_id"],
+          "properties": {
+            "number": {"type": "string", "pattern": "^\\+[1-9][0-9]{7,14}$", "maxLength": 16},
+            "attempt_id": {"type": "string", "format": "uuid"}
+          }
+        }}}},
+        "responses": {
+          "200": {"description": "One-call endpoint grant; Cache-Control: no-store. Not proof of carrier connection.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PhoneCallAnswer"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      },
       "get": {
         "operationId": "listPhoneCalls",
         "description": "Bounded array of currently authorized calls. Rechecks participant admission, session, current credentials and calling selection. Human sessions only; delegated applications and external origins are rejected. Member SSE phone-call, ready and reset signals prompt a current read. member_id does not identify the owning device: only the exact local answer/dial attempt and its authenticated response establish ownership. Outgoing calls never ring other Chat participants. Ignore an unclaimed incoming ring locally; leave is owner-session-only.",
@@ -7202,6 +7401,56 @@
         }
       }
     },
+    "/api/v1/phone/managed/stop": {
+      "post": {
+        "operationId": "stopManagedPhoneCall",
+        "description": "The currently admitted human Account creator may stop an exact existing managed call attempt, including from another authenticated device. Account identity comes from the request hostname, not the body. The stop is saved before success and prevents further dialing for this attempt. Basstok attempts any due hangups without treating command acceptance as proof of termination or a refund. An exact retry is safe while the attempt remains retained. Invalid, expired, revoked, delegated, non-creator and cross-Account access fails closed. This operation neither starts a call nor grants credit. No query parameters; at most 1024 body bytes. Browser mutations require the usual same-origin and presence checks.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {
+          "type": "object", "additionalProperties": false,
+          "required": ["sequence", "operation_id"],
+          "properties": {
+            "sequence": {"type": "integer", "format": "uint64", "minimum": 1, "maximum": 18446744073709551615},
+            "operation_id": {"type": "string", "format": "uuid"}
+          }
+        }}}},
+        "responses": {
+          "202": {"description": "Stop durably accepted. Remote termination and final usage may still be pending."},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/phone/managed/events": {
+      "post": {
+        "operationId": "receiveManagedPhoneEvent",
+        "description": "Provider-only delivery endpoint on the configured Basstok service origin. Route parameters identify an existing call attempt; they grant no authority. Exact raw bytes require valid Ed25519 signature and timestamp headers within 300 seconds, matching the saved Account, attempt, leg and provider identities. At most 16384 body bytes and 512 query bytes. Authenticated observations and any resulting usage settlement are saved before success. Exact duplicates are harmless. Conflicting authenticated evidence is retained for reconciliation, not used to release credit. No Member login, dispatch, credit grant or refund request is supported here.",
+        "security": [],
+        "parameters": [
+          {"name": "account", "in": "query", "required": true, "description": "Account ID of the Account that owns the call attempt.", "schema": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9_.-]+$"}},
+          {"name": "sequence", "in": "query", "required": true, "schema": {"type": "string", "pattern": "^[1-9][0-9]{0,19}$"}, "description": "Positive unsigned 64-bit call-attempt sequence, without leading zeroes."},
+          {"name": "operation", "in": "query", "required": true, "schema": {"type": "string", "format": "uuid"}},
+          {"name": "leg", "in": "query", "required": true, "schema": {"type": "integer", "enum": [0, 1]}},
+          {"name": "telnyx-signature-ed25519", "in": "header", "required": true, "schema": {"type": "string", "maxLength": 128}},
+          {"name": "telnyx-timestamp", "in": "header", "required": true, "schema": {"type": "string", "maxLength": 19}}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {
+          "type": "object", "required": ["data"], "properties": {"data": {
+            "type": "object", "required": ["id", "record_type", "event_type", "occurred_at", "payload"],
+            "properties": {
+              "id": {"type": "string", "format": "uuid"},
+              "record_type": {"type": "string", "enum": ["event"]},
+              "event_type": {"type": "string", "enum": ["call.initiated", "call.answered", "call.bridged", "call.hangup", "call.cost"]},
+              "occurred_at": {"type": "string", "format": "date-time"},
+              "payload": {"type": "object", "description": "Provider lifecycle or cost fields, verified against the existing call attempt."}
+            }
+          }}
+        }}}},
+        "responses": {
+          "204": {"description": "Authenticated observation durably handled, or exact duplicate; no session is created."},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/chats/{chatId}/phone/events/{connectionId}": {
       "parameters": [
         {"$ref": "#/components/parameters/ChatId"},
@@ -7209,7 +7458,7 @@
       ],
       "post": {
         "operationId": "receiveChatSms",
-        "description": "Provider-only endpoint. Exact raw bytes must have valid telnyx-signature-ed25519 and telnyx-timestamp headers within 300 seconds for this Organization, Chat and current connection. The receiving number and messaging profile must match. Duplicate provider message IDs compare semantic sender, recipient and text, not mutable delivery-attempt metadata. External sender labels never authenticate a Member. At most 32768 request bytes; only single-recipient SMS is supported.",
+        "description": "Provider-only endpoint. Exact raw bytes must have valid telnyx-signature-ed25519 and telnyx-timestamp headers within 300 seconds for this Account, Chat and current connection. The receiving number and messaging profile must match. Duplicate provider message IDs compare semantic sender, recipient and text, not mutable delivery-attempt metadata. External sender labels never authenticate a Member. At most 32768 request bytes; only single-recipient SMS is supported.",
         "security": [],
         "parameters": [
           {"name": "telnyx-signature-ed25519", "in": "header", "required": true, "schema": {"type": "string", "maxLength": 128}},
@@ -7557,7 +7806,7 @@
     "/api/v1/assets": {
       "post": {
         "operationId": "createSmallAsset",
-        "description": "Creates an Asset of at most 8 MiB under one authorized Organization, Content, or Chat parent and returns its Basstok-assigned opaque identity. OAuth callers use an explicit Content or Chat parent. A Chat upload remains visible only to its uploader until shared through a Message or attachment to the Chat; other participants then require visibility of that shared activity from their admission boundary. Retry an ambiguous outcome with the exact same Idempotency-Key, query parameters, and bytes; changed input with the same key conflicts.",
+        "description": "Creates an Asset of at most 8 MiB under one authorized Account, Content, or Chat parent and returns its Basstok-assigned opaque identity. OAuth callers use an explicit Content or Chat parent. A Chat upload remains visible only to its uploader until shared through a Message or attachment to the Chat; other participants then require visibility of that shared activity from their admission boundary. Retry an ambiguous outcome with the exact same Idempotency-Key, query parameters, and bytes; changed input with the same key conflicts.",
         "security": [
           {
             "memberBearer": []
@@ -9361,9 +9610,9 @@
         }
       }
     },
-    "/api/v1/organization/ads": {
+    "/api/v1/account/ads": {
       "get": {
-        "operationId": "getOrganizationAds",
+        "operationId": "getAccountAds",
         "description": "Returns the three typed ad placements. Requires a current human Manager; delegated applications are denied.",
         "security": [
           {
@@ -9391,8 +9640,8 @@
         }
       },
       "put": {
-        "operationId": "setOrganizationAds",
-        "description": "Atomically replaces all three placements; omitted or null slots clear the placement. Requires a current human Manager bearer session; delegated applications are denied. Every configured slot, even disabled, must reference an existing same-Organization Organization-owned image Asset. Repeating the desired state is safe. No scripts, tracking or rotation.",
+        "operationId": "setAccountAds",
+        "description": "Atomically replaces all three placements; omitted or null slots clear the placement. Requires a current human Manager bearer session; delegated applications are denied. Every configured slot, even disabled, must reference an existing same-Account Account-owned image Asset. Repeating the desired state is safe. No scripts, tracking or rotation.",
         "security": [
           {
             "memberBearer": []
@@ -9856,7 +10105,7 @@
     "/api/v1/auth/join": {
       "post": {
         "operationId": "joinMember",
-        "description": "Bootstraps membership in the current Organization after durable admission. The hosting basstok.com Organization rejects this operation with 409 account_creation_required; direct signup uses POST /api/v1/basstoks to create a separately stored Account. Ordinary community joining creates no personal Account, hosting membership or additional bucket. Only completion_token is accepted. Member presentation is derived from the Organization. Phone verification is required before ordinary authenticated use; Terms acceptance and durable sign-in setup remain later actions. A client presenting a current Member session receives 409 already_authenticated, preserving that account instead of creating another Member. Invalid presented authentication fails closed. Browsers require same-origin JSON and X-Basstok-Auth matching completion_token. Sets an HttpOnly host-only binding cookie for later session installation; no prior binding cookie is needed.",
+        "description": "Bootstraps membership in the current Account after durable creation. The hosting basstok.com Account rejects this operation with 409 account_creation_required; direct signup uses POST /api/v1/basstoks to create a separately stored Account. Ordinary community joining creates no personal Account, hosting membership or additional bucket. Only completion_token is accepted. Member presentation is derived from the Account. Native app verification or phone verification is required before ordinary authenticated use; Terms acceptance and durable sign-in setup remain later actions. A client presenting a current Member session receives 409 already_authenticated, preserving that account instead of creating another Member. Invalid presented authentication fails closed. Browsers require same-origin JSON and X-Basstok-Auth matching completion_token. Sets an HttpOnly host-only binding cookie for later session installation; no prior binding cookie is needed.",
         "security": [],
         "parameters": [
           {
@@ -10103,7 +10352,7 @@
     "/api/v1/auth/email-sign-in/request": {
       "post": {
         "operationId": "requestEmailSignIn",
-        "description": "Uniform accepted response for unknown, unverified, malformed and verified addresses, including delivery failure. No proof echo, including local mode. Bounded expiring single-use proof binds exact Organization, Member, verified address revision/generation and completion digest. Email contains only /account?email_sign_in_token=proof, never completion_token. Browsers require same-origin JSON and X-Basstok-Auth matching completion_token. Sets an HttpOnly host-only binding cookie for later session installation; no prior binding cookie is needed.",
+        "description": "Uniform accepted response for unknown, unverified, malformed and verified addresses, including delivery failure. No proof echo, including local mode. Bounded expiring single-use proof binds exact Account, Member, verified address revision/generation and completion digest. Email contains only /account?email_sign_in_token=proof, never completion_token. Browsers require same-origin JSON and X-Basstok-Auth matching completion_token. Sets an HttpOnly host-only binding cookie for later session installation; no prior binding cookie is needed.",
         "security": [],
         "parameters": [
           {
@@ -10379,7 +10628,7 @@
         "name": "cursor",
         "in": "query",
         "required": false,
-        "description": "Opaque process-local continuation for exactly the same Organization and selected Content, Chat, or Member resource. Do not reuse it for another resource. A reset response replaces an obsolete cursor.",
+        "description": "Opaque process-local continuation for exactly the same Account and selected Content, Chat, or Member resource. Do not reuse it for another resource. A reset response replaces an obsolete cursor.",
         "schema": {
           "type": "string"
         }
@@ -10642,6 +10891,53 @@
       }
     },
     "schemas": {
+      "PhoneUsageUnits": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["calls", "call_seconds", "messages", "faxes", "fax_pages"],
+        "properties": {
+          "calls": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+          "call_seconds": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+          "messages": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+          "faxes": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+          "fax_pages": {"type": "integer", "minimum": 0, "maximum": 1000000000000}
+        }
+      },
+      "PhoneUsageLimits": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "calls": {"type": ["integer", "null"], "minimum": 0, "maximum": 1000000000000},
+          "call_seconds": {"type": ["integer", "null"], "minimum": 0, "maximum": 1000000000000},
+          "messages": {"type": ["integer", "null"], "minimum": 0, "maximum": 1000000000000},
+          "faxes": {"type": ["integer", "null"], "minimum": 0, "maximum": 1000000000000},
+          "fax_pages": {"type": ["integer", "null"], "minimum": 0, "maximum": 1000000000000}
+        }
+      },
+      "PhoneUsageSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["outgoing_limits", "periods"],
+        "properties": {
+          "outgoing_limits": {"$ref": "#/components/schemas/PhoneUsageLimits"},
+          "periods": {
+            "type": "array",
+            "maxItems": 13,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["month", "incoming", "outgoing", "pending_incoming_call_seconds", "pending_outgoing_call_seconds"],
+              "properties": {
+                "month": {"type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"},
+                "incoming": {"$ref": "#/components/schemas/PhoneUsageUnits"},
+                "outgoing": {"$ref": "#/components/schemas/PhoneUsageUnits"},
+                "pending_incoming_call_seconds": {"type": "integer", "minimum": 0, "maximum": 1843200},
+                "pending_outgoing_call_seconds": {"type": "integer", "minimum": 0, "maximum": 1843200}
+              }
+            }
+          }
+        }
+      },
       "EmailDnsCheck": {
         "type": "object",
         "additionalProperties": false,
@@ -10710,7 +11006,7 @@
           "asset_id": {
             "type": "string",
             "format": "uuid",
-            "description": "Existing same-Organization Organization-owned image Asset, required even when disabled."
+            "description": "Existing same-Account Account-owned image Asset, required even when disabled."
           },
           "target_url": {
             "type": "string",
@@ -11128,10 +11424,10 @@
           "disclosure": {
             "type": "string",
             "enum": [
-              "organization_managers",
+              "account_managers",
               "resource_audience"
             ],
-            "default": "organization_managers"
+            "default": "account_managers"
           }
         },
         "additionalProperties": false
@@ -11488,7 +11784,7 @@
         "type": "object",
         "required": [
           "members",
-          "accounts"
+          "member_accesses"
         ],
         "properties": {
           "members": {
@@ -11498,7 +11794,7 @@
             },
             "maxItems": 4096
           },
-          "accounts": {
+          "member_accesses": {
             "type": "array",
             "items": {
               "type": "object",
@@ -11578,7 +11874,7 @@
               "type": {
                 "type": "string",
                 "enum": [
-                  "Organization",
+                  "Account",
                   "Content",
                   "Chat",
                   "Member"
@@ -12574,7 +12870,7 @@
           }
         }
       },
-      "OrganizationDnsClaims": {
+      "AccountDnsClaims": {
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -12611,7 +12907,7 @@
           "apex": {
             "type": "string",
             "maxLength": 244,
-            "description": "Canonical lowercase DNS zone apex without a trailing dot. basstok.com is available only to the hosting Organization."
+            "description": "Canonical lowercase DNS zone apex without a trailing dot. basstok.com is available only to the hosting Account."
           },
           "generation": {
             "type": "integer",
@@ -12641,7 +12937,7 @@
           }
         }
       },
-      "OrganizationDomains": {
+      "AccountDomains": {
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -12717,12 +13013,12 @@
       "CommunityContext": {
         "type": "object",
         "required": [
-          "organization_id",
+          "account_id",
           "authentication_origin",
           "required_terms_version"
         ],
         "properties": {
-          "organization_id": {
+          "account_id": {
             "type": "string"
           },
           "authentication_origin": {
@@ -12759,7 +13055,7 @@
           "type": {
             "type": "string",
             "enum": [
-              "Organization",
+              "Account",
               "Label",
               "Content",
               "Comment",
@@ -12851,7 +13147,7 @@
         },
         "additionalProperties": false
       },
-      "Organization": {
+      "Account": {
         "type": "object",
         "required": [
           "id",
@@ -12867,7 +13163,7 @@
             "type": "string"
           },
           "system_labels": {
-            "$ref": "#/components/schemas/OrganizationSystemLabels"
+            "$ref": "#/components/schemas/AccountSystemLabels"
           },
           "notifications_paused": {
             "type": "boolean"
@@ -12875,7 +13171,7 @@
         },
         "additionalProperties": false
       },
-      "OrganizationEmail": {
+      "AccountEmail": {
         "type": "object",
         "properties": {
           "smtp": {
@@ -12960,7 +13256,7 @@
         },
         "additionalProperties": false
       },
-      "OrganizationStorage": {
+      "AccountStorage": {
         "type": "object",
         "required": [
           "custody"
@@ -13182,9 +13478,9 @@
           "featured"
         ]
       },
-      "OrganizationSystemLabels": {
+      "AccountSystemLabels": {
         "type": "array",
-        "description": "The Organization's optional fixed audience Label. At most one audience may be present.",
+        "description": "The Account's optional fixed audience Label. At most one audience may be present.",
         "items": {
           "$ref": "#/components/schemas/AudienceSystemLabel"
         },
@@ -13665,7 +13961,7 @@
         "minLength": 1,
         "maxLength": 48,
         "pattern": "^[a-z0-9][a-z0-9_-]{0,47}$",
-        "description": "Required canonical, Organization-unique, immutable lowercase ASCII handle. Public profile URL /@{handle}; stable Member IDs remain API and relationship identities."
+        "description": "Required canonical, Account-unique, immutable lowercase ASCII handle. Public profile URL /@{handle}; stable Member IDs remain API and relationship identities."
       },
       "MemberWrite": {
         "type": "object",
@@ -13714,7 +14010,12 @@
             "type": "string"
           },
           "display_name": {
-            "type": "string"
+            "type": "string",
+            "description": "The display name available to this viewer. Prefer a nonempty name when identifying the participant."
+          },
+          "handle": {
+            "type": "string",
+            "description": "Public profile handle, when available. Display with @ when no display name is available."
           }
         },
         "additionalProperties": false
@@ -13923,7 +14224,7 @@
           },
           "fax_sending_available": {
             "type": "boolean",
-            "description": "Submission is available only with configured/running fax transport and a registered exact calling connection in the current storage generation. This is not a guarantee of free line capacity, provider fax support or delivery. Receiving selection is independent; exact previously admitted results remain readable while false."
+            "description": "With connection present, submission uses that exact registered customer calling connection. Without connection, this human Account creator can submit through Basstok using the Account allowance, without purchase or Admin activation. Requires running fax service; not a guarantee of remaining balance, capacity, recipient support or delivery. Receiving selection is independent. Exact saved results remain readable while false."
           },
           "registration": {
             "type": "string",
@@ -13966,11 +14267,12 @@
       "ChatFaxSendInput": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["connection_id", "recipient", "pages"],
+        "required": ["recipient", "pages"],
         "properties": {
-          "connection_id": { "type": "string", "pattern": "^[0-9a-f]{64}$", "minLength": 64, "maxLength": 64 },
+          "connection_id": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "minLength": 64, "maxLength": 64,
+            "description": "Omit or use null for Basstok Account fax. Otherwise selects the exact current customer calling connection, with no fallback to Account spending." },
           "recipient": { "type": "string", "minLength": 1, "maxLength": 386,
-            "description": "Explicit international E.164 number or strict sip:user@domain. A telephone number uses the selected provider domain; no display names, parameters, headers, ports, address lists or password-bearing URIs." },
+            "description": "Explicit international E.164 number for Basstok Account fax. With connection_id, also accepts strict sip:user@domain; telephone numbers use that connection's provider domain. No display names, parameters, headers, ports, address lists or password-bearing URIs." },
           "pages": { "type": "array", "minItems": 1, "maxItems": 20,
             "description": "Ordered, client-rendered fax pages. At most 16777216 decoded pixel bytes across the whole document.",
             "items": { "$ref": "#/components/schemas/FaxPageInput" } }
@@ -14041,7 +14343,6 @@
         "additionalProperties": false,
         "required": [
           "id",
-          "chat_id",
           "remote_address",
           "direction",
           "status",
@@ -14057,8 +14358,9 @@
             "maxLength": 64
           },
           "chat_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "The related private Chat, when this call belongs to one."
           },
           "remote_address": {
             "type": "string",
@@ -14079,13 +14381,16 @@
           },
           "ended_reason": {
             "type": "string",
+            "description": "Final reason for an ended call. Insufficient credit and unavailable destinations are distinct from other calling failures. A leave response retains an already-established final reason; it does not replace it with cancellation.",
             "enum": [
               "none",
               "cancelled",
               "timeout",
               "disconnected",
               "unavailable",
-              "hangup"
+              "hangup",
+              "insufficient_credit",
+              "destination_unavailable"
             ]
           },
           "member_id": {
@@ -14130,9 +14435,15 @@
           "call",
           "registrar_uri",
           "answer_token",
-          "tls_certificate_pem"
+          "tls_certificate_pem",
+          "endpoint_role"
         ],
         "properties": {
+          "endpoint_role": {
+            "type": "string",
+            "enum": ["caller", "callee"],
+            "description": "The native endpoint's SIP role for this attempt, independent of the call's user-visible direction. A callee waits for and answers the authorized offer; a caller sends it."
+          },
           "call": {
             "$ref": "#/components/schemas/PhoneCall"
           },
@@ -14303,7 +14614,7 @@
         "properties": {
           "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{43}$"},
           "authorize_url": {"type": "string", "format": "uri", "description": "Fixed selected-provider authorization origin, read-only mail scopes and state/S256 PKCE; not a Basstok login. Validate the URL against the provider selected by the endpoint."},
-          "return_url": {"type": "string", "format": "uri", "pattern": "^https://[^/?#:]+/oauth/mailbox/(google|microsoft)/return$", "description": "Exact hosting HTTPS browser return, without query/fragment; callback redirect adds only target_organization_id, chat_id, authorization_id and result. Return identities are checked against the originating flow; result is only a navigation hint, never authorization. No provider code or token is exposed."},
+          "return_url": {"type": "string", "format": "uri", "pattern": "^https://[^/?#:]+/oauth/mailbox/(google|microsoft)/return$", "description": "Exact hosting HTTPS browser return, without query/fragment; callback redirect adds only target_account_id, chat_id, authorization_id and result. Return identities are checked against the originating flow; result is only a navigation hint, never authorization. No provider code or token is exposed."},
           "expires_at": {"type": "integer", "minimum": 1, "description": "Unix seconds, at most 15 minutes after creation."}
         }
       },
@@ -14331,8 +14642,8 @@
         "required": ["can_manage", "domains", "receiving_available"],
         "properties": {
           "address": {"type": "string", "description": "Current receiving capability, absent when disabled. Sharing it permits sending external email, never reading Chat history."},
-          "can_manage": {"type": "boolean", "description": "Current human creator and participant; not Organization Manager authority."},
-          "domains": {"type": "array", "items": {"type": "string"}, "description": "Sorted, unique published Organization domain candidates; empty for non-creators. Includes only this tenant's exact active managed hostname when the hosting apex is published."},
+          "can_manage": {"type": "boolean", "description": "Current human creator and participant; not Account Manager authority."},
+          "domains": {"type": "array", "items": {"type": "string"}, "description": "Sorted, unique published Account domain candidates; empty for non-creators. Includes only this tenant's exact active managed hostname when the hosting apex is published."},
           "receiving_available": {"type": "boolean", "description": "The serving installation has an incoming SMTP listener. Does not establish Internet reachability, public MX routing or successful mail delivery."},
           "mx_host": {"type": "string", "description": "Installation SMTP hostname. After exact-address activation, set the receiving domain's MX to this hostname with priority 10. Domain-wide cutover must be deliberate; unconnected recipients are rejected."},
           "connected_address": {
@@ -14344,7 +14655,7 @@
               "ownership_txt": {"type": "object", "additionalProperties": false, "required": ["name", "value"],
                 "properties": {"name": {"type": "string"}, "value": {"type": "string"}}}
             },
-            "description": "Active connection is visible to participants; pending/expired setup and proof are creator-only. It grants no Member identity, account recovery, Manager or Organization DNS authority. Active does not prove public MX delivery."
+            "description": "Active connection is visible to participants; pending/expired setup and proof are creator-only. It grants no Member identity, account recovery, Manager or Account DNS authority. Active does not prove public MX delivery."
           }
         }
       },
@@ -14730,7 +15041,7 @@
         "additionalProperties": false,
         "description": "Notification list presentation with current actor and target display information."
       },
-      "Account": {
+      "MemberAccess": {
         "type": "object",
         "required": [
           "member_id",
@@ -14776,7 +15087,7 @@
         },
         "additionalProperties": false
       },
-      "AccountPage": {
+      "MemberAccessPage": {
         "type": "object",
         "required": [
           "items"
@@ -14786,7 +15097,7 @@
             "type": "array",
             "maxItems": 100,
             "items": {
-              "$ref": "#/components/schemas/Account"
+              "$ref": "#/components/schemas/MemberAccess"
             }
           },
           "next_offset": {
@@ -14796,7 +15107,118 @@
         },
         "additionalProperties": false
       },
-      "AccountSafety": {
+      "AccountPlan": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "can_purchase",
+          "paid",
+          "test_purchase",
+          "auto_renews",
+          "acknowledgement_pending"
+        ],
+        "properties": {
+          "can_purchase": {
+            "type": "boolean",
+            "description": "Apple purchasing is configured for this Account and it is not owned by Google Play. Android purchasing is described by google_play. Store availability is checked on the device."
+          },
+          "paid": {
+            "type": "boolean"
+          },
+          "test_purchase": {
+            "type": "boolean",
+            "description": "The saved purchase is an Apple Sandbox or Google Play test purchase, not a production payment."
+          },
+          "app_account_token": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Account correlation UUID to pass to Apple's appAccountToken or Google BillingClient's obfuscated account ID; never an authentication credential."
+          },
+          "paid_until_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 1
+          },
+          "checked_at_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 1
+          },
+          "auto_renews": {
+            "type": "boolean"
+          },
+          "store": {
+            "type": ["string", "null"],
+            "enum": ["apple", "google_play", null],
+            "description": "Owning store, retained through expiry. A saved Google purchase awaiting publication also retains ownership. Plan management and purchase must use this store; switching stores is not supported."
+          },
+          "google_play": {
+            "oneOf": [{"$ref": "#/components/schemas/GooglePlayProduct"}, {"type": "null"}],
+            "description": "Available Google Play product for this Account, absent when unavailable or owned by Apple. Use the native localized monthly price and the configured base plan without an offer."
+          },
+          "acknowledgement_pending": {
+            "type": "boolean",
+            "description": "Google acknowledgement is not yet confirmed. Reconcile the saved purchase; this does not authorize a second purchase or client-side acknowledgement."
+          },
+          "product_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 255,
+            "description": "Configured Apple product, if purchases are available. Use its native localized store price."
+          }
+        }
+      },
+      "GooglePlayProduct": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["package_name", "product_id", "base_plan_id"],
+        "properties": {
+          "package_name": {"type": "string", "minLength": 1, "maxLength": 253},
+          "product_id": {"type": "string", "minLength": 1, "maxLength": 253},
+          "base_plan_id": {"type": "string", "minLength": 1, "maxLength": 253}
+        }
+      },
+      "GooglePlanVerification": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "purchase_token": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^[!-~]+$",
+            "writeOnly": true,
+            "description": "Opaque Google purchase token. Omit or use null to reconcile the saved purchase. Never an Account identity or login credential."
+          }
+        }
+      },
+      "ApplePlanVerification": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "original_transaction_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[1-9][0-9]{0,31}$",
+            "maxLength": 32,
+            "description": "Apple original transaction ID. Omit or use null to refresh the saved subscription."
+          }
+        }
+      },
+      "MemberSafety": {
         "type": "object",
         "required": [
           "required_terms_version",
@@ -14841,13 +15263,22 @@
         },
         "additionalProperties": false
       },
+      "PhoneVerificationChannel": {
+        "type": "string",
+        "enum": [
+          "sms",
+          "whatsapp"
+        ],
+        "description": "Delivery channel for a phone verification code. A successful WhatsApp check proves access to that WhatsApp account, not SIM ownership or legal identity."
+      },
       "VerifiedPhoneControl": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "phone_number",
           "country_code",
-          "verified_at"
+          "verified_at",
+          "channel"
         ],
         "properties": {
           "phone_number": {
@@ -14866,6 +15297,9 @@
           "verified_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/PhoneVerificationChannel"
           }
         }
       },
@@ -14875,7 +15309,8 @@
         "required": [
           "verification_id",
           "phone_number",
-          "expires_at"
+          "expires_at",
+          "channel"
         ],
         "properties": {
           "verification_id": {
@@ -14891,20 +15326,33 @@
           "expires_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/PhoneVerificationChannel"
           }
         }
       },
-      "AccountPhone": {
+      "MemberPhone": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "available",
-          "allowed_countries"
+          "allowed_countries",
+          "channels"
         ],
         "properties": {
+          "channels": {
+            "type": "array",
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/PhoneVerificationChannel"
+            },
+            "description": "Currently configured channels for new attempts. An existing pending proof remains completable when this is empty. Configuration does not guarantee delivery."
+          },
           "available": {
             "type": "boolean",
-            "description": "Both Organization eligibility and provider configuration are currently available."
+            "description": "Phone verification is currently available for this Account."
           },
           "allowed_countries": {
             "type": "array",
@@ -14934,12 +15382,17 @@
           "phone_number"
         ],
         "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/PhoneVerificationChannel",
+            "default": "sms",
+            "description": "Choose an available channel explicitly. Attempts share sending limits and replace the previous pending code. An unavailable or failed channel never silently sends through another."
+          },
           "phone_number": {
             "type": "string",
             "minLength": 8,
             "maxLength": 16,
             "pattern": "^\\+[1-9][0-9]{6,14}$",
-            "description": "International E.164 format; currently US +1, Paraguay +595 or Germany +49, subject to exact provider country lookup and Organization approval."
+            "description": "International E.164 format; currently US +1, Paraguay +595 or Germany +49, subject to exact destination-country lookup and sending limits."
           }
         }
       },
@@ -15700,19 +16153,55 @@
         },
         "additionalProperties": false
       },
+      "AppVerificationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["platform"],
+        "properties": {
+          "platform": {"type": "string", "enum": ["apple", "android"]}
+        }
+      },
+      "AppVerificationChallenge": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["challenge", "expires_at", "android_project_number"],
+        "properties": {
+          "challenge": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "expires_at": {"type": "integer", "format": "int64", "description": "Expiry in Unix seconds."},
+          "android_project_number": {
+            "type": "integer", "format": "int64", "minimum": 0,
+            "description": "Google Cloud project number for the standard Integrity request; zero for Apple."
+          }
+        }
+      },
+      "AppVerificationProof": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["platform", "challenge", "token"],
+        "properties": {
+          "platform": {"type": "string", "enum": ["apple", "android"]},
+          "challenge": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "key_id": {"type": "string", "maxLength": 44, "description": "Apple's base64-encoded key identifier; omit for Android."},
+          "token": {"type": "string", "minLength": 1, "maxLength": 43692, "description": "Apple's base64-encoded attestation object (at most 32768 decoded bytes), or the opaque Android token (at most 32768 bytes)."}
+        },
+        "oneOf": [
+          {"properties": {"platform": {"const": "apple"}}, "required": ["key_id"]},
+          {"properties": {"platform": {"const": "android"}, "key_id": {"const": ""}}}
+        ]
+      },
       "Principal": {
         "type": "object",
         "required": [
           "member_id",
-          "phone_verified"
+          "admitted"
         ],
         "properties": {
           "member_id": {
             "type": "string"
           },
-          "phone_verified": {
+          "admitted": {
             "type": "boolean",
-            "description": "Whether this Member has verified a phone number. False limits the current access to verification, authentication transfer and logout; ordinary authenticated operations return 403 phone_verification_required."
+            "description": "Whether this Member may use ordinary authenticated operations after verification. False limits access to verification, authentication transfer and logout; other authenticated operations return 403 member_admission_required. Phone ownership is reported separately by the account phone operation."
           }
         },
         "additionalProperties": false
@@ -16188,7 +16677,7 @@
           "id",
           "event",
           "occurred_at",
-          "organization_id",
+          "account_id",
           "resource"
         ],
         "properties": {
@@ -16207,7 +16696,7 @@
             "type": "string",
             "format": "date-time"
           },
-          "organization_id": {
+          "account_id": {
             "type": "string"
           },
           "resource": {
@@ -16267,7 +16756,7 @@
                   "request_timeout",
                   "conflict",
                   "payload_too_large",
-                  "organization_mismatch",
+                  "account_mismatch",
                   "rate_limited",
                   "internal_error",
                   "upstream_failure",
@@ -16315,7 +16804,7 @@
         },
         "additionalProperties": false
       },
-      "OrganizationPage": {
+      "AccountPage": {
         "type": "object",
         "required": [
           "items"
@@ -16324,7 +16813,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Organization"
+              "$ref": "#/components/schemas/Account"
             }
           },
           "next_offset": {
