@@ -1684,7 +1684,7 @@
       },
       "post": {
         "operationId": "createBasstok",
-        "description": "Create a separately stored Basstok Account with its one-time starter communication allowance and return its founder session pending verification after canonical and private security durability, TLS readiness and routing publication. Omit hostname, or provide an empty value, to assign a stable address and the initial name Personal. An explicit hostname retains named creation. Exact retries retain the same identity and cannot revive a revoked session; changing the address mode for an existing attempt fails closed. Native app verification or phone verification admits ordinary authenticated use. No passkey, email or Terms acceptance is required at creation; Admin activation remains separate recovery-email verification. This creates no membership or authority in the hosting basstok.com Account. Joining an existing Account remains a different operation and never provisions a personal Account or bucket. Browsers require same-origin JSON and X-Basstok-Auth matching completion_token, then the existing host-bound session handoff.",
+        "description": "Create a separately stored Basstok Account with its one-time starter communication allowance and return its founder session. Omit hostname, or provide an empty value, to assign a stable address and the initial name Personal. An explicit hostname retains named creation. For phone-first entry, first verify a code through phone recovery: restore any matching Account rather than creating a replacement. If no Account matches, supply phone_verification_id and the same completion_token to create with verified phone access, without a second code. This requires an automatic address and rechecks that no existing creator currently holds the number. The proof is consumed into this exact creation attempt; retry the same inputs after interruption. Without phone_verification_id, the returned session remains pending verification. Exact retries retain the same identity and cannot revive a revoked session; changing the address mode or proof for an existing attempt fails closed. No passkey, email or Terms acceptance is required at creation; Admin activation remains separate recovery-email verification. This creates no membership or authority in the hosting basstok.com Account. Joining an existing Account remains a different operation and never provisions a personal Account or bucket. Browsers require same-origin JSON and X-Basstok-Auth matching completion_token; phone-first creation also requires the host-only binding cookie from its code request. Use the returned origin and existing host-bound session handoff.",
         "security": [],
         "parameters": [
           {
@@ -4626,6 +4626,47 @@
         }
       }
     },
+    "/api/v1/member-access/contacts": {
+      "get": {
+        "operationId": "getPrivateContacts",
+        "description": "Read the current Member's private address book in this Account. Other Members, administrators and delegated Apps cannot read it. No query parameters are accepted. Entries are contact information, not verified identity or Basstok membership. Device synchronization requires explicit consent; it never modifies the device address book.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {"description": "Private address book; never shared-cacheable.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MemberContacts"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/member-access/contact-sources/{sourceId}": {
+      "parameters": [{"name": "sourceId", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}, "description": "Lowercase random UUID identifying this device's source, not a hardware identifier."}],
+      "put": {
+        "operationId": "replacePrivateContactSource",
+        "description": "Replace only this source with a complete bounded snapshot. The exact current address-book revision is required. Other sources are preserved. At most four sources, 2,000 contacts per source and 512 KiB of combined UTF-8 contact IDs, names, numbers and email addresses per source. Request bodies are limited to 2 MiB. Incomplete device reads must not replace a source. A conflict or uncertain response requires rereading current state; never replay a stale snapshot blindly. No query parameters or delegated access. Browser requests require normal mutation-presence protection.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["expected_revision", "contacts"], "properties": {
+          "expected_revision": {"type": "integer", "minimum": 0, "format": "uint64"},
+          "contacts": {"type": "array", "maxItems": 2000, "items": {"$ref": "#/components/schemas/MemberContact"}}
+        }}}}},
+        "responses": {
+          "200": {"description": "Saved address book with its new revision.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MemberContacts"}}}},
+          "409": {"$ref": "#/components/responses/Error"},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      },
+      "delete": {
+        "operationId": "removePrivateContactSource",
+        "description": "Remove only this source's contacts. The exact current revision is required and advances even if the source is already absent, preventing an older in-flight upload from restoring it. Read current state before retrying. Other sources and device contacts are unchanged. No query parameters or delegated access. Browser requests require normal mutation-presence protection.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["expected_revision"], "properties": {
+          "expected_revision": {"type": "integer", "minimum": 0, "format": "uint64"}
+        }}}}},
+        "responses": {
+          "200": {"description": "Saved address book with its new revision.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MemberContacts"}}}},
+          "409": {"$ref": "#/components/responses/Error"},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/member-access/notification-preferences": {
       "get": {
         "operationId": "getAccountNotificationPreferences",
@@ -7171,6 +7212,23 @@
           "default": {
             "$ref": "#/components/responses/Error"
           }
+        }
+      }
+    },
+    "/api/v1/phone-calls/history": {
+      "get": {
+        "operationId": "readPhoneCallHistory",
+        "description": "Recent telephone calls, newest admitted first, filtered to the current human Member. Retains up to 256 calls per Account. Chat calls require original and current participant access; other calls belong only to their initiating Member. Disconnecting a phone service does not remove authorized history. An inactive item without completion has an unknown outcome: do not label it missed, answered or zero-duration. History never authorizes answering or redialing. Member SSE phone-call, ready and reset signals prompt a fresh read.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {
+            "description": "Authorized recent calls; Cache-Control: no-store.",
+            "content": {"application/json": {"schema": {
+              "type": "array", "maxItems": 256,
+              "items": {"$ref": "#/components/schemas/RecentPhoneCall"}
+            }}}
+          },
+          "default": {"$ref": "#/components/responses/Error"}
         }
       }
     },
@@ -10292,6 +10350,135 @@
         "responses": {
           "204": {
             "description": "Successful response"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/phone-recovery/request": {
+      "post": {
+        "operationId": "requestPhoneRecovery",
+        "description": "Request a text-message code at basstok.com to recover an existing directly created Account. The same challenge response and message delivery apply whether an Account matches or not. This does not create an Account or disclose matches. Recovery is limited to Account creators with a previously verified number; community-only Members retain their existing recovery methods. Requests share verification sending limits; never automatically resend after an uncertain response. Browser requests require same-origin JSON, X-Basstok-Auth equal to completion_token, and the host-only binding cookie set by the request operation for verification/completion. Native clients do not need browser cookies. Responses are not cacheable.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-Basstok-Auth",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneRecoveryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhoneRecoveryChallenge"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/phone-recovery/verify": {
+      "post": {
+        "operationId": "verifyPhoneRecovery",
+        "description": "Verify the fresh six-digit recovery code and return matching Account addresses. Requires the original completion token. The code expires after five minutes and allows at most five checks. This does not install a session; when several Accounts match, let the person choose rather than merge them. Browser requests require same-origin JSON, X-Basstok-Auth equal to completion_token, and the host-only binding cookie set by the request operation for verification/completion. Native clients do not need browser cookies. Responses are not cacheable.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-Basstok-Auth",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneRecoveryProof"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhoneRecoveryAccounts"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/phone-recovery/session": {
+      "post": {
+        "operationId": "completePhoneRecovery",
+        "description": "Restore the selected existing Account and Member after phone proof. Consumes the proof once, before issuing a session; an interrupted completion may require a fresh code. Current number, identity, access revocation and Account binding are rechecked. Does not activate Admin authority, create/refill credit, or revoke other devices. The returned session belongs only to the returned origin. No session cookie is installed on basstok.com. Browser requests require same-origin JSON, X-Basstok-Auth equal to completion_token, and the host-only binding cookie set by the request operation for verification/completion. Native clients do not need browser cookies. Responses are not cacheable.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-Basstok-Auth",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneRecoverySession"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhoneRecoveryAccess"
+                }
+              }
+            }
           },
           "default": {
             "$ref": "#/components/responses/Error"
@@ -14357,6 +14544,38 @@
           }
         }
       },
+      "PhoneCallCompletion": {
+        "type": "object", "additionalProperties": false,
+        "required": ["ended_at", "reason"],
+        "properties": {
+          "ended_at": {"type": "string", "format": "date-time"},
+          "reason": {"type": "string", "enum": ["cancelled", "timeout", "disconnected", "unavailable", "hangup", "insufficient_credit", "destination_unavailable"]},
+          "connected_seconds": {
+            "type": ["integer", "null"], "minimum": 0, "maximum": 14400,
+            "description": "Confirmed connected time, rounded up to seconds. Absent when the call was not confirmed connected; zero is a confirmed connection with zero measured duration. Not a supplier invoice."
+          }
+        }
+      },
+      "PhoneCallSummary": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "remote_address", "direction", "created_at"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[0-9a-f]{64}$", "minLength": 64, "maxLength": 64},
+          "chat_id": {"type": ["string", "null"], "format": "uuid"},
+          "remote_address": {"type": "string", "minLength": 1, "maxLength": 512, "description": "Untrusted external caller presentation or an explicitly selected outgoing telephone number; not a Member identity."},
+          "direction": {"type": "string", "enum": ["incoming", "outgoing"]},
+          "created_at": {"type": "string", "format": "date-time"},
+          "completion": {"oneOf": [{"$ref": "#/components/schemas/PhoneCallCompletion"}, {"type": "null"}]}
+        }
+      },
+      "RecentPhoneCall": {
+        "type": "object", "additionalProperties": false,
+        "required": ["call", "active"],
+        "properties": {
+          "call": {"$ref": "#/components/schemas/PhoneCallSummary"},
+          "active": {"type": "boolean", "description": "Currently in progress. False does not imply a known completion."}
+        }
+      },
       "PhoneCallDialInput": {
         "type": "object", "additionalProperties": false,
         "required": ["number", "attempt_id"],
@@ -14991,6 +15210,32 @@
         "additionalProperties": false,
         "description": "Notification list presentation with current actor and target display information."
       },
+      "MemberContact": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "phone_numbers", "email_addresses"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "Opaque stable identifier within its source; not a Member ID."},
+          "name": {"type": "string", "minLength": 1, "maxLength": 512, "description": "At most 512 UTF-8 bytes, no control characters; must contain non-whitespace text."},
+          "phone_numbers": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "pattern": "^\\+?[0-9]+$", "maxLength": 32}},
+          "email_addresses": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "format": "email", "maxLength": 254}}
+        },
+        "description": "At least one phone number or email address is required. Formatting separators are removed from numbers, but no country is inferred. Email addresses use the normalized lowercase form. Contacts prove no ownership, permission to send, or membership."
+      },
+      "MemberContacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["revision", "sources"],
+        "properties": {
+          "revision": {"type": "integer", "minimum": 0, "format": "uint64"},
+          "sources": {"type": "array", "maxItems": 4, "items": {
+            "type": "object", "additionalProperties": false, "required": ["id", "contacts"], "properties": {
+              "id": {"type": "string", "format": "uuid"},
+              "contacts": {"type": "array", "maxItems": 2000, "items": {"$ref": "#/components/schemas/MemberContact"}}
+            }
+          }}
+        }
+      },
       "MemberAccess": {
         "type": "object",
         "required": [
@@ -15293,9 +15538,14 @@
         "required": [
           "available",
           "allowed_countries",
-          "channels"
+          "channels",
+          "recovery_available"
         ],
         "properties": {
+          "recovery_available": {
+            "type": "boolean",
+            "description": "The current membership can be recovered with a fresh text-message proof at basstok.com. This applies to a directly created Account's creator with a current verified number, not every Member who has verified a number. It does not grant Admin authority or guarantee message delivery."
+          },
           "channels": {
             "type": "array",
             "maxItems": 2,
@@ -17405,6 +17655,11 @@
             "type": ["string", "null"],
             "maxLength": 90,
             "description": "Omitted, null or empty assigns a personal Account address. Retry the same address mode and completion_token; use the returned origin."
+          },
+          "phone_verification_id": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Optional verified phone-recovery challenge with no matching Accounts, bound to this completion_token. Requires an automatic address. Consumption creates verified phone access for this new Account only; it neither restores a different Account nor grants Admin authority."
           }
         }
       },
@@ -17518,6 +17773,135 @@
             "type": "boolean",
             "default": false,
             "description": "Explicit Administration request. Binds proof to the exact pending founder claim; verification grants Manager only for this intent."
+          }
+        }
+      },
+      "PhoneRecoveryRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "phone_number",
+          "completion_token"
+        ],
+        "properties": {
+          "phone_number": {
+            "type": "string",
+            "pattern": "^\\+[1-9][0-9]{7,14}$"
+          },
+          "completion_token": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "PhoneRecoveryChallenge": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verification_id",
+          "expires_at"
+        ],
+        "properties": {
+          "verification_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "expires_at": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PhoneRecoveryProof": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verification_id",
+          "completion_token",
+          "code"
+        ],
+        "properties": {
+          "verification_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "completion_token": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          }
+        }
+      },
+      "PhoneRecoverySession": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verification_id",
+          "completion_token",
+          "account_id"
+        ],
+        "properties": {
+          "verification_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "completion_token": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "account_id": {
+            "type": "string",
+            "maxLength": 128
+          }
+        }
+      },
+      "PhoneRecoveryAccounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "accounts"
+        ],
+        "properties": {
+          "accounts": {
+            "type": "array",
+            "maxItems": 48,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "account_id",
+                "hostname"
+              ],
+              "properties": {
+                "account_id": {
+                  "type": "string"
+                },
+                "hostname": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PhoneRecoveryAccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "origin",
+          "session_token"
+        ],
+        "properties": {
+          "origin": {
+            "type": "string",
+            "format": "uri"
+          },
+          "session_token": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
           }
         }
       },
