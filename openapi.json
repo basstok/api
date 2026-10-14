@@ -24,6 +24,25 @@
     }
   ],
   "paths": {
+    "/api/v1/account/calling/senders": {
+      "get": {
+        "operationId": "getAccountCallingSenders",
+        "tags": ["Account"],
+        "summary": "Read your Account's outgoing calling and fax numbers",
+        "description": "Verified-phone human session of the personal Account creator only. Returns up to eight distinct telephone numbers currently configured for Basstok-provided outgoing calls and fax. These numbers are shared: the selected number may vary between attempts, and incoming calls or fax to it are not assigned to this Account. This is sending identity, not a reservation, dedicated receiving number, caller-ID suppression setting or guarantee of carrier readiness. An empty list means no outgoing numbers are configured. Customer-connected lines retain their own calling resource. No credentials or provider details are returned. No query parameters are accepted.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {
+            "description": "Configured shared sending numbers.",
+            "content": {"application/json": {"schema": {
+              "type": "array", "maxItems": 8, "uniqueItems": true,
+              "items": {"type": "string", "pattern": "^\\+[1-9][0-9]{1,14}$"}
+            }}}
+          },
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/account/phone-usage": {
       "get": {
         "operationId": "readAccountPhoneUsage",
