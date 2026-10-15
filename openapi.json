@@ -6753,8 +6753,8 @@
     "/api/v1/chats/{chatId}/email/sending": {
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "get": {
-        "operationId": "readChatEmailSending", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human participants may read capabilities; only the current human Chat creator receives their personal sending choices and may send. SMTP is connected once per address for this Member and reused across their Chats. Owned connected Google/Microsoft mailboxes require a current sending grant and continuing access to their receiving Chat. Explicit SMTP takes precedence for the same address. Choices prefer this Chat's receiving address, otherwise sort by address; send always requires an exact connection_id. The assigned Basstok sender is suggested first when present. No Admin or delegated-application override, implicit service-email fallback, queries or credentials in responses.",
+        "operationId": "readChatEmailSending", "tags": ["Chats"], "security": [{"memberBearer": []}, {"oauth": ["email:send", "chat:read", "chat:write"]}],
+        "description": "Current human participants may read capabilities; only the current human Chat creator, or an App freshly granted email:send, chat:read and chat:write by that creator, receives their personal sending choices and may send. Delegation cannot connect, change or disconnect a sender. SMTP is connected once per address for this Member and reused across their Chats. Owned connected Google/Microsoft mailboxes require a current sending grant and continuing access to their receiving Chat. Explicit SMTP takes precedence for the same address. Choices prefer this Chat's receiving address, otherwise sort by address; send always requires an exact connection_id. The assigned Basstok sender is suggested first when present. No Admin or delegated-application override, implicit service-email fallback, queries or credentials in responses.",
         "responses": {"200": {"description": "Current sending capability; Cache-Control: no-store. Readiness is not delivery evidence.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSending"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "put": {
@@ -6773,9 +6773,9 @@
     "/api/v1/chats/{chatId}/email/send": {
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "post": {
-        "operationId": "sendChatEmail", "tags": ["Chats"], "security": [{"memberBearer": []}],
+        "operationId": "sendChatEmail", "tags": ["Chats"], "security": [{"memberBearer": []}, {"oauth": ["email:send", "chat:read", "chat:write"]}],
         "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
-        "description": "The current human Chat creator explicitly sends plain-text email to one recipient through the exact selected assigned Basstok sender or customer connection. Assigned Basstok sending has a bounded daily allowance. No CC/BCC, attachments, scheduling, automatic resend, delegated Apps or implicit sending fallback. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Account, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
+        "description": "The current human Chat creator explicitly sends plain-text email to one recipient through the exact selected assigned Basstok sender or customer connection. Assigned Basstok sending has a bounded daily allowance. An App needs explicit email:send, chat:read and chat:write and the responsible human must remain the current Chat creator. Acting personas cannot send. No CC/BCC, attachments, scheduling, automatic resend or implicit sending fallback. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Account, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonalEmailInput"}}}},
         "responses": {"200": {"description": "Saved Message with explicit outgoing_email status; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Message"}}}}, "400": {"description": "Invalid recipient, subject, body, connection or request identity."}, "403": {"description": "Not the current human Chat creator or reply history is inaccessible."}, "409": {"description": "Conflicting request, changed/unavailable sender or concurrent operation. Keep the exact send identity when checking an uncertain result."}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -7150,8 +7150,8 @@
       "parameters": [{ "$ref": "#/components/parameters/ChatId" }],
       "post": {
         "operationId": "sendChatFax",
-        "description": "Send prepared monochrome pages to an explicit recipient and retain the PDF and delivery state in this Chat. Omit connection_id (or use null) to send through Basstok using this Account's allowance: requires its admitted human creator, a currently verified phone number and sufficient balance, not a purchase, saved login, Admin role or customer calling connection. Direct Account creation includes starter credit; community membership alone does not. Supply connection_id to use that exact registered customer SIP connection instead; this never falls back to Account spending. Basstok fax accepts E.164 numbers; customer SIP additionally accepts strict SIP addresses. Incoming fax selection is separate. The exact PDF and authored Unconfirmed Message are durable before sending. Idempotency-Key is scoped to the Member, Chat and participant-history boundary. Exact retries return saved state without redial, including after restart or service disconnection; changing route, recipient or document conflicts. Waits up to 21 minutes, bounded further by the Account allowance; the Message is visible in Chat reads/SSE while sending. Losing the request or closing a draft does not cancel an admitted transmission. Errors, timeouts and Unconfirmed may mean it was sent: inspect the existing Chat and never automatically resend with a new key. Delivered requires document confirmation, not merely an answered call. A failed answered fax may still consume connected time. Delegated/acting Members are forbidden; browser presence/origin checks apply. At most four concurrent submissions and 44804784 request bytes. Clients render and preview bounded pages locally; arbitrary source PDFs are not accepted by this endpoint.",
-        "security": [{ "memberBearer": [] }],
+        "description": "Send prepared monochrome pages to an explicit recipient and retain the PDF and delivery state in this Chat. Omit connection_id (or use null) to send through Basstok using this Account's allowance: requires its admitted human creator, a currently verified phone number and sufficient balance, not a purchase, saved login, Admin role or customer calling connection. Direct Account creation includes starter credit; community membership alone does not. Supply connection_id to use that exact registered customer SIP connection instead; this never falls back to Account spending. Basstok fax accepts E.164 numbers; customer SIP additionally accepts strict SIP addresses. Incoming fax selection is separate. The exact PDF and authored Unconfirmed Message are durable before sending. Idempotency-Key is scoped to the Member, Chat and participant-history boundary. Exact retries return saved state without redial, including after restart or service disconnection; changing route, recipient or document conflicts. Waits up to 21 minutes, bounded further by the Account allowance; the Message is visible in Chat reads/SSE while sending. Losing the request or closing a draft does not cancel an admitted transmission. Errors, timeouts and Unconfirmed may mean it was sent: inspect the existing Chat and never automatically resend with a new key. Delivered requires document confirmation, not merely an answered call. A failed answered fax may still consume connected time. An App may use only an explicit customer connection with fresh fax:send, chat:read and chat:write permissions; the responsible human must remain a participant. Managed Account-allowance sending remains human-only. Acting personas are forbidden. Revocation prevents new submissions but cannot recall an admitted fax; browser presence/origin checks apply. At most four concurrent submissions and 44804784 request bytes. Clients render and preview bounded pages locally; arbitrary source PDFs are not accepted by this endpoint.",
+        "security": [{ "memberBearer": [] }, { "oauth": ["fax:send", "chat:read", "chat:write"] }],
         "parameters": [
           { "$ref": "#/components/parameters/IdempotencyKey" },
           { "name": "X-Basstok-Presence", "in": "header", "required": false, "schema": { "type": "string" },
@@ -7426,7 +7426,7 @@
       },
       "put": {
         "operationId": "connectChatPhone",
-        "description": "A human Manager who is also a Chat participant connects an existing number in their own Telnyx account. This authorizes human Chat participants to send paid texts using that account. Basstok neither signs up the customer nor purchases a number. Linking does not change provider receiving settings. Inspect setup for a separate explicitly authorized receiving action; number/profile assignment and provider compliance remain customer responsibilities. Private credentials are never returned. Replacing credentials or number rotates the connection and invalidates its old webhook.",
+        "description": "A human Manager participant connects an existing customer-authorized SMS number through Telnyx or AWS End User Messaging. Human Chat participants may explicitly send through it; ordinary Chat messages are never forwarded. Basstok inspects the exact sender but neither creates a carrier account, purchases a number nor changes receiving settings. AWS requires a phone-number ID or ARN, a configuration set and an independent per-SMS supplier ceiling; sandbox, registration and topic setup remain provider steps. Private credentials are never returned. Replacement rotates the connection and invalidates its previous webhook. No automatic provider fallback follows a rejected or uncertain send.",
         "security": [{"memberBearer": []}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatPhoneInput"}}}},
         "responses": {
@@ -7498,13 +7498,17 @@
       ],
       "post": {
         "operationId": "receiveChatSms",
-        "description": "Provider-only endpoint. Exact raw bytes must have valid telnyx-signature-ed25519 and telnyx-timestamp headers within 300 seconds for this Account, Chat and current connection. The receiving number and messaging profile must match. Duplicate provider message IDs compare semantic sender, recipient and text, not mutable delivery-attempt metadata. External sender labels never authenticate a Member. At most 32768 request bytes; only single-recipient SMS is supported.",
+        "description": "Provider-only endpoint bound to the current Account, Chat, connection and number. Telnyx requires exact-body Ed25519 authentication, a timestamp within 300 seconds and the exact messaging profile. AWS uses an SNS HTTPS subscription with username basstok and the private per-connection password, constant-time Basic authentication, exact configured topic and bounded envelope age. Raw SNS delivery is unsupported. Authorized subscription confirmations use only the configured signed SNS API, never SubscribeURL. AWS delivery events correlate the reserved Message through Context.basstok_operation; incoming events deduplicate inboundMessageId and semantic sender/recipient/text. No external phone number authenticates a Member. Successful receipt follows durable admission. Maximum 32768 bytes; no attachments or bulk recipients. Provider cost evidence is private and never customer pricing.",
         "security": [],
         "parameters": [
-          {"name": "telnyx-signature-ed25519", "in": "header", "required": true, "schema": {"type": "string", "maxLength": 128}},
-          {"name": "telnyx-timestamp", "in": "header", "required": true, "schema": {"type": "string", "maxLength": 16}}
+          {"name": "telnyx-signature-ed25519", "in": "header", "required": false, "schema": {"type": "string", "maxLength": 128}},
+          {"name": "telnyx-timestamp", "in": "header", "required": false, "schema": {"type": "string", "maxLength": 16}},
+          {"name": "Authorization", "in": "header", "required": false, "schema": {"type": "string", "maxLength": 128}, "description": "AWS SNS Basic authentication only; not a Member login."}
         ],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TelnyxSmsEvent"}}}},
+        "requestBody": {"required": true, "content": {
+          "application/json": {"schema": {"oneOf": [{"$ref": "#/components/schemas/TelnyxSmsEvent"}, {"$ref": "#/components/schemas/AwsSmsNotification"}]}},
+          "text/plain": {"schema": {"$ref": "#/components/schemas/AwsSmsNotification"}}
+        }},
         "responses": {
           "204": {"description": "Authenticated Message durably accepted, or exact duplicate"},
           "default": {"$ref": "#/components/responses/Error"}
@@ -10666,7 +10670,9 @@
               "member:write": "Create no-login persona Members and perform Manager-authorized Member mutations.",
               "chat:read": "Read Chats, Messages, and Chat Assets available to the effective participant from that Member's admission boundary; this does not permit writes.",
               "chat:write": "Create Chats, add participants, and send Messages or Chat Assets where the effective participant may do so; this does not grant Chat history reads.",
-              "moderation:write": "Moderate Content and Comments carrying selected Labels."
+              "moderation:write": "Moderate Content and Comments carrying selected Labels.",
+              "email:send": "Send from the responsible Member's configured email sender; also requires chat:read and chat:write.",
+              "fax:send": "Send through a connected calling account within its usage limits; also requires chat:read and chat:write. Sending can incur charges."
             }
           }
         }
@@ -14222,6 +14228,10 @@
       },
       "Message": {
         "type": "object",
+        "allOf": [{"if": {"required": ["location"]}, "then": {
+          "required": ["member_id"],
+          "not": {"anyOf": [{"required": ["email"]}, {"required": ["outgoing_email"]}, {"required": ["sms"]}, {"required": ["sip"]}, {"required": ["fax"]}]}
+        }}],
         "required": [
           "id",
           "body",
@@ -14241,12 +14251,13 @@
         "allOf": [
           {"if": {"required": ["outgoing_email"]}, "then": {
             "required": ["member_id", "created_at"],
-            "not": {"anyOf": [{"required": ["email"]}, {"required": ["sms"]}, {"required": ["sip"]}, {"required": ["fax"]}, {"required": ["updated_at"]}, {"required": ["attribution"]}]},
+            "not": {"anyOf": [{"required": ["email"]}, {"required": ["sms"]}, {"required": ["sip"]}, {"required": ["fax"]}, {"required": ["updated_at"]}]},
             "properties": {"assets": {"maxItems": 0}}
           }},
           {"if": {"required": ["fax"]}, "then": {
             "required": ["created_at"],
-            "not": {"anyOf": [{"required": ["updated_at"]}, {"required": ["attribution"]}]},
+            "not": {"required": ["updated_at"]},
+            "allOf": [{"if": {"properties": {"fax": {"properties": {"direction": {"const": "incoming"}}}}}, "then": {"not": {"required": ["attribution"]}}}],
             "properties": {"body": {"const": ""}, "assets": {"minItems": 1, "maxItems": 1}}
           }}
         ],
@@ -14292,6 +14303,9 @@
           },
           "outgoing_email": {
             "$ref": "#/components/schemas/MessageOutgoingEmail"
+          },
+          "location": {
+            "$ref": "#/components/schemas/MessageLocation"
           }
         },
         "additionalProperties": false
@@ -14325,6 +14339,19 @@
               }
             }
           }
+        }
+      },
+      "AwsSmsNotification": {
+        "type": "object",
+        "required": ["Type", "TopicArn", "MessageId", "Timestamp", "Message"],
+        "description": "Authenticated SNS envelope, not a Member mutation. Topic must exactly match the current private connection and Timestamp must be no more than 14 days old or 5 minutes in the future. Message contains the provider two-way SMS or delivery JSON. Notification/SubscriptionConfirmation only. Provider IDs and price evidence never enter normal Message responses.",
+        "properties": {
+          "Type": {"type": "string", "enum": ["Notification", "SubscriptionConfirmation"]},
+          "TopicArn": {"type": "string", "maxLength": 512},
+          "MessageId": {"type": "string", "maxLength": 128},
+          "Timestamp": {"type": "string", "format": "date-time"},
+          "Message": {"type": "string", "maxLength": 16384},
+          "Token": {"type": "string", "maxLength": 4096}
         }
       },
       "MessageSms": {
@@ -14670,7 +14697,7 @@
         "required": ["can_manage", "can_send", "receive_state"],
         "properties": {
           "number": {"type": "string"},
-          "provider": {"type": "string", "enum": ["telnyx"]},
+          "provider": {"type": "string", "enum": ["telnyx", "aws"]},
           "can_manage": {"type": "boolean"},
           "can_send": {"type": "boolean", "description": "Provider reports sending capability; does not certify delivery or waive customer compliance."},
           "receive_state": {"type": "string", "enum": ["not_connected", "needs_setup", "awaiting_test", "ready", "unavailable"]},
@@ -14697,13 +14724,36 @@
       },
       "ChatPhoneInput": {
         "type": "object",
-        "required": ["number", "api_key", "public_key"],
+        "required": ["number"],
+        "oneOf": [
+          {"required": ["api_key", "public_key"], "not": {"required": ["aws"]}},
+          {"required": ["aws"], "not": {"anyOf": [{"required": ["api_key"]}, {"required": ["public_key"]}]}}
+        ],
         "properties": {
           "number": {"type": "string", "pattern": "^\\+[1-9][0-9]{1,14}$"},
           "api_key": {"type": "string", "minLength": 1, "maxLength": 4096, "writeOnly": true},
-          "public_key": {"type": "string", "minLength": 44, "maxLength": 44, "writeOnly": true}
+          "public_key": {"type": "string", "minLength": 44, "maxLength": 44, "writeOnly": true},
+          "aws": {"$ref": "#/components/schemas/AwsSmsInput"}
         },
         "additionalProperties": false
+      },
+      "AwsSmsInput": {
+        "type": "object", "additionalProperties": false, "writeOnly": true,
+        "required": ["credentials", "region", "origination_identity", "configuration_set", "maximum_price_usd_micros"],
+        "description": "Customer-authorized AWS End User Messaging SMS configuration. Senders must be an inspected SMS-capable phone-number ID or ARN, not a pool or an inferred caller ID. Country registration, sandbox restrictions, topic policies and provider billing remain with the customer. Empty event settings disable receiving. No number purchase or provider setup is performed.",
+        "properties": {
+          "credentials": {"type": "object", "additionalProperties": false, "required": ["access_key_id", "secret_access_key"], "properties": {
+            "access_key_id": {"type": "string", "maxLength": 256, "writeOnly": true},
+            "secret_access_key": {"type": "string", "maxLength": 256, "writeOnly": true},
+            "session_token": {"type": "string", "maxLength": 8192, "writeOnly": true}
+          }},
+          "region": {"type": "string", "maxLength": 32},
+          "origination_identity": {"type": "string", "maxLength": 256},
+          "configuration_set": {"type": "string", "maxLength": 256},
+          "maximum_price_usd_micros": {"type": "integer", "minimum": 10, "maximum": 99000000, "multipleOf": 10, "description": "Independent supplier MaxPrice ceiling per whole SMS, in micro-USD. Not a Basstok retail price or Account credit."},
+          "event_topic_arn": {"type": "string", "maxLength": 512, "description": "One exact same-region SNS topic for two-way SMS and configuration-set delivery events. Configure its publishing policy and HTTPS subscription explicitly; raw delivery must be disabled."},
+          "event_secret": {"type": "string", "pattern": "^([0-9a-f]{64})?$", "writeOnly": true, "description": "Fresh random per-connection secret. Required with event_topic_arn. SNS HTTPS subscription uses username basstok and this password. Never log or publish the credential-bearing subscription URL."}
+        }
       },
       "ChatSmsInput": {
         "type": "object",
@@ -14880,6 +14930,16 @@
         },
         "additionalProperties": false
       },
+      "MessageLocation": {
+        "type": "object",
+        "description": "One shared WGS84 point in decimal degrees, not live tracking. It has the same Chat participant and history visibility as the Message. Not available on external email, telephone text or fax Messages.",
+        "required": ["latitude", "longitude"],
+        "properties": {
+          "latitude": {"type": "number", "minimum": -90, "maximum": 90},
+          "longitude": {"type": "number", "minimum": -180, "maximum": 180}
+        },
+        "additionalProperties": false
+      },
       "MessageWrite": {
         "type": "object",
         "required": [
@@ -14898,6 +14958,9 @@
           "author_id": {
             "type": "string",
             "description": "Optional no-login persona Member created and still controlled by this application for the responsible human Member. The selected author must be admitted to the Chat. Selecting an existing controlled Member does not require member:write."
+          },
+          "location": {
+            "$ref": "#/components/schemas/MessageLocation"
           }
         },
         "additionalProperties": false
@@ -14944,6 +15007,10 @@
           },
           "latest_message": {
             "$ref": "#/components/schemas/Message"
+          },
+          "latest_non_email_message": {
+            "$ref": "#/components/schemas/Message",
+            "description": "Latest visible Message other than incoming or outgoing email, for messaging inboxes. The same participant-history and blocking rules apply. Omitted when none is visible."
           },
           "incoming_email_address": {
             "type": "string",
@@ -16492,7 +16559,9 @@
                 "member:write",
                 "chat:read",
                 "chat:write",
-                "moderation:write"
+                "moderation:write",
+                "email:send",
+                "fax:send"
               ]
             }
           },
@@ -16538,7 +16607,9 @@
                 "member:write",
                 "chat:read",
                 "chat:write",
-                "moderation:write"
+                "moderation:write",
+                "email:send",
+                "fax:send"
               ]
             }
           }
@@ -16721,7 +16792,9 @@
                 "member:write",
                 "chat:read",
                 "chat:write",
-                "moderation:write"
+                "moderation:write",
+                "email:send",
+                "fax:send"
               ]
             }
           },
