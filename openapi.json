@@ -6737,11 +6737,24 @@
         }
       }
     },
+    "/api/v1/account/managed-email": {
+      "get": {
+        "summary": "Read your Basstok email address",
+        "operationId": "readManagedEmail", "tags": ["Account"], "security": [{"memberBearer": []}],
+        "responses": {"200": {"description": "Your stable email address and actual sending/receiving availability. Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ManagedEmailState"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      },
+      "post": {
+        "summary": "Set up your Basstok email address",
+        "description": "The verified-phone creator of a directly hosted Account receives one stable, readable address and private Email Chat. Repeated setup keeps the same address. Community-only membership is not eligible. Setup does not change DNS or confer recovery, membership or Admin authority.",
+        "operationId": "setupManagedEmail", "tags": ["Account"], "security": [{"memberBearer": []}],
+        "responses": {"200": {"description": "Current email identity and availability; allocation alone is not delivery evidence.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ManagedEmailState"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
     "/api/v1/chats/{chatId}/email/sending": {
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "get": {
         "operationId": "readChatEmailSending", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human participants may read capabilities; only the current human Chat creator receives their personal sending choices and may send. SMTP is connected once per address for this Member and reused across their Chats. Owned connected Google/Microsoft mailboxes require a current sending grant and continuing access to their receiving Chat. Explicit SMTP takes precedence for the same address. Choices prefer this Chat's receiving address, otherwise sort by address; send always requires an exact connection_id. No Admin or delegated-application override, service-email fallback, queries or credentials in responses.",
+        "description": "Current human participants may read capabilities; only the current human Chat creator receives their personal sending choices and may send. SMTP is connected once per address for this Member and reused across their Chats. Owned connected Google/Microsoft mailboxes require a current sending grant and continuing access to their receiving Chat. Explicit SMTP takes precedence for the same address. Choices prefer this Chat's receiving address, otherwise sort by address; send always requires an exact connection_id. The assigned Basstok sender is suggested first when present. No Admin or delegated-application override, implicit service-email fallback, queries or credentials in responses.",
         "responses": {"200": {"description": "Current sending capability; Cache-Control: no-store. Readiness is not delivery evidence.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSending"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "put": {
@@ -6762,7 +6775,7 @@
       "post": {
         "operationId": "sendChatEmail", "tags": ["Chats"], "security": [{"memberBearer": []}],
         "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
-        "description": "The current human Chat creator explicitly sends plain-text email to one recipient through the exact selected customer connection. No CC/BCC, attachments, scheduling, automatic resend, delegated Apps or Basstok-funded fallback. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Account, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
+        "description": "The current human Chat creator explicitly sends plain-text email to one recipient through the exact selected assigned Basstok sender or customer connection. Assigned Basstok sending has a bounded daily allowance. No CC/BCC, attachments, scheduling, automatic resend, delegated Apps or implicit sending fallback. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Account, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonalEmailInput"}}}},
         "responses": {"200": {"description": "Saved Message with explicit outgoing_email status; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Message"}}}}, "400": {"description": "Invalid recipient, subject, body, connection or request identity."}, "403": {"description": "Not the current human Chat creator or reply history is inaccessible."}, "409": {"description": "Conflicting request, changed/unavailable sender or concurrent operation. Keep the exact send identity when checking an uncertain result."}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -14710,16 +14723,24 @@
         },
         "additionalProperties": false
       },
+      "ManagedEmailState": {
+        "type": "object", "additionalProperties": false, "required": ["can_send", "can_receive"],
+        "properties": {
+          "address": {"type": "string", "pattern": "^[a-z]{10}@basstok\\.com$"},
+          "chat_id": {"type": "string", "format": "uuid"},
+          "can_send": {"type": "boolean"}, "can_receive": {"type": "boolean"}
+        }
+      },
       "ChatEmailSending": {
         "type": "object", "additionalProperties": false, "required": ["can_manage", "senders"],
         "properties": {
           "can_manage": {"type": "boolean"},
-          "senders": {"type": "array", "maxItems": 40, "items": {
+          "senders": {"type": "array", "maxItems": 41, "items": {
             "type": "object", "additionalProperties": false, "required": ["connection_id", "address", "method", "can_send"],
             "properties": {
               "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
               "address": {"type": "string", "format": "email", "maxLength": 254},
-              "method": {"type": "string", "enum": ["smtp", "google", "microsoft"]},
+              "method": {"type": "string", "enum": ["basstok", "smtp", "google", "microsoft"]},
               "can_send": {"type": "boolean"},
               "smtp": {"$ref": "#/components/schemas/SmtpEndpoint"}
             }
@@ -15468,6 +15489,10 @@
           "can_use_managed_phone": {
             "type": "boolean",
             "description": "This Member may use the Account's managed phone allowance. This is not a guarantee of service availability or remaining credit. Ordinary community membership does not grant it."
+          },
+          "can_setup_basstok_email": {
+            "type": "boolean",
+            "description": "Basstok email setup is available for this Member. Setting up the address still checks current access and confirms sending and receiving readiness."
           },
           "pending_initial_founder": {
             "type": "boolean"
