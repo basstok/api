@@ -17,3 +17,7 @@ jobs:
         with:
           node-version: 24
       - run: node scripts/check.mjs
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python3 -m unittest discover -s examples -p 'test_*.py' -v

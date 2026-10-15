@@ -11,6 +11,10 @@ Telephone audio uses the native apps, not the browser.
 **[API guide](reference.md)** · **[OpenAPI](openapi.json)** ·
 **[Deployed contract](https://basstok.com/openapi.json)**
 
+[Runnable automation example](examples/README.md): authenticate a change webhook,
+re-read scoped current Content and send a retry-safe internal Message. Offline
+standard-library Python tests are included; live processing requires explicit setup.
+
 Want to connect a phone service rather than write code? Start with the
 **[phone, texts and fax guide](https://github.com/basstok/phone)**. It explains
 vendor-neutral SIP calling, SIP MESSAGE and fax, with compatibility checks and
