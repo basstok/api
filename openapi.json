@@ -14851,7 +14851,9 @@
         "required": ["claimed_from", "subject"],
         "properties": {
           "claimed_from": {"type": "string"},
-          "subject": {"type": "string"}
+          "subject": {"type": "string"},
+          "message_id": {"type": ["string", "null"], "maxLength": 998, "description": "Untrusted source Message-ID; a presentation hint, never identity or access authority."},
+          "references": {"type": ["array", "null"], "maxItems": 64, "uniqueItems": true, "items": {"type": "string", "maxLength": 998}, "description": "Bounded source References and In-Reply-To identifiers for grouping related email within this Chat. These do not authorize access to another Message."}
         },
         "additionalProperties": false
       },
