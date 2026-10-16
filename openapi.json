@@ -24,6 +24,161 @@
     }
   ],
   "paths": {
+    "/api/v1/member-access/communities": {
+      "get": {
+        "operationId": "readSavedCommunities",
+        "summary": "Read your private saved community links",
+        "description": "Current human Member only. Returns at most 64 saved navigation links in creation order from this Member's Account data. These links survive restoration of this Account's access, but never restore target sessions, prove current target membership or grant target authority. Each target still requires its own current authentication. Other Members, Admins and delegated applications cannot read these links. No query parameters. Responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {"description": "Your private saved links.", "content": {"application/json": {"schema": {
+            "type": "array", "maxItems": 64, "items": {"$ref": "#/components/schemas/SavedCommunity"}
+          }}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      },
+      "post": {
+        "operationId": "saveCommunity",
+        "summary": "Save a community link using both current sessions",
+        "description": "Call on the source Account with source_session_token matching request authentication. Both source and exact target human sessions must be current and admitted. Target must be served by this installation. Account routing supplies the HTTPS origin, and current target Account state supplies its name; callers cannot supply either. Stores or refreshes only a private presentation link in the source Member's data, bounded to 64 target Accounts. Exact repetition is safe. Success is durable. Revocation, credential replacement and membership deletion are fenced through publication. This operation issues no session, transfers no authority, changes no target state and infers no membership from phone numbers. No query parameters. Browser presence protection applies. Responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CommunitySessionsInput"}}}},
+        "responses": {
+          "200": {"description": "Saved navigation link, without target credentials.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SavedCommunity"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/member-access/communities/{targetAccountId}": {
+      "parameters": [{"name": "targetAccountId", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 256}}],
+      "delete": {
+        "operationId": "removeSavedCommunity",
+        "summary": "Remove your saved community link",
+        "description": "Current human source Member only. Removes only this Member's navigation link. Does not leave the target, revoke a target session or delete either Account. No target authentication is needed to remove a private bookmark. Missing links are a successful no-op. No query parameters. Browser presence protection applies.",
+        "security": [{"memberBearer": []}],
+        "responses": {"204": {"description": "Link removed."}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/api/v1/member-access/communities/reuse-phone": {
+      "post": {
+        "operationId": "reuseMemberPhone",
+        "summary": "Reuse current phone proof with your existing target session",
+        "description": "Call on the source Account with source_session_token matching request authentication. Source must have a current human session and currently verified phone control. The exact existing target human session must be current; it may still require admission. Both Accounts must be distinct and served by this installation. Copies the current source phone-control fact only when the exact target Member has no verified phone, advancing that target's current phone revision. Existing verified target phone control is preserved. Both session credentials and their credential generations, source proof and target revision are fenced through the durable write. Revoked, expired, replaced or deleted access fails closed. This sends no SMS and creates no session, Member, Account or global identity. It changes no roles, terms consent, plan, login or recovery email and never authenticates an unknown target from a number. Exact repetition is safe. Refresh target access using the same existing target session afterward. No query parameters. Browser presence protection applies.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CommunitySessionsInput"}}}},
+        "responses": {"204": {"description": "Target phone control is verified or already present; no session issued."}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/api/v1/member-access/email-labels": {
+      "get": {
+        "operationId": "readMemberEmailLabels",
+        "summary": "Read your private email Labels",
+        "description": "Current human Member only. Returns at most 64 private Label definitions in creation order. These are ordinary inert filing labels, not Account discovery Labels, System Labels, permissions or provider labels. Other Members, Admins and delegated applications cannot read your definitions. No query parameters. Responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {"description": "Your bounded private definitions.", "content": {"application/json": {"schema": {
+            "type": "array", "maxItems": 64, "items": {"$ref": "#/components/schemas/Label"}
+          }}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      },
+      "post": {
+        "operationId": "createMemberEmailLabel",
+        "summary": "Create a private email Label",
+        "description": "Current human Member only. Saves one private ordinary Label with a server-assigned opaque identity and a meaningful name of at most 256 UTF-8 bytes. At most 64 definitions per Member. The Idempotency-Key is scoped to this Account and Member: exact retries return the same Label; changed names conflict. Successful acknowledgement is durable. Definitions are create-only in this increment; no rename, deletion, target-member field or provider synchronization. They do not grant authority or enter public Account Label discovery. Browser presence protection applies. No query parameters. Responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {
+          "type": "object", "required": ["name"], "additionalProperties": false,
+          "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 256}}
+        }}}},
+        "responses": {
+          "200": {"description": "Saved private Label.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Label"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/chats/{chatId}/email/labels": {
+      "parameters": [{"$ref": "#/components/parameters/ChatId"}],
+      "put": {
+        "operationId": "labelChatEmails",
+        "summary": "Set your private Labels on selected email",
+        "description": "Current human participant only. Atomically replaces this Member's complete Label selection for 1–100 distinct received or outgoing email Messages in one Chat. Up to 16 distinct Label IDs must belong to this Member in this Account; other Members' definitions and Account discovery Labels are rejected. Every Message must pass current participant-history and blocked-author checks. Empty label_ids removes all Labels. Folders are preserved, including a labelled Inbox entry; unlabelled Inbox needs no filing entry. No shared Message, other Member's filing or provider mailbox is changed. Any invalid selection rejects the whole operation. Successful acknowledgement is durable, and exact repetition is safe. Cookie writes require browser presence protection.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {
+          "type": "object", "required": ["message_ids", "label_ids"], "additionalProperties": false,
+          "properties": {
+            "message_ids": {"type": "array", "minItems": 1, "maxItems": 100, "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+            "label_ids": {"type": "array", "maxItems": 16, "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1, "maxLength": 256}}
+          }
+        }}}},
+        "responses": {"204": {"description": "Your Labels are saved."}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/api/v1/messages/search": {
+      "get": {
+        "operationId": "searchMessages",
+        "summary": "Search your authorized Chat Messages",
+        "description": "Human Member only; delegated applications and acting identities are rejected. Searches complete Message text, received/sent email subjects and retained sender/recipient addresses using case-insensitive substring matching after trimming the query. Received email matches claimed_from and its delivered recipient; outgoing email matches from and to. The original received To header is not retained separately and cannot be searched independently. Markdown bodies are searched as plain text. Query size is 1–512 UTF-8 bytes. Only current authorized Chat history at or after the participant's admission boundary is searched; blocked authors and withdrawn Messages are excluded. Email search includes all of your folders and sent email; messages excludes received and sent email. Results contain exact Chat/Message destinations, a short body excerpt and created_at whenever the Message has a timestamp. Email hits additionally include subject, displayed sender (incoming) or recipient (outgoing) in address, and incoming direction; these email-only fields are absent for ordinary Messages. Chats are visited in reverse inventory order, with newest Messages first within each Chat; this is not global relevance or chronological ordering. Each request examines at most eight Chat positions and 512 Messages. Continue with next_offset even after an empty page, using the same query, kind, Label filter and authorization context. Continuations are opaque and results can change with concurrent activity; restart from zero after changing context. Responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/SearchQuery"},
+          {"name": "kind", "in": "query", "schema": {"type": "string", "enum": ["all", "email", "messages"], "default": "all"}},
+          {"name": "label_id", "in": "query", "description": "Filter by one of your private email Labels across all folders. Requires kind all or email. Unknown or another Member's Label is rejected.", "schema": {"type": "string", "minLength": 1, "maxLength": 256}},
+          {"name": "offset", "in": "query", "schema": {"type": "integer", "minimum": 0, "default": 0}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 50, "default": 50}}
+        ],
+        "responses": {
+          "200": {"description": "A bounded page of authorized matches.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MessageSearchPage"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/chats/{chatId}/email": {
+      "parameters": [{"$ref": "#/components/parameters/ChatId"}],
+      "get": {
+        "operationId": "listChatEmails",
+        "summary": "Read your email in one Chat folder",
+        "description": "Human participant only; delegated applications and acting identities are rejected. Returns received and outgoing email Messages together in newest-first order from this Member's selected folder, within their current authorized Chat history. Blocked authors are excluded. Filing is private to the acting Member; another participant or Admin cannot read it. An email without a filing entry is in Inbox, in either direction. Inbox, Archive, Trash and Junk all support received and outgoing email. Ordinary Chat Messages are not included. Folder changes do not remove Messages, Assets or other participants' access. Responses are no-store. Concurrent folder changes can shift offsets; refresh from zero to reconcile.",
+        "security": [{"memberBearer": []}],
+        "parameters": [
+          {"name": "folder", "in": "query", "description": "Defaults to Inbox without label_id. With label_id, omission reads the Label across every folder; an explicit folder intersects that Label.", "schema": {"$ref": "#/components/schemas/EmailFolder"}},
+          {"name": "label_id", "in": "query", "description": "Filter by one of your private email Labels. Unknown or another Member's Label is rejected.", "schema": {"type": "string", "minLength": 1, "maxLength": 256}},
+          {"$ref": "#/components/parameters/Offset"},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}}
+        ],
+        "responses": {
+          "200": {"description": "An ordinary Message page from your selected folder.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MessagePage"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/chats/{chatId}/email/folder": {
+      "parameters": [{"$ref": "#/components/parameters/ChatId"}],
+      "put": {
+        "operationId": "fileChatEmails",
+        "summary": "Move email to your chosen folder",
+        "description": "Human participant only; delegated applications and acting identities are rejected. Atomically sets the acting Member's folder for 1–100 distinct received or outgoing email Messages in this Chat, including mixed-direction batches. Every selected Message must exist within their authorized participant history and pass current blocked-author checks. Any invalid or inaccessible selection rejects the whole batch. Inbox, Archive, Trash and Junk all support both directions. Archive, Trash and Junk are reversible; Delete uses Trash and never destroys the shared Message or Assets. Inbox removes exceptional folder state while preserving private Labels. Successful acknowledgement is durable, and repeating the same selection and folder is safe. No source mailbox changes, spam training or other participants' filing are implied. Cookie-authenticated writes require the usual browser presence header.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {
+            "type": "object", "required": ["message_ids", "folder"], "additionalProperties": false,
+            "properties": {
+              "message_ids": {"type": "array", "minItems": 1, "maxItems": 100, "uniqueItems": true,
+                "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+              "folder": {"$ref": "#/components/schemas/EmailFolder"}
+            }
+          }}}
+        },
+        "responses": {
+          "204": {"description": "Your folder changes are saved."},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/account/calling/senders": {
       "get": {
         "operationId": "getAccountCallingSenders",
@@ -6775,7 +6930,7 @@
       "post": {
         "operationId": "sendChatEmail", "tags": ["Chats"], "security": [{"memberBearer": []}, {"oauth": ["email:send", "chat:read", "chat:write"]}],
         "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
-        "description": "The current human Chat creator explicitly sends plain-text email to one recipient through the exact selected assigned Basstok sender or customer connection. Assigned Basstok sending has a bounded daily allowance. An App needs explicit email:send, chat:read and chat:write and the responsible human must remain the current Chat creator. Acting personas cannot send. Up to four authorized Chat Assets, 8 MiB combined, become ordinary MIME attachments. No CC/BCC, scheduling, automatic resend or implicit sending fallback. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Account, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
+        "description": "The current human Chat creator explicitly sends email to one recipient through the exact selected assigned Basstok sender or customer connection. Optional body_format is text (default) or markdown. Text retains literal plain-text sending; markdown accepts CommonMark source and derives safe plain-text and HTML MIME alternatives. Raw HTML and unsafe links are omitted from the outgoing HTML alternative. The saved Message body remains canonical CommonMark in both cases. Assigned Basstok sending has a bounded daily allowance. An App needs explicit email:send, chat:read and chat:write and the responsible human must remain the current Chat creator. Acting personas cannot send. Up to four authorized Chat Assets, 8 MiB combined, become ordinary MIME attachments. No CC/BCC, scheduling, automatic resend or implicit sending fallback. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Account, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonalEmailInput"}}}},
         "responses": {"200": {"description": "Saved Message with explicit outgoing_email status; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Message"}}}}, "400": {"description": "Invalid recipient, subject, body, connection or request identity."}, "403": {"description": "Not the current human Chat creator or reply history is inaccessible."}, "409": {"description": "Conflicting request, changed/unavailable sender or concurrent operation. Keep the exact send identity when checking an uncertain result."}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -10448,7 +10603,7 @@
     "/api/v1/auth/phone-recovery/verify": {
       "post": {
         "operationId": "verifyPhoneRecovery",
-        "description": "Verify the fresh six-digit recovery code and return matching Account addresses. Requires the original completion token. The code expires after five minutes and allows at most five checks. This does not install a session; when several Accounts match, let the person choose rather than merge them. Browser requests require same-origin JSON, X-Basstok-Auth equal to completion_token, and the host-only binding cookie set by the request operation for verification/completion. Native clients do not need browser cookies. Responses are not cacheable.",
+        "description": "Verify the fresh six-digit recovery code and return matching Account addresses. Requires the original completion token. The code expires after five minutes and allows at most five checks. This does not install a session. A client may automatically select one returned Account for recovery; Accounts are never merged. Browser requests require same-origin JSON, X-Basstok-Auth equal to completion_token, and the host-only binding cookie set by the request operation for verification/completion. Native clients do not need browser cookies. Responses are not cacheable.",
         "security": [],
         "parameters": [
           {
@@ -14825,7 +14980,8 @@
           "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "recipient": {"type": "string", "format": "email", "maxLength": 254, "description": "One plain ASCII address, without display name or header syntax."},
           "subject": {"type": "string", "maxLength": 512, "description": "At most 512 UTF-8 bytes, without control characters; may be empty."},
-          "body": {"type": "string", "maxLength": 16384, "description": "Plain UTF-8 text, at most 16384 bytes. May be empty when attachments are present. Rendered as escaped Markdown in Chat; not HTML."},
+          "body": {"type": "string", "maxLength": 16384, "description": "UTF-8 plain text or CommonMark source selected by body_format, at most 16384 bytes. May be empty when attachments are present. Plain text is escaped into canonical CommonMark; markdown is saved as CommonMark and rendered to safe plain-text and HTML MIME alternatives. Raw HTML and unsafe links are omitted from the outgoing HTML alternative."},
+          "body_format": {"type": "string", "enum": ["text", "markdown"], "default": "text", "description": "Optional input format. Omission preserves literal plain-text sending. This selects input interpretation; the saved Message body remains CommonMark."},
           "reply_to_message_id": {"type": ["string", "null"], "format": "uuid"},
           "asset_ids": {"type": "array", "maxItems": 4, "uniqueItems": true, "items": {"type": "string", "format": "uuid"}, "description": "Existing Assets authorized within this Chat, at most 8 MiB combined. Sent as ordinary MIME attachments."}
         }
@@ -17339,6 +17495,52 @@
             "type": "integer",
             "minimum": 0
           }
+        },
+        "additionalProperties": false
+      },
+      "SavedCommunity": {
+        "type": "object", "required": ["account_id", "origin", "name"], "additionalProperties": false,
+        "properties": {
+          "account_id": {"type": "string"},
+          "origin": {"type": "string", "format": "uri", "description": "Saved HTTPS navigation origin, never target authentication authority."},
+          "name": {"type": "string", "maxLength": 256}
+        }
+      },
+      "CommunitySessionsInput": {
+        "type": "object", "required": ["source_account_id", "source_session_token", "target_account_id", "target_session_token"],
+        "additionalProperties": false,
+        "properties": {
+          "source_account_id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "source_session_token": {"type": "string", "pattern": "^[0-9a-f]{64}$", "writeOnly": true},
+          "target_account_id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "target_session_token": {"type": "string", "pattern": "^[0-9a-f]{64}$", "writeOnly": true}
+        }
+      },
+      "EmailFolder": {
+        "type": "string",
+        "enum": ["inbox", "archive", "trash", "junk"],
+        "default": "inbox"
+      },
+      "MessageSearchHit": {
+        "type": "object",
+        "required": ["chat_id", "message_id", "excerpt"],
+        "properties": {
+          "chat_id": {"type": "string"},
+          "message_id": {"type": "string"},
+          "excerpt": {"type": "string"},
+          "subject": {"type": "string"},
+          "address": {"type": "string"},
+          "incoming": {"type": "boolean"},
+          "created_at": {"type": "string"}
+        },
+        "additionalProperties": false
+      },
+      "MessageSearchPage": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {"type": "array", "maxItems": 50, "items": {"$ref": "#/components/schemas/MessageSearchHit"}},
+          "next_offset": {"type": "integer", "minimum": 0, "description": "Opaque continuation; continue even if items is empty, until next_offset is absent."}
         },
         "additionalProperties": false
       },
