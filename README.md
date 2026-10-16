@@ -61,7 +61,6 @@ The contract is synchronized with verified Web/backend deployments. Check the
 target Organization's `/openapi.json` before using an operation. API publication
 does not establish live carrier interoperability or physical-device behavior.
 
-[Import existing data](https://github.com/basstok/import) ·
 [Data and storage](https://github.com/basstok/storage) ·
 [Contributing](.github/CONTRIBUTING.md) · [MIT](LICENSE) ·
 [Contact](mailto:mail@basstok.com)

@@ -88,8 +88,8 @@ Errors must not cause private data to be republished with broader access.
 
 ## Import existing data
 
-The [small import example](https://github.com/basstok/import) uses the public
-import API. Import requires a current human Admin session, not an App token or
+The public API supports historical data import. Import requires a current human
+Admin session, not an App token or
 direct bucket access. Historical Members and authorship do not become login
 credentials or Admin grants.
 
