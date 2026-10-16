@@ -6775,7 +6775,7 @@
       "post": {
         "operationId": "sendChatEmail", "tags": ["Chats"], "security": [{"memberBearer": []}, {"oauth": ["email:send", "chat:read", "chat:write"]}],
         "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
-        "description": "The current human Chat creator explicitly sends plain-text email to one recipient through the exact selected assigned Basstok sender or customer connection. Assigned Basstok sending has a bounded daily allowance. An App needs explicit email:send, chat:read and chat:write and the responsible human must remain the current Chat creator. Acting personas cannot send. No CC/BCC, attachments, scheduling, automatic resend or implicit sending fallback. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Account, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
+        "description": "The current human Chat creator explicitly sends plain-text email to one recipient through the exact selected assigned Basstok sender or customer connection. Assigned Basstok sending has a bounded daily allowance. An App needs explicit email:send, chat:read and chat:write and the responsible human must remain the current Chat creator. Acting personas cannot send. Up to four authorized Chat Assets, 8 MiB combined, become ordinary MIME attachments. No CC/BCC, scheduling, automatic resend or implicit sending fallback. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Account, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonalEmailInput"}}}},
         "responses": {"200": {"description": "Saved Message with explicit outgoing_email status; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Message"}}}}, "400": {"description": "Invalid recipient, subject, body, connection or request identity."}, "403": {"description": "Not the current human Chat creator or reply history is inaccessible."}, "409": {"description": "Conflicting request, changed/unavailable sender or concurrent operation. Keep the exact send identity when checking an uncertain result."}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -7804,6 +7804,15 @@
       }
     },
     "/api/v1/chats/{chatId}/messages/{messageId}": {
+      "delete": {
+        "operationId": "deleteMessage",
+        "description": "The current human author may delete an ordinary Basstok Message within two minutes of its server-assigned creation time. External email, phone texts and fax cannot be recalled here. Returns a deleted Message retaining its identity, author, sequence and original time, without text, location or attachment references. Exact create retries cannot recreate deleted content. Repeating an already completed deletion returns the same result. Chat participation and history authorization still apply. This does not erase copies already viewed or downloaded.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {"description": "Deleted Message", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Message"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      },
       "parameters": [
         {
           "$ref": "#/components/parameters/ChatId"
@@ -14228,10 +14237,6 @@
       },
       "Message": {
         "type": "object",
-        "allOf": [{"if": {"required": ["location"]}, "then": {
-          "required": ["member_id"],
-          "not": {"anyOf": [{"required": ["email"]}, {"required": ["outgoing_email"]}, {"required": ["sms"]}, {"required": ["sip"]}, {"required": ["fax"]}]}
-        }}],
         "required": [
           "id",
           "body",
@@ -14249,10 +14254,19 @@
            "properties": {"fax": {"properties": {"direction": {"enum": ["incoming"]}, "status": {"enum": ["received"]}}}}}
         ],
         "allOf": [
+          {"if": {"required": ["location"]}, "then": {
+            "required": ["member_id"],
+            "not": {"anyOf": [{"required": ["email"]}, {"required": ["outgoing_email"]}, {"required": ["sms"]}, {"required": ["sip"]}, {"required": ["fax"]}, {"required": ["deleted_at"]}]}
+          }},
+          {"if": {"required": ["deleted_at"]}, "then": {
+            "required": ["member_id", "created_at"],
+            "properties": {"body": {"const": ""}, "assets": {"maxItems": 0}},
+            "not": {"anyOf": [{"required": ["email"]}, {"required": ["outgoing_email"]}, {"required": ["sms"]}, {"required": ["sip"]}, {"required": ["fax"]}, {"required": ["location"]}, {"required": ["updated_at"]}]}
+          }},
           {"if": {"required": ["outgoing_email"]}, "then": {
             "required": ["member_id", "created_at"],
             "not": {"anyOf": [{"required": ["email"]}, {"required": ["sms"]}, {"required": ["sip"]}, {"required": ["fax"]}, {"required": ["updated_at"]}]},
-            "properties": {"assets": {"maxItems": 0}}
+            "properties": {"assets": {"maxItems": 4}}
           }},
           {"if": {"required": ["fax"]}, "then": {
             "required": ["created_at"],
@@ -14279,6 +14293,7 @@
           "updated_at": {
             "type": "string"
           },
+          "deleted_at": {"type": "string", "format": "date-time", "description": "Present after the author deletes an ordinary Message. Its text, location and attachment references are removed."},
           "assets": {
             "type": "array",
             "items": {
@@ -14810,8 +14825,9 @@
           "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "recipient": {"type": "string", "format": "email", "maxLength": 254, "description": "One plain ASCII address, without display name or header syntax."},
           "subject": {"type": "string", "maxLength": 512, "description": "At most 512 UTF-8 bytes, without control characters; may be empty."},
-          "body": {"type": "string", "minLength": 1, "maxLength": 16384, "description": "Meaningful plain UTF-8 text, at most 16384 bytes. Rendered as escaped Markdown in Chat; not HTML."},
-          "reply_to_message_id": {"type": ["string", "null"], "format": "uuid"}
+          "body": {"type": "string", "maxLength": 16384, "description": "Plain UTF-8 text, at most 16384 bytes. May be empty when attachments are present. Rendered as escaped Markdown in Chat; not HTML."},
+          "reply_to_message_id": {"type": ["string", "null"], "format": "uuid"},
+          "asset_ids": {"type": "array", "maxItems": 4, "uniqueItems": true, "items": {"type": "string", "format": "uuid"}, "description": "Existing Assets authorized within this Chat, at most 8 MiB combined. Sent as ordinary MIME attachments."}
         }
       },
       "MessageOutgoingEmail": {
@@ -17777,7 +17793,9 @@
             "type": ["string", "null"],
             "pattern": "^[0-9a-f]{64}$",
             "description": "Optional verified phone-recovery challenge with no matching Accounts, bound to this completion_token. Requires an automatic address. Consumption creates verified phone access for this new Account only; it neither restores a different Account nor grants Admin authority."
-          }
+          },
+          "source_account_id": {"type": ["string", "null"], "maxLength": 128, "description": "For deliberate named creation by an already verified Member, supply both source fields instead of phone_verification_id. The source must be an active Account hosted here."},
+          "source_session_token": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "writeOnly": true, "description": "An admitted current human session in source_account_id, with verified phone control. Its current verification is copied to this new creator membership only. No roles, recovery email, Terms consent or other memberships transfer."}
         }
       },
       "BasstokCreationResult": {
