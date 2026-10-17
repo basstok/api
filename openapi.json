@@ -198,6 +198,19 @@
         }
       }
     },
+    "/api/v1/account/sms": {
+      "get": {
+        "operationId": "getAccountSmsSending",
+        "tags": ["Account"],
+        "summary": "Read your text message sending service",
+        "description": "Verified-phone human session of the personal Account creator only. Returns the configured shared SMS sender, current sending readiness and explicit reply support. This is neither a dedicated receiving line nor a phone-number mailbox; replies_supported is currently always false. Missing configuration returns not_configured without inventing a sender. A current production paid plan is required; test purchases, grace and starter allowance cannot enable this service. Readiness uses the current verified plan snapshot and read-only provider inspection; each new send refreshes production purchase proof and checks current authorization and limits again. Provider acceptance never promises delivery. Customer-connected Chat numbers retain their separate phone resource. No query parameters are accepted.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {"description": "Current text message sending readiness.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ManagedSmsSending"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/account/phone-usage": {
       "get": {
         "operationId": "readAccountPhoneUsage",
@@ -7679,7 +7692,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "post": {
         "operationId": "sendChatSms",
-        "description": "A human participant explicitly sends text to one international E.164 recipient through the connected customer-owned number. Ordinary internal Chat Messages are never forwarded. The existing Idempotency-Key binds the exact sender, Chat, admission boundary, recipient and body. A durable Message reservation precedes the sole provider submission. Same-key retries return existing state, including after restart; they never resend. Unconfirmed may mean submitted: inspect history/provider status before deliberately starting another send. No MMS, bulk recipients or attachments.",
+        "description": "A human participant explicitly sends an SMS/text message to one international E.164 recipient. service=connected (the default) uses the Chat's customer-connected number. service=basstok uses the configured shared sender and additionally requires the verified-phone human personal Account creator and fresh active production paid-plan proof. Test purchases, starter credit, grace, Apps and Admin authority do not enable managed sending. The shared sender does not route replies to this Account. Managed bodies have an additional conservative Unicode/multipart segment bound and independent daily sending limit; exceeding either rejects before submission. No per-text retail price is introduced. Ordinary Chat Messages are never forwarded. The existing Idempotency-Key binds the exact service, human, Chat, admission boundary, recipient and body; changing service for an existing attempt conflicts. Durable admission precedes the sole provider submission. Exact retries return existing state after restart or disconnection without resending, changing sender or switching providers. Unconfirmed may mean submitted: never automatically create a new key to retry. An interrupted reservation may conservatively block its attempt even if Message publication was not completed. No MMS, group recipients, forwarding or attachments.",
         "security": [{"memberBearer": []}],
         "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatSmsInput"}}}},
@@ -14599,14 +14612,16 @@
       },
       "MessageSms": {
         "type": "object",
-        "description": "Customer-carrier cellular SMS provenance, not SIP MESSAGE. The sender may be a phone number, short code or alphanumeric external label and is not an authenticated Basstok identity. Provider IDs and private credential selectors are not disclosed.",
+        "description": "Cellular SMS/text message provenance. The sender may be a telephone number, short code or alphanumeric label and is not an authenticated Basstok identity. Basstok's managed shared sender does not receive replies for this Account. Acceptance means submission only; delivery needs authenticated delivery evidence. Provider IDs, private credentials, supplier charges and allowance reservation identities are not disclosed.",
         "required": ["from", "to", "direction", "status", "text"],
         "properties": {
           "from": {"type": "string", "maxLength": 16},
           "to": {"type": "string", "maxLength": 16},
           "direction": {"type": "string", "enum": ["incoming", "outgoing"]},
           "status": {"type": "string", "enum": ["received", "unconfirmed", "accepted", "sent", "delivered", "failed"]},
-          "text": {"type": "string", "description": "Derived plain-text rendering of canonical Message.body, retaining line layout. Not independently stored."}
+          "text": {"type": "string", "description": "Derived plain-text rendering of canonical Message.body, retaining line layout. Not independently stored."},
+          "service": {"type": "string", "enum": ["basstok"], "description": "Present for outgoing texts through Basstok's shared sending service; omitted for customer-connected SMS."},
+          "replies_supported": {"type": "boolean", "enum": [false], "description": "Present and false for Basstok's shared sender. An incoming reply is not assigned to this Account."}
         },
         "additionalProperties": false
       },
@@ -14935,6 +14950,17 @@
           }
         }
       },
+      "ManagedSmsSending": {
+        "type": "object",
+        "required": ["state", "can_send", "replies_supported"],
+        "properties": {
+          "sender": {"type": "string", "minLength": 1, "maxLength": 16, "description": "Configured shared telephone number or alphanumeric sender. Omitted when unconfigured. Never a dedicated incoming line."},
+          "state": {"type": "string", "enum": ["not_configured", "paid_plan_required", "provider_setup", "unavailable", "limit_reached", "ready"]},
+          "can_send": {"type": "boolean", "description": "Current verified plan snapshot, inspected sender and remaining sending limit permit a new attempt; the send operation rechecks all admission requirements."},
+          "replies_supported": {"type": "boolean", "enum": [false]}
+        },
+        "additionalProperties": false
+      },
       "ChatPhone": {
         "type": "object",
         "required": ["can_manage", "can_send", "receive_state"],
@@ -15002,6 +15028,7 @@
         "type": "object",
         "required": ["recipient", "body"],
         "properties": {
+          "service": {"type": "string", "enum": ["connected", "basstok"], "default": "connected", "description": "Explicit sending service. Basstok uses a shared outgoing-only sender with paid-plan and independent sending limits. It never silently replaces a connected number."},
           "recipient": {"type": "string", "pattern": "^\\+[1-9][0-9]{1,14}$"},
           "body": {"type": "string", "minLength": 1, "maxLength": 1600, "description": "Plain UTF-8 text, at most 1600 Unicode scalars and 6400 bytes; normalized to literal CommonMark in history. Customer carrier segmentation/charges apply."}
         },
