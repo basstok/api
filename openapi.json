@@ -4827,6 +4827,39 @@
         }
       }
     },
+    "/api/v1/member-access/privacy": {
+      "get": {
+        "operationId": "getMemberPrivacy",
+        "description": "Read the current admitted human Member's Account-local privacy preferences. Both switches default true. Photo and read-receipt sharing additionally require an accepted Connection in this Account; false shares with nobody else. Administrators, acting identities and delegated applications cannot read another Member's preferences. No query parameters. Responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {"description": "Your current privacy preferences.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MemberPrivacy"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      },
+      "put": {
+        "operationId": "setMemberPrivacy",
+        "description": "Durably replace exactly both boolean preferences for the current admitted human Member. Existing photo metadata, payload and conditional requests recheck current sharing and Connection access. Existing read receipts are suppressed while sharing is false. No target Member, acting identity, delegated application or query parameters. Cookie-authenticated requests require browser presence protection. Responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MemberPrivacy"}}}},
+        "responses": {
+          "200": {"description": "Saved privacy preferences.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MemberPrivacy"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/member-access/avatar": {
+      "put": {
+        "operationId": "setMemberAvatar",
+        "description": "Durably select the current admitted human Member's previously uploaded Member-owned image Asset, or remove the selection with avatar:null. Upload bytes first through POST /api/v1/assets with member_id equal to self. Account, Content, Chat and other Members' Assets are rejected. Self may read own uploads; other Members can read only the selected image while sharing is enabled and their Connection is accepted. Old and unselected photos remain private to self. No acting identity, delegated application or query parameters. Cookie-authenticated writes require browser presence protection.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MemberAvatarInput"}}}},
+        "responses": {
+          "204": {"description": "Photo selection durably saved; read your Member profile for the current reference."},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/member-access/name": {
       "put": {
         "operationId": "setAccountDisplayName",
@@ -7747,6 +7780,31 @@
         }
       }
     },
+    "/api/v1/chats/{chatId}/read-receipt": {
+      "parameters": [{"$ref": "#/components/parameters/ChatId"}],
+      "put": {
+        "operationId": "markChatRead",
+        "description": "Advance the current admitted human participant's private read position through one existing, actually read Message within their admitted history. Blocked authors and pre-admission Messages are inaccessible. Equal or older marks are safe and never lower the position. Success persists the position. Loading a Chat alone does not mark it read. This records reading only, never receipt or delivery. Sharing is evaluated separately on every receipt read; disabled sharing reveals no receipt or timing signal. No acting identity, delegated application or query parameters. Cookie-authenticated writes require browser presence protection.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatReadInput"}}}},
+        "responses": {
+          "204": {"description": "Read position saved, or an equal or newer position already exists."},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/chats/{chatId}/read-receipts": {
+      "parameters": [{"$ref": "#/components/parameters/ChatId"}],
+      "get": {
+        "operationId": "getChatReadReceipts",
+        "description": "Return at most 31 other participants' currently visible read receipts. The viewer must be a current admitted human Chat participant. Each reader must still share receipts and have an accepted Connection to the viewer in this Account; blocking or deletion suppresses sharing. Referenced Messages must be within the viewer's admitted history and pass current blocking checks. Self is omitted. Absence does not mean unread or undelivered. No receipt event or polling contract is implied. No acting identity, delegated application or query parameters. Responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {"description": "Currently authorized read receipts.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatReadReceipts"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/chats/{chatId}/typing": {
       "parameters": [
         {
@@ -8070,7 +8128,7 @@
     "/api/v1/assets": {
       "post": {
         "operationId": "createSmallAsset",
-        "description": "Creates an Asset of at most 8 MiB under one authorized Account, Content, or Chat parent and returns its Basstok-assigned opaque identity. OAuth callers use an explicit Content or Chat parent. A Chat upload remains visible only to its uploader until shared through a Message or attachment to the Chat; other participants then require visibility of that shared activity from their admission boundary. Retry an ambiguous outcome with the exact same Idempotency-Key, query parameters, and bytes; changed input with the same key conflicts.",
+        "description": "Creates an Asset of at most 8 MiB under one authorized Account, Content, Chat or Member parent and returns its Basstok-assigned opaque identity. Select at most one of content_id, chat_id and member_id; absence selects Account. member_id requires the current human Member's own identity, no acting identity or delegated application, and nonempty image bytes. Member photo Assets are immutable and initially private to self; select one through PUT /api/v1/member-access/avatar. OAuth callers use an explicit Content or Chat parent. A Chat upload remains visible only to its uploader until shared through a Message or attachment to the Chat; other participants then require visibility of that shared activity from their admission boundary. Retry an ambiguous outcome with the exact same Idempotency-Key, query parameters, and bytes; changed input with the same key conflicts.",
         "security": [
           {
             "memberBearer": []
@@ -8105,6 +8163,9 @@
           },
           {
             "$ref": "#/components/parameters/AssetChatParent"
+          },
+          {
+            "$ref": "#/components/parameters/AssetMemberParent"
           }
         ],
         "requestBody": {
@@ -8144,7 +8205,7 @@
       ],
       "get": {
         "operationId": "getAsset",
-        "description": "Returns an authorized Asset payload or metadata. For a Chat-owned Asset, chat:read and effective-participant access from that Member's admission boundary are both required; actor_id may select an existing controlled Member. Payload responses include a strong ETag. Anonymous payloads use private, no-cache, must-revalidate; authenticated payloads use no-store. Asset URLs are not immutable. Conditional payload requests always evaluate current authorization before returning bytes or 304. Metadata responses are not conditional.",
+        "description": "Returns an authorized Asset payload or metadata. A Member-owned photo requires current human access: self may read own uploads; others need an accepted Connection, enabled photo sharing and the currently selected image. Blocking and deletion suppress sharing. No administrator or delegated bypass exists. For a Chat-owned Asset, chat:read and effective-participant access from that Member's admission boundary are both required; actor_id may select an existing controlled Member. Payload responses include a strong ETag. Anonymous payloads use private, no-cache, must-revalidate; authenticated payloads use no-store. Asset URLs are not immutable. Conditional payload requests always evaluate current authorization before returning bytes or 304. Metadata responses are not conditional.",
         "security": [
           {},
           {
@@ -11142,6 +11203,13 @@
         "schema": {
           "type": "string"
         }
+      },
+      "AssetMemberParent": {
+        "name": "member_id",
+        "in": "query",
+        "required": false,
+        "description": "Own Member identity for an immutable profile image. Exclusive with content_id and chat_id. Current human only; use PUT /api/v1/member-access/avatar after upload to select it.",
+        "schema": {"type": "string", "minLength": 1, "maxLength": 128}
       },
       "IdempotencyKey": {
         "name": "Idempotency-Key",
@@ -14343,6 +14411,30 @@
         },
         "additionalProperties": false
       },
+      "MemberPrivacy": {
+        "type": "object",
+        "required": ["share_profile_photo", "share_read_receipts"],
+        "additionalProperties": false,
+        "properties": {
+          "share_profile_photo": {"type": "boolean", "default": true, "description": "Share the selected photo with accepted Connections only. Self always retains access to own uploads."},
+          "share_read_receipts": {"type": "boolean", "default": true, "description": "Share read positions with accepted Connections who can read the referenced Chat history."}
+        }
+      },
+      "MemberAvatarInput": {
+        "type": "object", "required": ["avatar"], "additionalProperties": false,
+        "properties": {"avatar": {"anyOf": [{"$ref": "#/components/schemas/CanonicalReference"}, {"type": "null"}]}}
+      },
+      "ChatReadInput": {
+        "type": "object", "required": ["through_message_id"], "additionalProperties": false,
+        "properties": {"through_message_id": {"type": "string", "minLength": 1, "maxLength": 256}}
+      },
+      "ChatReadReceipts": {
+        "type": "object", "required": ["items"], "additionalProperties": false,
+        "properties": {"items": {"type": "array", "maxItems": 31, "items": {
+          "type": "object", "required": ["member_id", "through_message_id"], "additionalProperties": false,
+          "properties": {"member_id": {"type": "string"}, "through_message_id": {"type": "string"}}
+        }}}
+      },
       "Member": {
         "type": "object",
         "required": [
@@ -14419,7 +14511,7 @@
                 "type": "null"
               }
             ],
-            "description": "An authorized image Asset owned by this community. Omit to preserve the current avatar, or use null to remove it. Other resources’ attachments cannot be used as avatars."
+            "description": "An image Asset owned by this exact Member. Omit to preserve the current avatar, or use null to remove it. Other owners' Assets cannot be used as avatars. Ordinary Members select their own photo through /api/v1/member-access/avatar."
           }
         },
         "additionalProperties": false
