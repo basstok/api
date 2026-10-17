@@ -836,7 +836,7 @@
     "/api/v1/member-access/phone/verification": {
       "post": {
         "operationId": "requestAccountPhoneVerification",
-        "description": "Explicitly request one verification code for the same authenticated Member. Select a configured channel; omission selects SMS. Available to current Member sessions, including pending onboarding. Requires an allowed country confirmed through exact-number lookup: US, Paraguay or Germany. Both channels share durable per-Member, destination, source, Account and platform limits, charged before provider work including failed or uncertain requests. Codes expire five minutes after admission. A new admitted attempt replaces the pending code without removing an already verified phone. A send-limit rejection preserves the existing pending code and does not prevent its completion. No automatic resend or fallback to another channel.",
+        "description": "Explicitly request one verification code for the same authenticated Member. Every request, including browser requests and WhatsApp, requires verified iOS installation proof obtained through the hosting phone-device challenge endpoint. Select a configured channel; omission selects SMS. Available to current Member sessions, including pending onboarding. Requires an allowed country confirmed through exact-number lookup: US, Paraguay or Germany. Both channels share durable per-Member, destination, source, Account and platform limits, charged before provider work including failed or uncertain requests. Each verified installation key additionally has rolling limits of one request per minute, three per hour and ten per day across all destinations, IPs and Accounts. Codes expire five minutes after admission. A new admitted attempt replaces the pending code without removing an already verified phone. A send-limit rejection preserves the existing pending code and does not prevent its completion. No automatic resend or fallback to another channel. Installation proof confers no admission, login, phone ownership or spending authority. Existing logins remain valid.",
         "security": [
           {
             "memberBearer": []
@@ -881,7 +881,7 @@
             "description": "A current first-party Member session is required."
           },
           "403": {
-            "description": "The destination country is not supported, or the proof does not belong to this current Member, Account and session."
+            "description": "phone_device_required: Update Basstok to request a code. phone_device_denied: invalid, expired, replayed or incorrectly bound installation proof. Otherwise the destination country is not supported, or the phone proof does not belong to this current Member, Account and session."
           },
           "429": {
             "description": "phone_verification_limited: no new code was sent. Retry-After accounts for all currently exhausted send limits; later activity can extend the wait. The existing pending code is unchanged. A new request is never sent automatically.",
@@ -10606,10 +10606,32 @@
         }
       }
     },
+    "/api/v1/auth/phone-device/challenge": {
+      "post": {
+        "operationId": "createPhoneDeviceChallenge",
+        "description": "Obtain a one-use random challenge at basstok.com without authentication, including for a signed-in request to a tenant. Bind the installation key and the lowercase hexadecimal SHA-256 request_hash. Hash the UTF-8 encoding of seven strings joined by U+000A newline characters, without a final newline: basstok-sms-v1, public_origin, request_path, phone_number, channel, binding. public_origin is the target request's canonical HTTPS origin with lowercase host, default port 443 omitted and no trailing slash. request_path is /api/v1/member-access/phone/verification or /api/v1/auth/phone-recovery/request. channel is sms or whatsapp; recovery uses sms. binding is the current session token for Member verification or completion_token for recovery. The server recomputes this hash from the actual code request. Challenges expire after 300 seconds, are bounded and may be lost on restart. An exact pending request returns the same challenge without extending expiry. A different binding for the same key replaces its pending challenge. No SMS or provider lookup occurs here. This is installation proof, not a permanent physical device identifier surviving reinstall.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PhoneDeviceChallengeRequest"}}}
+        },
+        "responses": {
+          "200": {
+            "description": "Challenge, expiry in epoch seconds and whether this installation key is registered. Cache-Control: no-store.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PhoneDeviceChallenge"}}}
+          },
+          "400": {"description": "Invalid installation key or request hash."},
+          "404": {"description": "Available only on the hosting basstok.com Account."},
+          "429": {"description": "phone_verification_limited: challenge issuance is full; Retry-After bounds the wait. No provider activity."},
+          "503": {"description": "phone_device_unavailable or authentication busy. No provider activity."},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/auth/phone-recovery/request": {
       "post": {
         "operationId": "requestPhoneRecovery",
-        "description": "Request a text-message code at basstok.com to recover an existing directly created Account. The same challenge response and message delivery apply whether an Account matches or not. This does not create an Account or disclose matches. Recovery is limited to Account creators with a previously verified number; community-only Members retain their existing recovery methods. Requests share verification sending limits; never automatically resend after an uncertain response. Browser requests require same-origin JSON, X-Basstok-Auth equal to completion_token, and the host-only binding cookie set by the request operation for verification/completion. Native clients do not need browser cookies. Responses are not cacheable.",
+        "description": "Request a text-message code at basstok.com to recover an existing directly created Account. All requests, including browser requests, require verified iOS installation device_proof. The same challenge response and message delivery apply whether an Account matches or not. This does not create an Account or disclose matches. Recovery is limited to Account creators with a previously verified number; community-only Members retain their existing recovery methods. Requests share verification sending limits and rolling installation-key limits of one per minute, three per hour and ten per day across all destinations, IPs, Accounts and channels. A verified key and assertion counter persist even when later SMS quota checks reject the request. Failed or uncertain sends retain reservations. Never automatically resend after an uncertain response. Browser requests require same-origin JSON, X-Basstok-Auth equal to completion_token, and the host-only binding cookie set by the request operation for verification/completion. Native clients do not need browser cookies. Existing logins remain valid. Responses are not cacheable.",
         "security": [],
         "parameters": [
           {
@@ -10643,6 +10665,8 @@
               }
             }
           },
+          "403": {"description": "phone_device_required: Update Basstok to request a code. phone_device_denied: invalid, expired, replayed or incorrectly bound installation proof."},
+          "429": {"description": "phone_verification_limited: no code sent. Retry-After accounts for all exhausted sending limits."},
           "default": {
             "$ref": "#/components/responses/Error"
           }
@@ -15918,9 +15942,11 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "phone_number"
+          "phone_number",
+          "device_proof"
         ],
         "properties": {
+          "device_proof": {"$ref": "#/components/schemas/PhoneDeviceProof"},
           "channel": {
             "$ref": "#/components/schemas/PhoneVerificationChannel",
             "default": "sms",
@@ -18164,14 +18190,47 @@
           }
         }
       },
+      "PhoneDeviceChallengeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key_id", "request_hash"],
+        "properties": {
+          "key_id": {"type": "string", "minLength": 44, "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+          "request_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      },
+      "PhoneDeviceChallenge": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["challenge", "expires_at", "registered"],
+        "properties": {
+          "challenge": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "expires_at": {"type": "integer", "format": "int64", "minimum": 1},
+          "registered": {"type": "boolean"}
+        }
+      },
+      "PhoneDeviceProof": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key_id", "challenge", "token", "assertion"],
+        "description": "Use a production Apple App Attest attestation with assertion=false when registered=false. Subsequently use a signed App Attest assertion with assertion=true and a strictly increasing counter. Sign the SHA-256 of the server challenge's UTF-8 text. The exact server challenge binds the installation key, request hash and expiry and is consumed on verification. Key enrollment and counters persist before separate send admission, including when sending is limited. A used or expired challenge cannot be retried; request a new challenge explicitly. After 30 inactive days a registration expires and the client must generate and attest a new key; reinstall creates a new installation identity. No header, omitted proof, browser or other platform bypass exists.",
+        "properties": {
+          "key_id": {"type": "string", "minLength": 44, "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+          "challenge": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "token": {"type": "string", "minLength": 4, "maxLength": 43692, "description": "Ordinary base64 encoded attestation or assertion."},
+          "assertion": {"type": "boolean"}
+        }
+      },
       "PhoneRecoveryRequest": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "phone_number",
-          "completion_token"
+          "completion_token",
+          "device_proof"
         ],
         "properties": {
+          "device_proof": {"$ref": "#/components/schemas/PhoneDeviceProof"},
           "phone_number": {
             "type": "string",
             "pattern": "^\\+[1-9][0-9]{7,14}$"
