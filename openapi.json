@@ -15195,10 +15195,10 @@
       },
       "MessageEmail": {
         "type": "object",
-        "description": "Untrusted external correspondence received at this Chat's enabled address. Claimed headers grant no Member identity, authority or access to Chat history. MIME attachments appear in the containing Message's ordinary assets list and inherit its Chat/history authorization. Not accepted by Message write operations.",
+        "description": "Untrusted external correspondence received at this Chat's enabled address or through its connected mailbox. The containing Message has no member_id or sender profile, including when SPF, DKIM or DMARC passes. Passing email authentication establishes domain authorization, not a Member identity. Claimed headers and a matching Member email address grant no identity, profile photo access, authority or access to Chat history. MIME attachments appear in the containing Message's ordinary assets list and inherit its Chat/history authorization. Not accepted by Message write operations.",
         "required": ["claimed_from", "subject"],
         "properties": {
-          "claimed_from": {"type": "string"},
+          "claimed_from": {"type": "string", "description": "Unverified sender-supplied From presentation. Display as an external sender; never use it to look up a Member, profile photo or trusted brand logo."},
           "subject": {"type": "string"},
           "message_id": {"type": ["string", "null"], "maxLength": 998, "description": "Untrusted source Message-ID; a presentation hint, never identity or access authority."},
           "references": {"type": ["array", "null"], "maxItems": 64, "uniqueItems": true, "items": {"type": "string", "maxLength": 998}, "description": "Bounded source References and In-Reply-To identifiers for grouping related email within this Chat. These do not authorize access to another Message."}
