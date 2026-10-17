@@ -1310,6 +1310,40 @@
         }
       }
     },
+    "/api/v1/schedules": {
+      "get": {
+        "operationId": "listScheduledRequests",
+        "summary": "List owned scheduled batches and progress",
+        "description": "Returns a no-store JSON array of at most 32 retained batches. A current admitted human Member sees only their personal-email schedules; a current delegated Grant sees only its own batches. Human and delegated ownership remain separate. Other Members, Grants and Accounts cannot inspect them. Includes pending and retained completed or cancelled work, using the same records as lookup by ID. Another session or device can discover intentionally scheduled mail without a device-owned list of IDs. No query parameters or collection mutations are supported.",
+        "security": [
+          {
+            "memberBearer": []
+          },
+          {
+            "oauth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current owned schedules; no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "maxItems": 32,
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduledBatch"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/api/v1/schedules/{scheduleId}": {
       "parameters": [
         {
@@ -1326,8 +1360,11 @@
       "put": {
         "operationId": "scheduleRequests",
         "summary": "Schedule a bounded batch of existing API mutations",
-        "description": "Delegated applications only. No separate scheduling scope: every request requires its ordinary write scope. Supports PUT member-creations/{id}, PUT content-drafts/{id}, POST content-drafts/{id}/publish, PUT contents/{id}/comment-creations/{id}, POST chats, and POST chats/{id}/messages under /api/v1/. Chat and Message POSTs require idempotency_key, which supplies their ordinary Idempotency-Key header. No arbitrary headers, hosts, query parameters, edits, nested schedules or other operations. Times use UTC YYYY-MM-DDTHH:MM:SSZ and must be nondecreasing and in the future, with no application-defined future scheduling horizon. The timestamp format supports four-digit years through 9999; a new batch cannot predate its admission's current UTC second. Up to 8192 requests per batch, 16384 retained requests and 32 batches per community, 64 KiB per body, and 16 MiB total request data. Each exact request is authorized against the current Grant, responsible Member, persona and resource. Unrelated scope or Label additions do not invalidate execution. Stored admission snapshots never confer authority. Identical submission retries return current progress; changing a running batch returns 409. Pause the batch to replace its unattempted tail with future requests under the same ID. The exact completed prefix and any currently attempted request, including its time, are immutable. Replacement keeps the batch paused and does not reset attempts. Completed records retain identity for at least seven days from actual completion; cancelled records from cancellation.",
+        "description": "Current admitted human Members may schedule only POST chats/{id}/email/send with the ordinary outgoing-email body; upload local attachments first and retain existing authorized Asset IDs. The schedule belongs to the submitting Member and survives logout, device closure and session expiry. No session or provider credentials are retained. Current Member admission/deletion, Chat creator/participant access, reply/Asset history, exact sender connection, service availability and ordinary sending limits are rechecked at execution. Exact email retries retain accepted, failed or unconfirmed Message state without resubmitting uncertain email. A successful result identifies the saved Message; its outgoing-email status describes the provider outcome. Delegated applications may schedule the following mutations. No separate scheduling scope: every request requires its ordinary write scope. Supports PUT member-creations/{id}, PUT content-drafts/{id}, POST content-drafts/{id}/publish, PUT contents/{id}/comment-creations/{id}, POST chats, POST chats/{id}/messages, and POST chats/{id}/email/send under /api/v1/. Email additionally requires email:send, chat:read and chat:write. Chat, Message and email creation require idempotency_key, which supplies their ordinary Idempotency-Key header. No arbitrary headers, hosts, query parameters, edits, nested schedules or other operations. Times use UTC YYYY-MM-DDTHH:MM:SSZ and must be nondecreasing and in the future, with no application-defined future scheduling horizon. The timestamp format supports four-digit years through 9999; a new batch cannot predate its admission's current UTC second. Up to 8192 requests per batch, 16384 retained requests and 32 batches per community, 64 KiB per body, and 16 MiB total request data. Each exact request is authorized against the current Grant, responsible Member, persona and resource. Unrelated scope or Label additions do not invalidate execution. Stored admission snapshots never confer authority. Identical submission retries return current progress; changing a running batch returns 409. Pause the batch to replace its unattempted tail with future requests under the same ID. The exact completed prefix and any currently attempted request, including its time, are immutable. Replacement keeps the batch paused and does not reset attempts. Completed records retain identity for at least seven days from actual completion; cancelled records from cancellation.",
         "security": [
+          {
+            "memberBearer": []
+          },
           {
             "oauth": []
           }
@@ -1374,9 +1411,12 @@
       },
       "get": {
         "operationId": "getScheduledRequests",
-        "summary": "Inspect this Grant's scheduled batch and progress",
-        "description": "Only the current delegated Grant that submitted the batch can inspect it. Results are in submission order. Earlier failed items do not roll back successful requests or create dependencies; remaining items execute normally. Retryable outcomes use bounded backoff and at most 16 attempts. A terminal error is not a promise that an earlier ambiguous attempt never committed. Creation identities prevent duplicating the underlying creation on recovery. Exact execution time is not guaranteed; requests are never intentionally executed before their due time.",
+        "summary": "Inspect an owned scheduled batch and progress",
+        "description": "Only the current admitted submitting Member or current submitting delegated Grant may inspect its batch. Human and delegated ownership remain separate. Results are in submission order. Earlier failed items do not roll back successful requests or create dependencies; remaining items execute normally. Retryable outcomes use bounded backoff and at most 16 attempts. A terminal error is not a promise that an earlier ambiguous attempt never committed. Creation identities prevent duplicating the underlying creation on recovery. Exact execution time is not guaranteed; requests are never intentionally executed before their due time.",
         "security": [
+          {
+            "memberBearer": []
+          },
           {
             "oauth": []
           }
@@ -1399,9 +1439,12 @@
       },
       "delete": {
         "operationId": "cancelScheduledRequests",
-        "summary": "Cancel pending requests in this Grant's batch",
-        "description": "Idempotent cancellation. An already admitted request may finish. Completed work is not undone. The cancelled batch remains inspectable during retention.",
+        "summary": "Cancel pending requests in an owned batch",
+        "description": "Idempotent cancellation. An already admitted request may finish. Completed work is not undone. The cancelled batch remains inspectable during retention. Requires the current admitted submitting Member or current submitting delegated Grant.",
         "security": [
+          {
+            "memberBearer": []
+          },
           {
             "oauth": []
           }
@@ -6930,7 +6973,7 @@
       "post": {
         "operationId": "sendChatEmail", "tags": ["Chats"], "security": [{"memberBearer": []}, {"oauth": ["email:send", "chat:read", "chat:write"]}],
         "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
-        "description": "The current human Chat creator explicitly sends email to one recipient through the exact selected assigned Basstok sender or customer connection. Optional body_format is text (default) or markdown. Text retains literal plain-text sending; markdown accepts CommonMark source and derives safe plain-text and HTML MIME alternatives. Raw HTML and unsafe links are omitted from the outgoing HTML alternative. The saved Message body remains canonical CommonMark in both cases. Assigned Basstok sending has a bounded daily allowance. An App needs explicit email:send, chat:read and chat:write and the responsible human must remain the current Chat creator. Acting personas cannot send. Up to four authorized Chat Assets, 8 MiB combined, become ordinary MIME attachments. No CC/BCC, scheduling, automatic resend or implicit sending fallback. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Account, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
+        "description": "The current human Chat creator explicitly sends email to one recipient through the exact selected assigned Basstok sender or customer connection. Optional body_format is text (default) or markdown. Text retains literal plain-text sending; markdown accepts CommonMark source and derives safe plain-text and HTML MIME alternatives. Raw HTML and unsafe links are omitted from the outgoing HTML alternative. The saved Message body remains canonical CommonMark in both cases. Assigned Basstok sending has a bounded daily allowance. An App needs explicit email:send, chat:read and chat:write and the responsible human must remain the current Chat creator. Acting personas cannot send. Up to four authorized Chat Assets, 8 MiB combined, become ordinary MIME attachments. No CC/BCC, automatic resend or implicit sending fallback. For future personal email, submit this same request through the schedules API. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Account, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonalEmailInput"}}}},
         "responses": {"200": {"description": "Saved Message with explicit outgoing_email status; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Message"}}}}, "400": {"description": "Invalid recipient, subject, body, connection or request identity."}, "403": {"description": "Not the current human Chat creator or reply history is inaccessible."}, "409": {"description": "Conflicting request, changed/unavailable sender or concurrent operation. Keep the exact send identity when checking an uncertain result."}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -9755,9 +9798,12 @@
       ],
       "post": {
         "operationId": "pauseScheduledRequests",
-        "summary": "Pause pending requests in this Grant's batch",
-        "description": "Durably pause pending requests without cancelling the batch. Idempotent. An already admitted request may finish and record its result. Paused batches survive restart and remain until resumed or cancelled; completed-record retention does not apply. Requires the submitting current delegated Grant.",
+        "summary": "Pause pending requests in an owned batch",
+        "description": "Durably pause pending requests without cancelling the batch. Idempotent. An already admitted request may finish and record its result. Paused batches survive restart and remain until resumed or cancelled; completed-record retention does not apply. Requires the current admitted submitting Member or current submitting delegated Grant.",
         "security": [
+          {
+            "memberBearer": []
+          },
           {
             "oauth": []
           }
@@ -9794,9 +9840,12 @@
       ],
       "post": {
         "operationId": "resumeScheduledRequests",
-        "summary": "Resume this Grant's paused batch",
-        "description": "Clear a durable pause. Overdue requests become eligible immediately in their original order with current authorization. Attempts and retry budget are not reset. Idempotent; cancelled batches return 409, completed batches remain complete. Requires the submitting current delegated Grant.",
+        "summary": "Resume an owned paused batch",
+        "description": "Clear a durable pause. Overdue requests become eligible immediately in their original order with current authorization. Attempts and retry budget are not reset. Idempotent; cancelled batches return 409, completed batches remain complete. Requires the current admitted submitting Member or current submitting delegated Grant.",
         "security": [
+          {
+            "memberBearer": []
+          },
           {
             "oauth": []
           }
@@ -11551,7 +11600,7 @@
               "idempotency_key": {
                 "type": "string",
                 "format": "uuid",
-                "description": "Required only for Chat and Message creation; supplies the ordinary Idempotency-Key header."
+                "description": "Required for Chat creation, Message creation and personal email; supplies the ordinary Idempotency-Key header. Keep unchanged across submission and execution retries."
               }
             }
           }
