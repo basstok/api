@@ -24,6 +24,68 @@
     }
   ],
   "paths": {
+    "/api/v1/member-access/contact": {
+      "get": {
+        "operationId": "getPersonalContact",
+        "description": "Returns the currently admitted personal creator’s server-issued shareable address without private phone or email information. No global directory or browser contact page.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalContact"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/direct-chats": {
+      "post": {
+        "operationId": "createDirectChat",
+        "description": "Opens or reuses one two-person Chat between admitted creators of distinct personal Accounts in this hosting cell without joining either Account. Use the source origin and its ordinary source session. Incoming exact-address messaging may precede Connection; native Calls require explicit accepted Connection. One Account holds history and Assets; its deletion removes that shared history for both. No federation, groups, global identity, App delegation or external spending.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectChatInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Chat"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/api/v1/member-access/communities": {
       "get": {
         "operationId": "readSavedCommunities",
@@ -103,7 +165,7 @@
       "put": {
         "operationId": "labelChatEmails",
         "summary": "Set your private Labels on selected email",
-        "description": "Current human participant only. Atomically replaces this Member's complete Label selection for 1–100 distinct received or outgoing email Messages in one Chat. Up to 16 distinct Label IDs must belong to this Member in this Account; other Members' definitions and Account discovery Labels are rejected. Every Message must pass current participant-history and blocked-author checks. Empty label_ids removes all Labels. Folders are preserved, including a labelled Inbox entry; unlabelled Inbox needs no filing entry. No shared Message, other Member's filing or provider mailbox is changed. Any invalid selection rejects the whole operation. Successful acknowledgement is durable, and exact repetition is safe. Cookie writes require browser presence protection.",
+        "description": "Current human participant only. Atomically replaces this Member's complete Label selection for 1–100 distinct received or outgoing email Messages in one Chat. Up to 16 distinct Label IDs must belong to this Member in this Account; other Members' definitions and Account discovery Labels are rejected. Every Message must pass current participant-history and blocked-author checks. Empty label_ids removes all Labels. Folders are preserved, including a labelled Inbox entry; unlabelled Inbox needs no filing entry. No shared Message, other Member's filing or provider mailbox is changed. Any invalid selection rejects the whole operation. Successful acknowledgement is durable, and exact repetition is safe. Cookie writes require browser presence protection. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {
           "type": "object", "required": ["message_ids", "label_ids"], "additionalProperties": false,
@@ -118,40 +180,94 @@
       }
     },
     "/api/v1/messages/search": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
+        }
+      ],
       "get": {
         "operationId": "searchMessages",
         "summary": "Search your authorized Chat Messages",
-        "description": "Human Member only; delegated applications and acting identities are rejected. Searches complete Message text, received/sent email subjects and retained sender/recipient addresses using case-insensitive substring matching after trimming the query. Received email matches claimed_from and its delivered recipient; outgoing email matches from and to. The original received To header is not retained separately and cannot be searched independently. Markdown bodies are searched as plain text. Query size is 1–512 UTF-8 bytes. Only current authorized Chat history at or after the participant's admission boundary is searched; blocked authors and withdrawn Messages are excluded. Email search includes all of your folders and sent email; messages excludes received and sent email. Results contain exact Chat/Message destinations, a short body excerpt and created_at whenever the Message has a timestamp. Email hits additionally include subject, displayed sender (incoming) or recipient (outgoing) in address, and incoming direction; these email-only fields are absent for ordinary Messages. Chats are visited in reverse inventory order, with newest Messages first within each Chat; this is not global relevance or chronological ordering. Each request examines at most eight Chat positions and 512 Messages. Continue with next_offset even after an empty page, using the same query, kind, Label filter and authorization context. Continuations are opaque and results can change with concurrent activity; restart from zero after changing context. Responses are no-store.",
+        "description": "Human Member only; delegated applications and acting identities are rejected. Searches complete Message text, received/sent email subjects and retained sender/recipient addresses using case-insensitive substring matching after trimming the query. Received email matches claimed_from and its delivered recipient; outgoing email matches from and to. The original received To header is not retained separately and cannot be searched independently. Markdown bodies are searched as plain text. Query size is 1–512 UTF-8 bytes. Omit chat_id to search all currently authorized Chats, or supply it to search exactly one Chat. An unknown, foreign or forbidden Chat is rejected, including when the offset is past the end; scope never falls back to broader search. Only current authorized Chat history at or after the participant's admission boundary is searched; blocked authors and withdrawn Messages are excluded. Email search includes all of your folders and sent email; messages excludes received and sent email. Results contain exact Chat/Message destinations, a short body excerpt and created_at whenever the Message has a timestamp. Email hits additionally include subject, displayed sender (incoming) or recipient (outgoing) in address, and incoming direction; these email-only fields are absent for ordinary Messages. Without chat_id, Chats are visited in reverse inventory order; within each Chat, including an explicitly selected Chat, newest Messages come first. This is not global relevance or chronological ordering. Each request examines at most eight Chat positions and 512 Messages; a Chat-scoped request visits only the selected Chat. Continue with next_offset even after an empty page, using the same query, kind, Chat scope, Label filter and authorization context. Continuations are opaque and results can change with concurrent activity; restart from zero after changing context. Query parameters must have unique decoded names and nonempty values. Unknown parameters, malformed percent encoding, invalid UTF-8, NUL bytes and invalid unsigned integers are rejected. Responses are no-store. Includes authorized personal Chat locators from the source inbox. owner_account_id requires an exact chat_id, and results retain their owner.",
         "security": [{"memberBearer": []}],
         "parameters": [
           {"$ref": "#/components/parameters/SearchQuery"},
           {"name": "kind", "in": "query", "schema": {"type": "string", "enum": ["all", "email", "messages"], "default": "all"}},
+          {"name": "chat_id", "in": "query", "description": "Search exactly this Chat within the current Account. Requires current participant access and preserves admission/history and blocked-author restrictions. Omission searches all authorized Chats; an empty value is invalid. Keep the same scope on continuation requests.", "schema": {"type": "string", "minLength": 1, "maxLength": 256}},
           {"name": "label_id", "in": "query", "description": "Filter by one of your private email Labels across all folders. Requires kind all or email. Unknown or another Member's Label is rejected.", "schema": {"type": "string", "minLength": 1, "maxLength": 256}},
           {"name": "offset", "in": "query", "schema": {"type": "integer", "minimum": 0, "default": 0}},
           {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 50, "default": 50}}
         ],
         "responses": {
           "200": {"description": "A bounded page of authorized matches.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MessageSearchPage"}}}},
+          "400": {"description": "Missing, duplicate, unknown or malformed query parameters, or an invalid query/filter combination."},
+          "403": {"description": "The supplied Chat or private Label is unavailable to the current human Member."},
           "default": {"$ref": "#/components/responses/Error"}
         }
       }
     },
     "/api/v1/chats/{chatId}/email": {
-      "parameters": [{"$ref": "#/components/parameters/ChatId"}],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ChatId"
+        }
+      ],
       "get": {
         "operationId": "listChatEmails",
         "summary": "Read your email in one Chat folder",
-        "description": "Human participant only; delegated applications and acting identities are rejected. Returns received and outgoing email Messages together in newest-first order from this Member's selected folder, within their current authorized Chat history. Blocked authors are excluded. Filing is private to the acting Member; another participant or Admin cannot read it. An email without a filing entry is in Inbox, in either direction. Inbox, Archive, Trash and Junk all support received and outgoing email. Ordinary Chat Messages are not included. Folder changes do not remove Messages, Assets or other participants' access. Responses are no-store. Concurrent folder changes can shift offsets; refresh from zero to reconcile.",
-        "security": [{"memberBearer": []}],
+        "description": "Human participant only; delegated applications and acting identities are rejected. Returns received and outgoing email Messages together in newest-first order from this Member's selected folder, within their current authorized Chat history. Blocked authors are excluded. Filing is private to the acting Member; another participant or Admin cannot read it. An email without a filing entry is in Inbox, in either direction. Inbox, Archive, Trash and Junk all support received and outgoing email. Ordinary Chat Messages are not included. Folder changes do not remove Messages, Assets or other participants' access. Responses are no-store. Concurrent folder changes can shift offsets; refresh from zero to reconcile. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
         "parameters": [
-          {"name": "folder", "in": "query", "description": "Defaults to Inbox without label_id. With label_id, omission reads the Label across every folder; an explicit folder intersects that Label.", "schema": {"$ref": "#/components/schemas/EmailFolder"}},
-          {"name": "label_id", "in": "query", "description": "Filter by one of your private email Labels. Unknown or another Member's Label is rejected.", "schema": {"type": "string", "minLength": 1, "maxLength": 256}},
-          {"$ref": "#/components/parameters/Offset"},
-          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}}
+          {
+            "name": "folder",
+            "in": "query",
+            "description": "Defaults to Inbox without label_id. With label_id, omission reads the Label across every folder; an explicit folder intersects that Label.",
+            "schema": {
+              "$ref": "#/components/schemas/EmailFolder"
+            }
+          },
+          {
+            "name": "label_id",
+            "in": "query",
+            "description": "Filter by one of your private email Labels. Unknown or another Member's Label is rejected.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
         ],
         "responses": {
-          "200": {"description": "An ordinary Message page from your selected folder.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MessagePage"}}}},
-          "default": {"$ref": "#/components/responses/Error"}
+          "200": {
+            "description": "An ordinary Message page from your selected folder.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagePage"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
         }
       }
     },
@@ -160,7 +276,7 @@
       "put": {
         "operationId": "fileChatEmails",
         "summary": "Move email to your chosen folder",
-        "description": "Human participant only; delegated applications and acting identities are rejected. Atomically sets the acting Member's folder for 1–100 distinct received or outgoing email Messages in this Chat, including mixed-direction batches. Every selected Message must exist within their authorized participant history and pass current blocked-author checks. Any invalid or inaccessible selection rejects the whole batch. Inbox, Archive, Trash and Junk all support both directions. Archive, Trash and Junk are reversible; Delete uses Trash and never destroys the shared Message or Assets. Inbox removes exceptional folder state while preserving private Labels. Successful acknowledgement is durable, and repeating the same selection and folder is safe. No source mailbox changes, spam training or other participants' filing are implied. Cookie-authenticated writes require the usual browser presence header.",
+        "description": "Human participant only; delegated applications and acting identities are rejected. Atomically sets the acting Member's folder for 1–100 distinct received or outgoing email Messages in this Chat, including mixed-direction batches. Every selected Message must exist within their authorized participant history and pass current blocked-author checks. Any invalid or inaccessible selection rejects the whole batch. Inbox, Archive, Trash and Junk all support both directions. Archive, Trash and Junk are reversible; Delete uses Trash and never destroys the shared Message or Assets. Inbox removes exceptional folder state while preserving private Labels. Successful acknowledgement is durable, and repeating the same selection and folder is safe. No source mailbox changes, spam training or other participants' filing are implied. Cookie-authenticated writes require the usual browser presence header. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "requestBody": {
           "required": true,
@@ -4830,7 +4946,7 @@
     "/api/v1/member-access/privacy": {
       "get": {
         "operationId": "getMemberPrivacy",
-        "description": "Read the current admitted human Member's Account-local privacy preferences. Both switches default true. Photo and read-receipt sharing additionally require an accepted Connection in this Account; false shares with nobody else. Administrators, acting identities and delegated applications cannot read another Member's preferences. No query parameters. Responses are no-store.",
+        "description": "Read the current admitted human Member's Account-local privacy preferences. Photo and read-receipt sharing default true; approximate last activity defaults false. Sharing requires an accepted Connection in this Account; false shares with nobody else. Administrators, acting identities and delegated applications cannot read another Member's preferences. No query parameters. Responses are no-store.",
         "security": [{"memberBearer": []}],
         "responses": {
           "200": {"description": "Your current privacy preferences.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MemberPrivacy"}}}},
@@ -4839,11 +4955,25 @@
       },
       "put": {
         "operationId": "setMemberPrivacy",
-        "description": "Durably replace exactly both boolean preferences for the current admitted human Member. Existing photo metadata, payload and conditional requests recheck current sharing and Connection access. Existing read receipts are suppressed while sharing is false. No target Member, acting identity, delegated application or query parameters. Cookie-authenticated requests require browser presence protection. Responses are no-store.",
+        "description": "Durably replace exactly all three boolean preferences for the current admitted human Member. Photo and read-receipt reads recheck current sharing and Connection access. Disabling last activity clears its retained observation; enabling starts with no observation until a later authenticated foreground subscription opens. No target Member, acting identity, delegated application or query parameters. Cookie-authenticated requests require browser presence protection. Responses are no-store.",
         "security": [{"memberBearer": []}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MemberPrivacy"}}}},
         "responses": {
           "200": {"description": "Saved privacy preferences.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MemberPrivacy"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/members/{memberId}/last-activity": {
+      "parameters": [{"$ref": "#/components/parameters/MemberId"}],
+      "get": {
+        "operationId": "getMemberLastActivity",
+        "description": "Read an approximate last activity band for another Member in this Account. Requires the current admitted human viewer and an accepted Connection, enabled sharing, current admitted membership, current Account access and no block in either direction. Missing, deleted, unobserved, hidden or older-than-one-week activity returns an empty object with no distinction between those reasons. No administrator, acting identity or delegated application bypass exists. Only an authenticated Member foreground subscription opening is observed, at most once per hour while sharing is enabled; keeping a stream open, server keepalives, client timestamps and background delivery do not refresh it. This is a limited observation, not online status or proof of human attention. No exact timestamp, device, address, query parameters, presence event or polling contract. Responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {"description": "Currently shareable approximate activity, or no information.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MemberLastActivity"}}}},
+          "400": {"$ref": "#/components/responses/Error"},
+          "403": {"$ref": "#/components/responses/Error"},
           "default": {"$ref": "#/components/responses/Error"}
         }
       }
@@ -5023,6 +5153,9 @@
       "parameters": [
         {
           "$ref": "#/components/parameters/MemberId"
+        },
+        {
+          "$ref": "#/components/parameters/PeerAccountId"
         }
       ],
       "put": {
@@ -5223,6 +5356,7 @@
       ],
       "get": {
         "operationId": "getContent",
+        "description": "Read currently authorized Content with its preferred same-Account public path. Sharing this path does not publish the Content or grant access; recipients must satisfy current audience and admission rules.",
         "security": [
           {},
           {
@@ -5240,7 +5374,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Content"
+                  "allOf": [
+                    { "$ref": "#/components/schemas/Content" },
+                    { "required": ["public_path"] }
+                  ]
                 }
               }
             }
@@ -6424,6 +6561,9 @@
       "parameters": [
         {
           "$ref": "#/components/parameters/MemberId"
+        },
+        {
+          "$ref": "#/components/parameters/PeerAccountId"
         }
       ],
       "get": {
@@ -6496,6 +6636,9 @@
       "parameters": [
         {
           "$ref": "#/components/parameters/MemberId"
+        },
+        {
+          "$ref": "#/components/parameters/PeerAccountId"
         }
       ],
       "put": {
@@ -6849,7 +6992,7 @@
     "/api/v1/chats": {
       "get": {
         "operationId": "listChats",
-        "description": "Lists only Chats visible to the effective participant. actor_id may select a no-login Member created and controlled by this application; that Member's own Chat admission boundary applies.",
+        "description": "Lists only Chats visible to the effective participant. actor_id may select a no-login Member created and controlled by this application; that Member's own Chat admission boundary applies. Includes authorized foreign-owned personal Chats, each with its one owner; no history is mirrored.",
         "security": [
           {
             "memberBearer": []
@@ -6944,6 +7087,9 @@
       "parameters": [
         {
           "$ref": "#/components/parameters/ChatId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "get": {
@@ -6998,18 +7144,18 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "get": {
         "operationId": "readChatEmailSending", "tags": ["Chats"], "security": [{"memberBearer": []}, {"oauth": ["email:send", "chat:read", "chat:write"]}],
-        "description": "Current human participants may read capabilities; only the current human Chat creator, or an App freshly granted email:send, chat:read and chat:write by that creator, receives their personal sending choices and may send. Delegation cannot connect, change or disconnect a sender. SMTP is connected once per address for this Member and reused across their Chats. Owned connected Google/Microsoft mailboxes require a current sending grant and continuing access to their receiving Chat. Explicit SMTP takes precedence for the same address. Choices prefer this Chat's receiving address, otherwise sort by address; send always requires an exact connection_id. The assigned Basstok sender is suggested first when present. No Admin or delegated-application override, implicit service-email fallback, queries or credentials in responses.",
+        "description": "Current human participants may read capabilities; only the current human Chat creator, or an App freshly granted email:send, chat:read and chat:write by that creator, receives their personal sending choices and may send. Delegation cannot connect, change or disconnect a sender. SMTP is connected once per address for this Member and reused across their Chats. Owned connected Google/Microsoft mailboxes require a current sending grant and continuing access to their receiving Chat. Explicit SMTP takes precedence for the same address. Choices prefer this Chat's receiving address, otherwise sort by address; send always requires an exact connection_id. The assigned Basstok sender is suggested first when present. No Admin or delegated-application override, implicit service-email fallback, queries or credentials in responses. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "responses": {"200": {"description": "Current sending capability; Cache-Control: no-store. Readiness is not delivery evidence.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSending"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "put": {
         "operationId": "setChatEmailSending", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator adds or replaces their personal SMTP connection, including Amazon SES SMTP. Reuse it across their Chats without repeating setup. connection_id is empty to add a different address, otherwise the exact connection being replaced. Up to eight SMTP addresses per Member; tenant capacity is bounded. Verify public-address TLS, authentication and MAIL FROM acceptance without submitting a message; recheck current authority and selection before saving. Replacing settings affects every Chat using this connection. Credentials remain private and are never returned. No query parameters. Browser presence/same-origin protections apply. Body at most 128 KiB.",
+        "description": "Current human Chat creator adds or replaces their personal SMTP connection, including Amazon SES SMTP. Reuse it across their Chats without repeating setup. connection_id is empty to add a different address, otherwise the exact connection being replaced. Up to eight SMTP addresses per Member; tenant capacity is bounded. Verify public-address TLS, authentication and MAIL FROM acceptance without submitting a message; recheck current authority and selection before saving. Replacing settings affects every Chat using this connection. Credentials remain private and are never returned. No query parameters. Browser presence/same-origin protections apply. Body at most 128 KiB. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSmtpInput"}}}},
         "responses": {"200": {"description": "Current sending selection; not a deliverability guarantee.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSending"}}}}, "409": {"description": "Selection changed or another operation is active; read current state."}, "422": {"description": "SMTP connection could not be verified; no new selection."}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "delete": {
         "operationId": "disconnectChatEmailSending", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator disconnects their exact personal SMTP connection across all their Chats. Keep sent history. Does not cancel an admitted send or disconnect a receiving mailbox. A separately authorized Google/Microsoft sender for that address may become available again. No queries; browser mutation protections apply.",
+        "description": "Current human Chat creator disconnects their exact personal SMTP connection across all their Chats. Keep sent history. Does not cancel an admitted send or disconnect a receiving mailbox. A separately authorized Google/Microsoft sender for that address may become available again. No queries; browser mutation protections apply. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxSelection"}}}},
         "responses": {"200": {"description": "Current sending capability.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailSending"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -7019,7 +7165,7 @@
       "post": {
         "operationId": "sendChatEmail", "tags": ["Chats"], "security": [{"memberBearer": []}, {"oauth": ["email:send", "chat:read", "chat:write"]}],
         "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
-        "description": "The current human Chat creator explicitly sends email to one recipient through the exact selected assigned Basstok sender or customer connection. Optional body_format is text (default) or markdown. Text retains literal plain-text sending; markdown accepts CommonMark source and derives safe plain-text and HTML MIME alternatives. Raw HTML and unsafe links are omitted from the outgoing HTML alternative. The saved Message body remains canonical CommonMark in both cases. Assigned Basstok sending has a bounded daily allowance. An App needs explicit email:send, chat:read and chat:write and the responsible human must remain the current Chat creator. Acting personas cannot send. Up to four authorized Chat Assets, 8 MiB combined, become ordinary MIME attachments. No CC/BCC, automatic resend or implicit sending fallback. For future personal email, submit this same request through the schedules API. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Account, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping.",
+        "description": "The current human Chat creator explicitly sends email to one ordered To list of 1–20 distinct plain ASCII mailboxes through the exact selected assigned Basstok sender or customer connection. Optional body_format is text (default) or markdown. Text retains literal plain-text sending; markdown accepts CommonMark source and derives safe plain-text and HTML MIME alternatives. Raw HTML and unsafe links are omitted from the outgoing HTML alternative. The saved Message body remains canonical CommonMark in both cases. Assigned Basstok sending reserves one daily allowance unit per intended recipient, at most twenty per Account UTC day, before provider I/O. A list exceeding the remaining allowance is wholly refused. Exact saved retries do not charge again. An App needs explicit email:send, chat:read and chat:write and the responsible human must remain the current Chat creator. Acting personas cannot send. Up to four authorized Chat Assets, 8 MiB combined, become ordinary MIME attachments. One SMTP transaction admits every recipient before DATA; any recipient refusal aborts the whole submission. API transports receive the complete list in one submission. No CC/BCC, per-recipient partial-success state, automatic resend or implicit sending fallback. Reported partial suppression or uncertain acceptance remains unconfirmed and is never automatically resubmitted. For future personal email, submit this same request through the schedules API. Optional reply_to_message_id must identify an authorized email Message in this Chat. Durably reserve one authored Message before one bounded external attempt. The Idempotency-Key is scoped to Account, Member, Chat and participant-history boundary. Exact retries return saved state, including after restart or disconnect; changed input conflicts. Recipients normalize surrounding ASCII spaces/tabs and domain case only; mailbox order and local-part case bind the retry. Only the normalized To string is stored. An overlapping send/check returns 409 while active. Accepted means provider acceptance, not delivery; failed means a definite rejection; unconfirmed may have been sent. Inspect that exact result before explicitly starting another attempt. An admitted send survives request loss. Existing participants see sent email under ordinary history authorization. No query parameters; browser presence/same-origin protections apply. Body at most 128 KiB including JSON escaping. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonalEmailInput"}}}},
         "responses": {"200": {"description": "Saved Message with explicit outgoing_email status; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Message"}}}}, "400": {"description": "Invalid recipient, subject, body, connection or request identity."}, "403": {"description": "Not the current human Chat creator or reply history is inaccessible."}, "409": {"description": "Conflicting request, changed/unavailable sender or concurrent operation. Keep the exact send identity when checking an uncertain result."}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -7028,18 +7174,18 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "get": {
         "operationId": "readChatMailbox", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human participants may read the connection and disposable check status. No credentials, source UIDs or source history are returned. No query parameters.",
+        "description": "Current human participants may read the connection and disposable check status. No credentials, source UIDs or source history are returned. No query parameters. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "responses": {"200": {"description": "Current connection; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailbox"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "put": {
         "operationId": "connectChatMailbox", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator only. Verify encrypted read-only INBOX access and durably select new-mail ingestion at the current high-water mark. No historical import, source changes, sending, login or recovery verification. Identical retries retain progress; replacement requires exact disconnect first. Password/app-password only; Google uses the separate mailbox/google consent operations, never a Google password here. Microsoft uses the separate mailbox/microsoft consent operations. No query parameters. Browser mutations require presence and same-origin protection. Body at most 16 KiB.",
+        "description": "Current human Chat creator only. Verify encrypted read-only INBOX access and durably select new-mail ingestion at the current high-water mark. No historical import, source changes, sending, login or recovery verification. Identical retries retain progress; replacement requires exact disconnect first. Password/app-password only; Google uses the separate mailbox/google consent operations, never a Google password here. Microsoft uses the separate mailbox/microsoft consent operations. No query parameters. Browser mutations require presence and same-origin protection. Body at most 16 KiB. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxInput"}}}},
         "responses": {"200": {"description": "Durable selection, not proof of future delivery; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailbox"}}}}, "422": {"description": "Encrypted read-only access could not be verified. Selection unchanged."}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "delete": {
         "operationId": "disconnectChatMailbox", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator only. Disconnect this exact selection before removing private credentials. Stop in-flight admission; keep received history and source mailbox unchanged. No queries; browser mutation protections apply. Body at most 1 KiB.",
+        "description": "Current human Chat creator only. Disconnect this exact selection before removing private credentials. Stop in-flight admission; keep received history and source mailbox unchanged. No queries; browser mutation protections apply. Body at most 1 KiB. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxSelection"}}}},
         "responses": {"200": {"description": "Current settings; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailbox"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -7048,7 +7194,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "post": {
         "operationId": "prepareChatMailbox", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator only. Deterministic setup assistance; no provider request, saved draft or credential. iCloud server hints, configured Google or Microsoft consent, manual encrypted IMAP otherwise. Known provider addresses select only that provider; a custom address may explicitly choose either configured provider. Consent never asks for a provider password. No queries; browser mutation protections apply. Body at most 1 KiB.",
+        "description": "Current human Chat creator only. Deterministic setup assistance; no provider request, saved draft or credential. iCloud server hints, configured Google or Microsoft consent, manual encrypted IMAP otherwise. Known provider addresses select only that provider; a custom address may explicitly choose either configured provider. Consent never asks for a provider password. No queries; browser mutation protections apply. Body at most 1 KiB. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["address"], "properties": {"address": {"type": "string", "format": "email", "maxLength": 254}}}}}},
         "responses": {"200": {"description": "Settings plus transient setup assistance; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailbox"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -7057,7 +7203,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "post": {
         "operationId": "checkChatMailbox", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator only. Read at most one bounded batch of this exact connection; the automatic job continues remaining batches. Source failures return attention without skipping mail. No queries; browser mutation protections apply. Body at most 1 KiB.",
+        "description": "Current human Chat creator only. Read at most one bounded batch of this exact connection; the automatic job continues remaining batches. Source failures return attention without skipping mail. No queries; browser mutation protections apply. Body at most 1 KiB. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxSelection"}}}},
         "responses": {"200": {"description": "Current settings and observed check result; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailbox"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -7066,18 +7212,18 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "get": {
         "operationId": "readChatGoogleConsent", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator only, no Admin authority required. Installation availability and only this exact originating session's unexpired consent. Availability is configuration, not live Google/public verification readiness. No query parameters or request body. Credentials, code and verifier are never returned.",
+        "description": "Current human Chat creator only, no Admin authority required. Installation availability and only this exact originating session's unexpired consent. Availability is configuration, not live Google/public verification readiness. No query parameters or request body. Credentials, code and verifier are never returned. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "responses": {"200": {"description": "Current consent; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxConsent"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "post": {
         "operationId": "beginChatGoogleConsent", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator starts 15-minute Google gmail.readonly plus gmail.send consent; actual sending permission is checked separately. The attempt is bound to this tenant, Chat, originating session/generation and primary address. Replaces only this Chat's previous pending attempt; a connected mailbox must first be explicitly disconnected. Open authorize_url in the system browser and match the server-selected return_url. This does not call Google, establish a mailbox, authenticate a Member or verify recovery. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence.",
+        "description": "Current human Chat creator starts 15-minute Google gmail.readonly plus gmail.send consent; actual sending permission is checked separately. The attempt is bound to this tenant, Chat, originating session/generation and primary address. Replaces only this Chat's previous pending attempt; a connected mailbox must first be explicitly disconnected. Open authorize_url in the system browser and match the server-selected return_url. This does not call Google, establish a mailbox, authenticate a Member or verify recovery. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["address"], "properties": {"address": {"type": "string", "format": "email", "maxLength": 254}}}}}},
         "responses": {"200": {"description": "Single consent attempt; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxConsentStart"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "delete": {
         "operationId": "cancelChatGoogleConsent", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Cancel only the exact originating session's pending authorization. A stale identifier cannot cancel a replacement. Blocks publication from an in-flight completion; does not revoke Google's project-wide grant. Available even if provider configuration is absent. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence.",
+        "description": "Cancel only the exact originating session's pending authorization. A stale identifier cannot cancel a replacement. Blocks publication from an in-flight completion; does not revoke Google's project-wide grant. Available even if provider configuration is absent. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxConsentSelection"}}}},
         "responses": {"200": {"description": "Current consent; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxConsent"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -7086,18 +7232,18 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "get": {
         "operationId": "readChatMicrosoftConsent", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator only, no Admin authority required. Installation availability and only this exact originating session's unexpired consent. Availability is configuration, not live Microsoft/public verification readiness. No query parameters or request body. Credentials, code and verifier are never returned.",
+        "description": "Current human Chat creator only, no Admin authority required. Installation availability and only this exact originating session's unexpired consent. Availability is configuration, not live Microsoft/public verification readiness. No query parameters or request body. Credentials, code and verifier are never returned. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "responses": {"200": {"description": "Current consent; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxConsent"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "post": {
         "operationId": "beginChatMicrosoftConsent", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator starts 15-minute Microsoft delegated Mail.Read/Mail.Send/User.Read and offline-access consent bound to this tenant, Chat, originating session/generation and primary address. Replaces only this Chat's previous pending attempt; a connected mailbox must first be explicitly disconnected. Open authorize_url in the system browser and match the server-selected return_url. This does not call Microsoft, establish a mailbox, authenticate a Member or verify recovery. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence.",
+        "description": "Current human Chat creator starts 15-minute Microsoft delegated Mail.Read/Mail.Send/User.Read and offline-access consent bound to this tenant, Chat, originating session/generation and primary address. Replaces only this Chat's previous pending attempt; a connected mailbox must first be explicitly disconnected. Open authorize_url in the system browser and match the server-selected return_url. This does not call Microsoft, establish a mailbox, authenticate a Member or verify recovery. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["address"], "properties": {"address": {"type": "string", "format": "email", "maxLength": 254}}}}}},
         "responses": {"200": {"description": "Single consent attempt; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxConsentStart"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       },
       "delete": {
         "operationId": "cancelChatMicrosoftConsent", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Cancel only the exact originating session's pending authorization. A stale identifier cannot cancel a replacement. Blocks publication from an in-flight completion; does not revoke the provider grant. Available even if provider configuration is absent. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence.",
+        "description": "Cancel only the exact originating session's pending authorization. A stale identifier cannot cancel a replacement. Blocks publication from an in-flight completion; does not revoke the provider grant. Available even if provider configuration is absent. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxConsentSelection"}}}},
         "responses": {"200": {"description": "Current consent; Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxConsent"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -7106,7 +7252,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "post": {
         "operationId": "completeChatGoogleConsent", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator and exact originating session only. Complete a ready unexpired consent once. Consume exchange durably before Google I/O, verify exact primary mailbox and persist private credentials before canonical selection at current history. No historical import. Recheck session, creator and exact attempt after I/O. Another browser's callback does not authenticate it. On uncertainty read status; never automatically retry a consumed exchange. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence.",
+        "description": "Current human Chat creator and exact originating session only. Complete a ready unexpired consent once. Consume exchange durably before Google I/O, verify exact primary mailbox and persist private credentials before canonical selection at current history. No historical import. Recheck session, creator and exact attempt after I/O. Another browser's callback does not authenticate it. On uncertainty read status; never automatically retry a consumed exchange. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxConsentSelection"}}}},
         "responses": {"200": {"description": "Current mailbox selection; automatic receiving uses existing check/disconnect semantics. Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailbox"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -7115,7 +7261,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "post": {
         "operationId": "completeChatMicrosoftConsent", "tags": ["Chats"], "security": [{"memberBearer": []}],
-        "description": "Current human Chat creator and exact originating session only. Complete a ready unexpired consent once. Consume exchange durably before Microsoft I/O, verify exact primary mailbox and persist private credentials before canonical selection bound to the exact provider user/INBOX in preparation state. Automatic bounded ID-only delta pages establish the baseline without old bodies. Receiving new mail begins after preparation; waiting/detail report preparation, never false readiness. No historical import or source mutation. Recheck session, creator and exact attempt after I/O. Another browser's callback does not authenticate it. On uncertainty read status; never automatically retry a consumed exchange. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence.",
+        "description": "Current human Chat creator and exact originating session only. Complete a ready unexpired consent once. Consume exchange durably before Microsoft I/O, verify exact primary mailbox and persist private credentials before canonical selection bound to the exact provider user/INBOX in preparation state. Automatic bounded ID-only delta pages establish the baseline without old bodies. Receiving new mail begins after preparation; waiting/detail report preparation, never false readiness. No historical import or source mutation. Recheck session, creator and exact attempt after I/O. Another browser's callback does not authenticate it. On uncertainty read status; never automatically retry a consumed exchange. No query parameters; body at most 1 KiB. Browser mutations require same-origin and current presence. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailboxConsentSelection"}}}},
         "responses": {"200": {"description": "Current mailbox selection; automatic receiving uses existing check/disconnect semantics. Cache-Control: no-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMailbox"}}}}, "default": {"$ref": "#/components/responses/Error"}}
       }
@@ -7126,7 +7272,7 @@
       ],
       "get": {
         "operationId": "readChatIncomingEmail",
-        "description": "Current human Chat participants read the receiving address. Only its current creator receives eligible published Account domains and can_manage. Domain candidates confer no authority and each mutation rechecks them. Human sessions only; no query parameters. This read changes no DNS or receiving state.",
+        "description": "Current human Chat participants read the receiving address. Only its current creator receives eligible published Account domains and can_manage. Domain candidates confer no authority and each mutation rechecks them. Human sessions only; no query parameters. This read changes no DNS or receiving state. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "responses": {
           "200": {
@@ -7138,7 +7284,7 @@
       },
       "put": {
         "operationId": "enableChatIncomingEmail",
-        "description": "The current human Chat creator, who must still be a participant, enables external mail on a verified domain belonging to this Account. Repeating the same domain preserves the receiving address. No DNS records change and senders gain no access to Chat history. Disable then enable to replace an address.",
+        "description": "The current human Chat creator, who must still be a participant, enables external mail on a verified domain belonging to this Account. Repeating the same domain preserves the receiving address. No DNS records change and senders gain no access to Chat history. Disable then enable to replace an address. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "requestBody": {
           "required": true,
@@ -7156,7 +7302,7 @@
       },
       "delete": {
         "operationId": "disableChatIncomingEmail",
-        "description": "The current human Chat creator, who must still be a participant, disables this Chat's receiving address. Repeating the empty-body operation is safe. Already received Messages remain ordinary participant-scoped history.",
+        "description": "The current human Chat creator, who must still be a participant, disables this Chat's receiving address. Repeating the empty-body operation is safe. Already received Messages remain ordinary participant-scoped history. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "responses": {
           "200": {
@@ -7171,7 +7317,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "put": {
         "operationId": "connectChatEmailAddress",
-        "description": "The current human Chat creator requests mail-only TXT verification for one exact address on a domain they control. The claim expires after 24 hours; an unexpired same-address retry preserves it. No DNS changes, account/website authority, catch-all or sending capability. Existing forwarding addresses remain independent. Human sessions only, browser presence required where applicable; no query parameters.",
+        "description": "The current human Chat creator requests mail-only TXT verification for one exact address on a domain they control. The claim expires after 24 hours; an unexpired same-address retry preserves it. No DNS changes, account/website authority, catch-all or sending capability. Existing forwarding addresses remain independent. Human sessions only, browser presence required where applicable; no query parameters. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {
           "type": "object", "additionalProperties": false, "required": ["address"],
@@ -7184,7 +7330,7 @@
       },
       "post": {
         "operationId": "verifyChatEmailAddress",
-        "description": "Observe the exact current TXT proof and durably activate only this address-to-Chat route. The address is ready for deliberate MX cutover, not proof of public delivery. Wrong, replaced or expired claims fail closed. Repeating an already-active exact selection is idempotent. Another Chat's active address cannot be taken over. Human creator sessions only; no query parameters.",
+        "description": "Observe the exact current TXT proof and durably activate only this address-to-Chat route. The address is ready for deliberate MX cutover, not proof of public delivery. Wrong, replaced or expired claims fail closed. Repeating an already-active exact selection is idempotent. Another Chat's active address cannot be taken over. Human creator sessions only; no query parameters. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailAddressSelection"}}}},
         "responses": {
@@ -7194,7 +7340,7 @@
       },
       "delete": {
         "operationId": "disconnectChatEmailAddress",
-        "description": "Disconnect this exact claim without deleting Messages or the independent forwarding address. Restore previous domain mail routing first. Repeating a disconnected selection is safe; a replaced selection cannot be deleted. Human creator sessions only; no query parameters.",
+        "description": "Disconnect this exact claim without deleting Messages or the independent forwarding address. Restore previous domain mail routing first. Repeating a disconnected selection is safe; a replaced selection cannot be deleted. Human creator sessions only; no query parameters. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatEmailAddressSelection"}}}},
         "responses": {
@@ -7211,7 +7357,7 @@
       ],
       "get": {
         "operationId": "readChatCalling",
-        "description": "Human Chat participants can read the selected account and registration. Credentials are never returned. Registration does not prove live media or background calling. Human sessions only; delegated applications and external origins are rejected.",
+        "description": "Human Chat participants can read the selected account and registration. Credentials are never returned. Registration does not prove live media or background calling. Human sessions only; delegated applications and external origins are rejected. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [
           {
             "memberBearer": []
@@ -7235,7 +7381,7 @@
       },
       "put": {
         "operationId": "connectChatCalling",
-        "description": "Only a human Manager who is a current Chat participant may select the account and private credentials. Human sessions only; delegated applications and external origins are rejected.",
+        "description": "Only a human Manager who is a current Chat participant may select the account and private credentials. Human sessions only; delegated applications and external origins are rejected. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [
           {
             "memberBearer": []
@@ -7280,7 +7426,7 @@
       },
       "delete": {
         "operationId": "disconnectChatCalling",
-        "description": "Only a human Manager Chat participant may disconnect. Empty body. Human sessions only; delegated applications and external origins are rejected.",
+        "description": "Only a human Manager Chat participant may disconnect. Empty body. Human sessions only; delegated applications and external origins are rejected. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [
           {
             "memberBearer": []
@@ -7322,7 +7468,7 @@
       ],
       "post": {
         "operationId": "reconnectChatCalling",
-        "description": "Only a human Manager Chat participant may explicitly reconnect the current selection. This replaces a pending automatic retry without creating another connection or redialing a call, but does not bypass a provider Retry-After delay. Empty body; registration is not media readiness. Human sessions only; delegated applications and external origins are rejected.",
+        "description": "Only a human Manager Chat participant may explicitly reconnect the current selection. This replaces a pending automatic retry without creating another connection or redialing a call, but does not bypass a provider Retry-After delay. Empty body; registration is not media readiness. Human sessions only; delegated applications and external origins are rejected. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [
           {
             "memberBearer": []
@@ -7360,7 +7506,7 @@
       "parameters": [{ "$ref": "#/components/parameters/ChatId" }],
       "put": {
         "operationId": "setChatFaxReceiving",
-        "description": "A current human Manager participant explicitly dedicates new incoming calls on the exact current calling connection to fax instead of native ringing. Use a dedicated fax number/account. Reception accepts encrypted G.711 audio or direct T.38, with one authenticated audio-to-T.38 handoff. T.38/UDPTL is source-pinned, not encrypted. Unsupported media and insecure audio fail without voice fallback. Enabling requires configured server fax transport and matching private credentials; it does not establish carrier interoperability. Disabling remains available without working transport and cancels active fax reception without ending already-admitted voice calls. New incoming audio calls then ring normally; outgoing voice and fax are unaffected. No provider settings are changed. Repeated identical selection is idempotent; disable/re-enable rotates its private receiving generation. Human sessions only, with existing browser-presence/origin protections; delegated applications and external origins are rejected.",
+        "description": "A current human Manager participant explicitly dedicates new incoming calls on the exact current calling connection to fax instead of native ringing. Use a dedicated fax number/account. Reception accepts encrypted G.711 audio or direct T.38, with one authenticated audio-to-T.38 handoff. T.38/UDPTL is source-pinned, not encrypted. Unsupported media and insecure audio fail without voice fallback. Enabling requires configured server fax transport and matching private credentials; it does not establish carrier interoperability. Disabling remains available without working transport and cancels active fax reception without ending already-admitted voice calls. New incoming audio calls then ring normally; outgoing voice and fax are unaffected. No provider settings are changed. Repeated identical selection is idempotent; disable/re-enable rotates its private receiving generation. Human sessions only, with existing browser-presence/origin protections; delegated applications and external origins are rejected. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{ "memberBearer": [] }],
         "parameters": [{
           "name": "X-Basstok-Presence",
@@ -7394,7 +7540,7 @@
       "parameters": [{ "$ref": "#/components/parameters/ChatId" }],
       "post": {
         "operationId": "sendChatFax",
-        "description": "Send prepared monochrome pages to an explicit recipient and retain the PDF and delivery state in this Chat. Omit connection_id (or use null) to send through Basstok using this Account's allowance: requires its admitted human creator, a currently verified phone number and sufficient balance, not a purchase, saved login, Admin role or customer calling connection. Direct Account creation includes starter credit; community membership alone does not. Supply connection_id to use that exact registered customer SIP connection instead; this never falls back to Account spending. Basstok fax accepts E.164 numbers; customer SIP additionally accepts strict SIP addresses. Incoming fax selection is separate. The exact PDF and authored Unconfirmed Message are durable before sending. Idempotency-Key is scoped to the Member, Chat and participant-history boundary. Exact retries return saved state without redial, including after restart or service disconnection; changing route, recipient or document conflicts. Waits up to 21 minutes, bounded further by the Account allowance; the Message is visible in Chat reads/SSE while sending. Losing the request or closing a draft does not cancel an admitted transmission. Errors, timeouts and Unconfirmed may mean it was sent: inspect the existing Chat and never automatically resend with a new key. Delivered requires document confirmation, not merely an answered call. A failed answered fax may still consume connected time. An App may use only an explicit customer connection with fresh fax:send, chat:read and chat:write permissions; the responsible human must remain a participant. Managed Account-allowance sending remains human-only. Acting personas are forbidden. Revocation prevents new submissions but cannot recall an admitted fax; browser presence/origin checks apply. At most four concurrent submissions and 44804784 request bytes. Clients render and preview bounded pages locally; arbitrary source PDFs are not accepted by this endpoint.",
+        "description": "Send prepared monochrome pages to an explicit recipient and retain the PDF and delivery state in this Chat. Omit connection_id (or use null) to send through Basstok using this Account's allowance: requires its admitted human creator, a currently verified phone number and sufficient balance, not a purchase, saved login, Admin role or customer calling connection. Direct Account creation includes starter credit; community membership alone does not. Supply connection_id to use that exact registered customer SIP connection instead; this never falls back to Account spending. Basstok fax accepts E.164 numbers; customer SIP additionally accepts strict SIP addresses. Incoming fax selection is separate. The exact PDF and authored Unconfirmed Message are durable before sending. Idempotency-Key is scoped to the Member, Chat and participant-history boundary. Exact retries return saved state without redial, including after restart or service disconnection; changing route, recipient or document conflicts. Waits up to 21 minutes, bounded further by the Account allowance; the Message is visible in Chat reads/SSE while sending. Losing the request or closing a draft does not cancel an admitted transmission. Errors, timeouts and Unconfirmed may mean it was sent: inspect the existing Chat and never automatically resend with a new key. Delivered requires document confirmation, not merely an answered call. A failed answered fax may still consume connected time. An App may use only an explicit customer connection with fresh fax:send, chat:read and chat:write permissions; the responsible human must remain a participant. Managed Account-allowance sending remains human-only. Acting personas are forbidden. Revocation prevents new submissions but cannot recall an admitted fax; browser presence/origin checks apply. At most four concurrent submissions and 44804784 request bytes. Clients render and preview bounded pages locally; arbitrary source PDFs are not accepted by this endpoint. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{ "memberBearer": [] }, { "oauth": ["fax:send", "chat:read", "chat:write"] }],
         "parameters": [
           { "$ref": "#/components/parameters/IdempotencyKey" },
@@ -7423,7 +7569,7 @@
       ],
       "post": {
         "operationId": "startPhoneCall",
-        "description": "Explicitly call one international telephone number using this Chat's customer-owned registered calling account. Current human participants may incur carrier charges; Managers alone may select the account. Reserves one session-owned outgoing call, Connecting for at most 45 seconds. No provider INVITE is sent until that native endpoint authenticates and supplies its SDP offer. The same session/attempt UUID returns its current reservation without changing the number, Chat, selection or deadline. Terminal attempts cannot redial during their 60-second retention; attempts are transient, not durable retry jobs. Never automatically redial after failure or restart. Delegation and external browser origins are rejected; browser telephone media is unsupported.",
+        "description": "Explicitly call one international telephone number using this Chat's customer-owned registered calling account. Current human participants may incur carrier charges; Managers alone may select the account. Reserves one session-owned outgoing call, Connecting for at most 45 seconds. No provider INVITE is sent until that native endpoint authenticates and supplies its SDP offer. The same session/attempt UUID returns its current reservation without changing the number, Chat, selection or deadline. Terminal attempts cannot redial during their 60-second retention; attempts are transient, not durable retry jobs. Never automatically redial after failure or restart. Delegation and external browser origins are rejected; browser telephone media is unsupported. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "parameters": [
           {
@@ -7661,7 +7807,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "get": {
         "operationId": "readChatPhone",
-        "description": "Human participants inspect customer-owned text connectivity. Current provider settings are checked without changing them. Only a current human Manager participant with a selected number receives the setup projection. Receiving is ready only after authenticated durable receipt for this exact connection and a matching current webhook. This is cellular SMS, not SIP MESSAGE or telephone calling.",
+        "description": "Human participants inspect customer-owned text connectivity. Current provider settings are checked without changing them. Only a current human Manager participant with a selected number receives the setup projection. Receiving is ready only after authenticated durable receipt for this exact connection and a matching current webhook. This is cellular SMS, not SIP MESSAGE or telephone calling. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "responses": {
           "200": {"description": "Current connection and actionable readiness", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatPhone"}}}},
@@ -7670,7 +7816,7 @@
       },
       "put": {
         "operationId": "connectChatPhone",
-        "description": "A human Manager participant connects an existing customer-authorized SMS number through Telnyx or AWS End User Messaging. Human Chat participants may explicitly send through it; ordinary Chat messages are never forwarded. Basstok inspects the exact sender but neither creates a carrier account, purchases a number nor changes receiving settings. AWS requires a phone-number ID or ARN, a configuration set and an independent per-SMS supplier ceiling; sandbox, registration and topic setup remain provider steps. Private credentials are never returned. Replacement rotates the connection and invalidates its previous webhook. No automatic provider fallback follows a rejected or uncertain send.",
+        "description": "A human Manager participant connects an existing customer-authorized SMS number through Telnyx or AWS End User Messaging. Human Chat participants may explicitly send through it; ordinary Chat messages are never forwarded. Basstok inspects the exact sender but neither creates a carrier account, purchases a number nor changes receiving settings. AWS requires a phone-number ID or ARN, a configuration set and an independent per-SMS supplier ceiling; sandbox, registration and topic setup remain provider steps. Private credentials are never returned. Replacement rotates the connection and invalidates its previous webhook. No automatic provider fallback follows a rejected or uncertain send. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatPhoneInput"}}}},
         "responses": {
@@ -7680,7 +7826,7 @@
       },
       "delete": {
         "operationId": "disconnectChatPhone",
-        "description": "A human Manager participant disconnects the selected number using an empty body. No provider number is cancelled or purchased. Existing history remains. Already accepted outgoing sends may complete; stale inbound callbacks cannot revive the connection.",
+        "description": "A human Manager participant disconnects the selected number using an empty body. No provider number is cancelled or purchased. Existing history remains. Already accepted outgoing sends may complete; stale inbound callbacks cannot revive the connection. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "responses": {
           "200": {"description": "Disconnected", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatPhone"}}}},
@@ -7692,7 +7838,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "post": {
         "operationId": "configureChatPhoneReceiving",
-        "description": "A current human Manager participant explicitly authorizes moving incoming texts for the exact selected connection to this Chat, replacing the existing primary and backup delivery destinations. Delegated applications are forbidden. Only a dedicated Telnyx messaging profile is eligible. This operation changes only its webhook URL, API version and failover destination; it never purchases numbers, changes billing, creates profiles or assigns numbers. Shared profiles and short-code use require manual provider action. GET never configures receiving. A stale connection_id returns 409; unauthorized callers receive 403 (unauthenticated callers 401). No automatic mutation retry follows an uncertain outcome: refresh status before deciding another action. A successful provider configuration does not mark receiving ready without a real authenticated incoming receipt. Browser session mutations require presence and same-origin checks.",
+        "description": "A current human Manager participant explicitly authorizes moving incoming texts for the exact selected connection to this Chat, replacing the existing primary and backup delivery destinations. Delegated applications are forbidden. Only a dedicated Telnyx messaging profile is eligible. This operation changes only its webhook URL, API version and failover destination; it never purchases numbers, changes billing, creates profiles or assigns numbers. Shared profiles and short-code use require manual provider action. GET never configures receiving. A stale connection_id returns 409; unauthorized callers receive 403 (unauthenticated callers 401). No automatic mutation retry follows an uncertain outcome: refresh status before deciding another action. A successful provider configuration does not mark receiving ready without a real authenticated incoming receipt. Browser session mutations require presence and same-origin checks. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "parameters": [{"name": "X-Basstok-Presence", "in": "header", "required": false, "description": "Required to match the presence cookie for browser session mutations.", "schema": {"type": "string"}}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatPhoneSetupInput"}}}},
@@ -7708,7 +7854,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "post": {
         "operationId": "sendChatSipMessage",
-        "description": "A current human Chat participant explicitly submits plain text through the selected registered calling account. Delegated applications are forbidden. Recipient must be an international E.164 number or sip:user@domain. This is SIP MESSAGE, never a cellular SMS fallback; provider support and charges vary. Ordinary Chat composition never forwards externally. Idempotency-Key binds the sender, Chat admission, recipient and text; a durable reservation precedes one dispatch. An exact retry returns existing state even while disconnected or after restart, without resending. Changed input with the same key conflicts. Unconfirmed may have been sent: inspect history/provider state before deliberately creating another send; do not automatically retry uncertain sends with a new key. Cookie-authenticated writes require matching X-Basstok-Presence and same-origin checks. No attachments, bulk recipients, delivery claims or external sender identity guarantees.",
+        "description": "A current human Chat participant explicitly submits plain text through the selected registered calling account. Delegated applications are forbidden. Recipient must be an international E.164 number or sip:user@domain. This is SIP MESSAGE, never a cellular SMS fallback; provider support and charges vary. Ordinary Chat composition never forwards externally. Idempotency-Key binds the sender, Chat admission, recipient and text; a durable reservation precedes one dispatch. An exact retry returns existing state even while disconnected or after restart, without resending. Changed input with the same key conflicts. Unconfirmed may have been sent: inspect history/provider state before deliberately creating another send; do not automatically retry uncertain sends with a new key. Cookie-authenticated writes require matching X-Basstok-Presence and same-origin checks. No attachments, bulk recipients, delivery claims or external sender identity guarantees. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "parameters": [
           {"$ref": "#/components/parameters/IdempotencyKey"},
@@ -7725,7 +7871,7 @@
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "post": {
         "operationId": "sendChatSms",
-        "description": "A human participant explicitly sends an SMS/text message to one international E.164 recipient. service=connected (the default) uses the Chat's customer-connected number. service=basstok uses the configured shared sender and additionally requires the verified-phone human personal Account creator and fresh active production paid-plan proof. Test purchases, starter credit, grace, Apps and Admin authority do not enable managed sending. The shared sender does not route replies to this Account. Managed bodies have an additional conservative Unicode/multipart segment bound and independent daily sending limit; exceeding either rejects before submission. No per-text retail price is introduced. Ordinary Chat Messages are never forwarded. The existing Idempotency-Key binds the exact service, human, Chat, admission boundary, recipient and body; changing service for an existing attempt conflicts. Durable admission precedes the sole provider submission. Exact retries return existing state after restart or disconnection without resending, changing sender or switching providers. Unconfirmed may mean submitted: never automatically create a new key to retry. An interrupted reservation may conservatively block its attempt even if Message publication was not completed. No MMS, group recipients, forwarding or attachments.",
+        "description": "A human participant explicitly sends an SMS/text message to one international E.164 recipient. service=connected (the default) uses the Chat's customer-connected number. service=basstok uses the configured shared sender and additionally requires the verified-phone human personal Account creator and fresh active production paid-plan proof. Test purchases, starter credit, grace, Apps and Admin authority do not enable managed sending. The shared sender does not route replies to this Account. Managed bodies have an additional conservative Unicode/multipart segment bound and independent daily sending limit; exceeding either rejects before submission. No per-text retail price is introduced. Ordinary Chat Messages are never forwarded. The existing Idempotency-Key binds the exact service, human, Chat, admission boundary, recipient and body; changing service for an existing attempt conflicts. Durable admission precedes the sole provider submission. Exact retries return existing state after restart or disconnection without resending, changing sender or switching providers. Unconfirmed may mean submitted: never automatically create a new key to retry. An interrupted reservation may conservatively block its attempt even if Message publication was not completed. No MMS, group recipients, forwarding or attachments. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatSmsInput"}}}},
@@ -7742,7 +7888,7 @@
       ],
       "post": {
         "operationId": "receiveChatSms",
-        "description": "Provider-only endpoint bound to the current Account, Chat, connection and number. Telnyx requires exact-body Ed25519 authentication, a timestamp within 300 seconds and the exact messaging profile. AWS uses an SNS HTTPS subscription with username basstok and the private per-connection password, constant-time Basic authentication, exact configured topic and bounded envelope age. Raw SNS delivery is unsupported. Authorized subscription confirmations use only the configured signed SNS API, never SubscribeURL. AWS delivery events correlate the reserved Message through Context.basstok_operation; incoming events deduplicate inboundMessageId and semantic sender/recipient/text. No external phone number authenticates a Member. Successful receipt follows durable admission. Maximum 32768 bytes; no attachments or bulk recipients. Provider cost evidence is private and never customer pricing.",
+        "description": "Provider-only endpoint bound to the current Account, Chat, connection and number. Telnyx requires exact-body Ed25519 authentication, a timestamp within 300 seconds and the exact messaging profile. AWS uses an SNS HTTPS subscription with username basstok and the private per-connection password, constant-time Basic authentication, exact configured topic and bounded envelope age. Raw SNS delivery is unsupported. Authorized subscription confirmations use only the configured signed SNS API, never SubscribeURL. AWS delivery events correlate the reserved Message through Context.basstok_operation; incoming events deduplicate inboundMessageId and semantic sender/recipient/text. No external phone number authenticates a Member. Successful receipt follows durable admission. Maximum 32768 bytes; no attachments or bulk recipients. Provider cost evidence is private and never customer pricing. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [],
         "parameters": [
           {"name": "telnyx-signature-ed25519", "in": "header", "required": false, "schema": {"type": "string", "maxLength": 128}},
@@ -7767,7 +7913,7 @@
       ],
       "post": {
         "operationId": "receiveChatSmsDelivery",
-        "description": "Provider-only per-send callback with the same Ed25519, age, tenant and connection checks as incoming SMS. Binds to the already reserved outgoing canonical Message and exact from/to/text/profile. Handles a callback arriving before the sending HTTP response; terminal delivery is monotonic and inconsistent final states fail closed. No authenticated session is created.",
+        "description": "Provider-only per-send callback with the same Ed25519, age, tenant and connection checks as incoming SMS. Binds to the already reserved outgoing canonical Message and exact from/to/text/profile. Handles a callback arriving before the sending HTTP response; terminal delivery is monotonic and inconsistent final states fail closed. No authenticated session is created. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [],
         "parameters": [
           {"name": "telnyx-signature-ed25519", "in": "header", "required": true, "schema": {"type": "string", "maxLength": 128}},
@@ -7781,7 +7927,14 @@
       }
     },
     "/api/v1/chats/{chatId}/read-receipt": {
-      "parameters": [{"$ref": "#/components/parameters/ChatId"}],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ChatId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
+        }
+      ],
       "put": {
         "operationId": "markChatRead",
         "description": "Advance the current admitted human participant's private read position through one existing, actually read Message within their admitted history. Blocked authors and pre-admission Messages are inaccessible. Equal or older marks are safe and never lower the position. Success persists the position. Loading a Chat alone does not mark it read. This records reading only, never receipt or delivery. Sharing is evaluated separately on every receipt read; disabled sharing reveals no receipt or timing signal. No acting identity, delegated application or query parameters. Cookie-authenticated writes require browser presence protection.",
@@ -7794,7 +7947,14 @@
       }
     },
     "/api/v1/chats/{chatId}/read-receipts": {
-      "parameters": [{"$ref": "#/components/parameters/ChatId"}],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ChatId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
+        }
+      ],
       "get": {
         "operationId": "getChatReadReceipts",
         "description": "Return at most 31 other participants' currently visible read receipts. The viewer must be a current admitted human Chat participant. Each reader must still share receipts and have an accepted Connection to the viewer in this Account; blocking or deletion suppresses sharing. Referenced Messages must be within the viewer's admitted history and pass current blocking checks. Self is omitted. Absence does not mean unread or undelivered. No receipt event or polling contract is implied. No acting identity, delegated application or query parameters. Responses are no-store.",
@@ -7809,6 +7969,9 @@
       "parameters": [
         {
           "$ref": "#/components/parameters/ChatId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "post": {
@@ -7850,7 +8013,7 @@
       ],
       "put": {
         "operationId": "addChatParticipant",
-        "description": "Adds one Member to a Chat managed by the effective participant. The new participant can observe only Chat activity, Messages, and Assets shared from its admission boundary forward. Repeating the same addition is idempotent.",
+        "description": "Adds one Member to a Chat managed by the effective participant. The new participant can observe only Chat activity, Messages, and Assets shared from its admission boundary forward. Repeating the same addition is idempotent. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [
           {
             "memberBearer": []
@@ -7893,6 +8056,9 @@
         },
         {
           "$ref": "#/components/parameters/AssetId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "put": {
@@ -7982,6 +8148,9 @@
       "parameters": [
         {
           "$ref": "#/components/parameters/ChatId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "get": {
@@ -8088,6 +8257,9 @@
         },
         {
           "$ref": "#/components/parameters/MessageId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "get": {
@@ -8126,6 +8298,11 @@
       }
     },
     "/api/v1/assets": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
+        }
+      ],
       "post": {
         "operationId": "createSmallAsset",
         "description": "Creates an Asset of at most 8 MiB under one authorized Account, Content, Chat or Member parent and returns its Basstok-assigned opaque identity. Select at most one of content_id, chat_id and member_id; absence selects Account. member_id requires the current human Member's own identity, no acting identity or delegated application, and nonempty image bytes. Member photo Assets are immutable and initially private to self; select one through PUT /api/v1/member-access/avatar. OAuth callers use an explicit Content or Chat parent. A Chat upload remains visible only to its uploader until shared through a Message or attachment to the Chat; other participants then require visibility of that shared activity from their admission boundary. Retry an ambiguous outcome with the exact same Idempotency-Key, query parameters, and bytes; changed input with the same key conflicts.",
@@ -8201,6 +8378,9 @@
       "parameters": [
         {
           "$ref": "#/components/parameters/AssetId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "get": {
@@ -8367,6 +8547,11 @@
       }
     },
     "/api/v1/assets/uploads": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
+        }
+      ],
       "post": {
         "operationId": "beginAssetUpload",
         "description": "Begins a bounded Content- or Chat-owned multipart Asset upload and returns Basstok-assigned opaque upload and Asset identities. content:write is sufficient only for an exact pending Content create owned by the same application and responsible Member; an existing published Content additionally requires content:read and ordinary resource authorization. For a Chat parent, actor_id selects the effective participant and the same value must be supplied for every later operation on this upload. Retry an ambiguous begin with the exact same Idempotency-Key and declaration; changed input with the same key conflicts.",
@@ -8427,6 +8612,9 @@
         },
         {
           "$ref": "#/components/parameters/PartNumber"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "put": {
@@ -8484,6 +8672,9 @@
       "parameters": [
         {
           "$ref": "#/components/parameters/UploadId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "post": {
@@ -8530,6 +8721,9 @@
       "parameters": [
         {
           "$ref": "#/components/parameters/UploadId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "delete": {
@@ -8757,17 +8951,21 @@
       }
     },
     "/api/v1/reaction": {
+      "description": "Choose exactly one target: content_id with optional comment_id, or both chat_id and message_id. Empty, malformed, duplicate, unknown or mixed query fields are rejected. A Message reaction is private Basstok activity, never a reaction sent through an external transport.",
       "parameters": [
         {
-          "$ref": "#/components/parameters/ContentQuery"
+          "$ref": "#/components/parameters/ReactionContentQuery"
         },
         {
           "$ref": "#/components/parameters/CommentQuery"
-        }
+        },
+        {"$ref": "#/components/parameters/ReactionChatQuery"},
+        {"$ref": "#/components/parameters/ReactionMessageQuery"},
+        {"$ref": "#/components/parameters/OwnerAccountId"}
       ],
       "put": {
         "operationId": "replaceReaction",
-        "description": "Sets the responsible Member's Reaction by default. Supplying actor_id selects a no-login Member created and still controlled by this exact application for the same responsible human Member.",
+        "description": "Sets one active reaction for the responsible Member, replacing their previous choice. Supplying actor_id selects a no-login Member created and still controlled by this exact application for the same responsible human. Content requires content:read and engagement:write; a Chat Message requires chat:write and current participation, target history and blocking checks. Withdrawn or pre-admission Messages are unavailable. Message reactions are bounded to 32 people per Message and 4096 per Chat; additions at capacity fail with 409 while replacement/removal remain available. Ordinary accepted activity may precede durable persistence.",
         "security": [
           {
             "memberBearer": []
@@ -8777,7 +8975,8 @@
               "content:read",
               "engagement:write"
             ]
-          }
+          },
+          {"oauth": ["chat:write"]}
         ],
         "parameters": [
           {
@@ -8805,7 +9004,7 @@
       },
       "delete": {
         "operationId": "deleteReaction",
-        "description": "Removes the responsible Member's Reaction by default. Supplying actor_id selects a no-login Member created and still controlled by this exact application for the same responsible human Member.",
+        "description": "Idempotently removes this actor's reaction from an authorized target. Content requires content:read and engagement:write; a Message requires chat:write, current Chat participation and visibility of that non-withdrawn Message. actor_id retains the same responsible-human restriction as replacement.",
         "security": [
           {
             "memberBearer": []
@@ -8815,7 +9014,8 @@
               "content:read",
               "engagement:write"
             ]
-          }
+          },
+          {"oauth": ["chat:write"]}
         ],
         "parameters": [
           {
@@ -8833,12 +9033,25 @@
       }
     },
     "/api/v1/reactions": {
+      "description": "Choose exactly one Content/Comment or Chat/Message target, as for reaction replacement. Message results require authenticated current participation and target history, omit blocked/deleted reactors including controlled-persona responsibility, contain at most 32 people, and are not publicly cacheable. Knowing a Message identity never grants earlier history.",
       "parameters": [
         {
-          "$ref": "#/components/parameters/ContentQuery"
+          "$ref": "#/components/parameters/ReactionContentQuery"
         },
         {
           "$ref": "#/components/parameters/CommentQuery"
+        },
+        {
+          "$ref": "#/components/parameters/ReactionChatQuery"
+        },
+        {
+          "$ref": "#/components/parameters/ReactionMessageQuery"
+        },
+        {
+          "$ref": "#/components/parameters/ActorQuery"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "get": {
@@ -8852,7 +9065,8 @@
             "oauth": [
               "content:read"
             ]
-          }
+          },
+          {"oauth": ["chat:read"]}
         ],
         "parameters": [
           {
@@ -8868,7 +9082,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReactionPage"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ReactionPage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MessageReactionPage"
+                    }
+                  ]
+
                 }
               }
             }
@@ -8880,13 +9102,18 @@
       }
     },
     "/api/v1/reaction-summary": {
+      "description": "Uses the same exclusive target and current visibility checks as listing reactions. Anonymous reads apply only to eligible Content, never private Chat Messages. Message counts include only currently visible reactors; member_reaction refers to the selected authorized actor. Message responses are not publicly cacheable.",
       "parameters": [
         {
-          "$ref": "#/components/parameters/ContentQuery"
+          "$ref": "#/components/parameters/ReactionContentQuery"
         },
         {
           "$ref": "#/components/parameters/CommentQuery"
-        }
+        },
+        {"$ref": "#/components/parameters/ReactionChatQuery"},
+        {"$ref": "#/components/parameters/ReactionMessageQuery"},
+        {"$ref": "#/components/parameters/ActorQuery"},
+        {"$ref": "#/components/parameters/OwnerAccountId"}
       ],
       "get": {
         "operationId": "getReactionSummary",
@@ -8899,7 +9126,8 @@
             "oauth": [
               "content:read"
             ]
-          }
+          },
+          {"oauth": ["chat:read"]}
         ],
         "responses": {
           "200": {
@@ -9076,6 +9304,9 @@
       "parameters": [
         {
           "$ref": "#/components/parameters/CallId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "get": {
@@ -9106,6 +9337,9 @@
       "parameters": [
         {
           "$ref": "#/components/parameters/CallId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "put": {
@@ -9162,6 +9396,9 @@
       "parameters": [
         {
           "$ref": "#/components/parameters/CallId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "post": {
@@ -9203,6 +9440,9 @@
       "parameters": [
         {
           "$ref": "#/components/parameters/CallId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "put": {
@@ -9247,6 +9487,9 @@
         },
         {
           "$ref": "#/components/parameters/CallSessionId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "post": {
@@ -9291,6 +9534,9 @@
         },
         {
           "$ref": "#/components/parameters/CallSessionId"
+        },
+        {
+          "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
       "post": {
@@ -9578,6 +9824,33 @@
           "default": {
             "$ref": "#/components/responses/Error"
           }
+        }
+      }
+    },
+    "/api/v1/application-grants/current": {
+      "get": {
+        "operationId": "getCurrentApplicationGrant",
+        "summary": "Read this delegated caller's current grant context",
+        "description": "Requires an admitted delegated OAuth Bearer token; no additional capability is required. Returns only the current routed Account, responsible Member identity, application/Grant metadata, scope and ordinary Label caps, and this access token's expiry. Rechecks current canonical delegation. Human sessions, cookie-only authentication and acting personas are not accepted. The optional ordinary account_id routing selector must match the routed Account; no other query parameters, Grant/application/Member selectors or token parameters are accepted. No credentials, private Member access, role lists, other Grants or source configuration are returned. This no-store snapshot is not source visibility proof, consent, effective destination permissions or a delivery authorization lease. Each subsequent REST operation still checks current delegation, responsible-human authority and resource access.",
+        "security": [{"oauth": []}],
+        "responses": {
+          "200": {
+            "description": "The caller's current delegated context; scopes and resources are caps, not permission to perform every operation.",
+            "headers": {
+              "Cache-Control": {"schema": {"type": "string", "enum": ["no-store"]}}
+            },
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/CurrentApplicationGrant"}
+              }
+            }
+          },
+          "400": {"description": "Unexpected, malformed or duplicate query parameters."},
+          "401": {"description": "The access token is invalid, expired, revoked or belongs to another Account."},
+          "403": {"description": "A current admitted delegated bearer without an acting persona is required."},
+          "405": {"description": "Only GET is supported."},
+          "421": {"description": "The Account routing selector is invalid or does not match the request host."},
+          "default": {"$ref": "#/components/responses/Error"}
         }
       }
     },
@@ -10990,6 +11263,28 @@
       }
     },
     "parameters": {
+      "OwnerAccountId": {
+        "name": "owner_account_id",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "description": "Exact resource owner only. Keep the source origin and bearer. Foreign access is limited to an authorized personal Chat/Call and Chat-owned Assets, never Content, Member profiles, Apps or external communication rails."
+      },
+      "PeerAccountId": {
+        "name": "peer_account_id",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "description": "Account qualifying this exact peer Member; omission means the source Account. No membership or directory authority."
+      },
       "Offset": {
         "name": "offset",
         "in": "query",
@@ -11126,6 +11421,21 @@
         "schema": {
           "type": "string"
         }
+      },
+      "ReactionContentQuery": {
+        "name": "content_id", "in": "query", "required": false,
+        "description": "Required for a Content or Comment reaction; cannot be combined with chat_id/message_id.",
+        "schema": {"type": "string", "minLength": 1, "maxLength": 256}
+      },
+      "ReactionChatQuery": {
+        "name": "chat_id", "in": "query", "required": false,
+        "description": "Select a private Chat Message together with message_id, never with content_id/comment_id.",
+        "schema": {"type": "string", "minLength": 1, "maxLength": 256}
+      },
+      "ReactionMessageQuery": {
+        "name": "message_id", "in": "query", "required": false,
+        "description": "Requires chat_id and authorized visibility of this non-withdrawn Message.",
+        "schema": {"type": "string", "minLength": 1, "maxLength": 256}
       },
       "CommentQuery": {
         "name": "comment_id",
@@ -11384,6 +11694,163 @@
       }
     },
     "schemas": {
+      "MemberIdentity": {
+        "type": "object",
+        "required": [
+          "account_id",
+          "member_id"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "member_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "additionalProperties": false,
+        "description": "One exact Account-local Member. Equal member_id values in different Accounts are distinct participants. An address grants no authority."
+      },
+      "ChatParticipant": {
+        "type": "object",
+        "required": [
+          "member"
+        ],
+        "properties": {
+          "member": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ChatMemberPresentation": {
+        "type": "object",
+        "required": [
+          "member",
+          "display_name"
+        ],
+        "properties": {
+          "member": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "attribution": {
+            "type": "string"
+          },
+          "handle": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Chat-authorized label, not a foreign profile or admission proof. Attribution may remain after peer deletion."
+      },
+      "MessageReaction": {
+        "type": "object",
+        "required": [
+          "message_id",
+          "member",
+          "kind"
+        ],
+        "properties": {
+          "message_id": {
+            "type": "string"
+          },
+          "member": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "Like",
+              "Love",
+              "Celebrate",
+              "Insightful"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "attribution": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MessageReactionPage": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageReaction"
+            }
+          },
+          "next_offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "PersonalContact": {
+        "type": "object",
+        "required": [
+          "member",
+          "contact_url"
+        ],
+        "properties": {
+          "member": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
+          "contact_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Server-issued HTTPS address on the authoritative source origin: /contact?account_id=...&member_id=.... Not a credential, private phone, recovery proof or browser page."
+          }
+        },
+        "additionalProperties": false,
+        "example": {
+          "member": {
+            "account_id": "alice",
+            "member_id": "m"
+          },
+          "contact_url": "https://alice.basstok.com/contact?account_id=alice&member_id=m"
+        }
+      },
+      "DirectChatInput": {
+        "type": "object",
+        "required": [
+          "recipient",
+          "recipient_origin"
+        ],
+        "properties": {
+          "recipient": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
+          "recipient_origin": {
+            "type": "string",
+            "format": "uri",
+            "description": "Exact HTTPS origin from contact_url. Current authoritative routing must map it to recipient.account_id in this hosting cell. Remote discovery assertions confer no trust."
+          }
+        },
+        "additionalProperties": false,
+        "example": {
+          "recipient": {
+            "account_id": "bob",
+            "member_id": "m"
+          },
+          "recipient_origin": "https://bob.basstok.com"
+        }
+      },
       "PhoneUsageUnits": {
         "type": "object",
         "additionalProperties": false,
@@ -12121,17 +12588,17 @@
         "required": [
           "id",
           "body",
-          "member_id",
+          "author",
           "sequence"
         ],
         "properties": {
+          "author": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
           "id": {
             "type": "string"
           },
           "body": {
-            "type": "string"
-          },
-          "member_id": {
             "type": "string"
           },
           "created_at": {
@@ -12159,10 +12626,17 @@
         "required": [
           "id",
           "participants",
-          "created_by_member_id",
-          "history_sequence"
+          "created_by",
+          "history_sequence",
+          "owner_account_id"
         ],
         "properties": {
+          "created_by": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
+          "owner_account_id": {
+            "type": "string"
+          },
           "id": {
             "type": "string"
           },
@@ -12174,13 +12648,12 @@
             "items": {
               "type": "object",
               "required": [
-                "id",
+                "member",
                 "first_visible_sequence"
               ],
               "properties": {
-                "id": {
-                  "type": "string",
-                  "maxLength": 256
+                "member": {
+                  "$ref": "#/components/schemas/MemberIdentity"
                 },
                 "first_visible_sequence": {
                   "type": "integer",
@@ -12189,10 +12662,6 @@
               },
               "additionalProperties": false
             }
-          },
-          "created_by_member_id": {
-            "type": "string",
-            "description": "The creating Member when creation is within the caller's Chat visibility boundary. Omitted for a participant admitted later."
           },
           "created_at": {
             "type": "string"
@@ -12224,7 +12693,7 @@
           }
         },
         "additionalProperties": false,
-        "description": "Historical Chat facts. Supply canonical identities and CommonMark text where applicable. Execution attribution is assigned by Basstok, not supplied by the importer."
+        "description": "Historical Chat facts. Supply canonical identities and CommonMark text where applicable. Execution attribution is assigned by Basstok, not supplied by the importer. Owner, creator, participants and authors must remain in the destination Account; foreign historical references are rejected."
       },
       "HistoricalContentBatch": {
         "type": "array",
@@ -14230,6 +14699,13 @@
           "attribution": {
             "type": "string",
             "description": "Optional human-readable intermediary attribution. Canonical audit mechanics are not part of the resource contract."
+          },
+          "public_path": {
+            "type": "string",
+            "minLength": 2,
+            "pattern": "^/(?!/)",
+            "readOnly": true,
+            "description": "Preferred relative public path within the responding Account origin. Required on getContent and full published Content mutation results; omitted on drafts. Resolve against that same HTTPS origin, never a default Account. For an exact Comment, add the URL-encoded comment query parameter to this path; an anchor alone does not fetch a Comment outside the current page. Links retain ordinary authorization and carry no credentials or access grant."
           }
         },
         "additionalProperties": false,
@@ -14413,12 +14889,17 @@
       },
       "MemberPrivacy": {
         "type": "object",
-        "required": ["share_profile_photo", "share_read_receipts"],
+        "required": ["share_profile_photo", "share_read_receipts", "share_last_activity"],
         "additionalProperties": false,
         "properties": {
           "share_profile_photo": {"type": "boolean", "default": true, "description": "Share the selected photo with accepted Connections only. Self always retains access to own uploads."},
-          "share_read_receipts": {"type": "boolean", "default": true, "description": "Share read positions with accepted Connections who can read the referenced Chat history."}
+          "share_read_receipts": {"type": "boolean", "default": true, "description": "Share read positions with accepted Connections who can read the referenced Chat history."},
+          "share_last_activity": {"type": "boolean", "default": false, "description": "Share approximate server-observed last activity with accepted Connections. Disabling clears the retained observation."}
         }
+      },
+      "MemberLastActivity": {
+        "type": "object", "additionalProperties": false,
+        "properties": {"last_activity": {"type": "string", "enum": ["recently", "within_day", "within_week"], "description": "Server-observed activity rounded down to the hour falls within the previous hour, day or week respectively. Omission provides no activity information and never implies offline status."}}
       },
       "MemberAvatarInput": {
         "type": "object", "required": ["avatar"], "additionalProperties": false,
@@ -14431,8 +14912,14 @@
       "ChatReadReceipts": {
         "type": "object", "required": ["items"], "additionalProperties": false,
         "properties": {"items": {"type": "array", "maxItems": 31, "items": {
-          "type": "object", "required": ["member_id", "through_message_id"], "additionalProperties": false,
-          "properties": {"member_id": {"type": "string"}, "through_message_id": {"type": "string"}}
+          "type": "object", "required": [
+                "member",
+                "through_message_id"
+              ], "additionalProperties": false,
+          "properties": {
+                "member": {
+                  "$ref": "#/components/schemas/MemberIdentity"
+                },"through_message_id": {"type": "string"}}
         }}}
       },
       "Member": {
@@ -14540,17 +15027,17 @@
       "MemberConnection": {
         "type": "object",
         "required": [
-          "requester_member_id",
-          "recipient_member_id",
+          "requester",
+          "recipient",
           "status",
           "requested_at"
         ],
         "properties": {
-          "requester_member_id": {
-            "type": "string"
+          "recipient": {
+            "$ref": "#/components/schemas/MemberIdentity"
           },
-          "recipient_member_id": {
-            "type": "string"
+          "requester": {
+            "$ref": "#/components/schemas/MemberIdentity"
           },
           "status": {
             "type": "string",
@@ -14576,49 +15063,467 @@
           "assets"
         ],
         "oneOf": [
-          {"required": ["member_id"], "not": {"anyOf": [{"required": ["email"]}, {"required": ["sms", "sip"]}, {"required": ["sms", "fax"]}, {"required": ["sip", "fax"]}]},
-           "properties": {"sms": {"properties": {"direction": {"enum": ["outgoing"]}, "status": {"enum": ["unconfirmed", "accepted", "sent", "delivered", "failed"]}}}, "sip": {"properties": {"direction": {"enum": ["outgoing"]}, "status": {"enum": ["unconfirmed", "accepted", "failed"]}}}, "fax": {"properties": {"direction": {"enum": ["outgoing"]}, "status": {"enum": ["unconfirmed", "delivered", "failed"]}}}}},
-          {"required": ["email"], "not": {"anyOf": [{"required": ["member_id"]}, {"required": ["sms"]}, {"required": ["sip"]}, {"required": ["fax"]}]}},
-          {"required": ["sms"], "not": {"anyOf": [{"required": ["member_id"]}, {"required": ["email"]}, {"required": ["sip"]}, {"required": ["fax"]}]},
-           "properties": {"sms": {"properties": {"direction": {"enum": ["incoming"]}, "status": {"enum": ["received"]}}}}},
-          {"required": ["sip"], "not": {"anyOf": [{"required": ["member_id"]}, {"required": ["email"]}, {"required": ["sms"]}, {"required": ["fax"]}]},
-           "properties": {"sip": {"properties": {"direction": {"enum": ["incoming"]}, "status": {"enum": ["received"]}}}}},
-          {"required": ["fax"], "not": {"anyOf": [{"required": ["member_id"]}, {"required": ["email"]}, {"required": ["sms"]}, {"required": ["sip"]}]},
-           "properties": {"fax": {"properties": {"direction": {"enum": ["incoming"]}, "status": {"enum": ["received"]}}}}}
+          {
+            "required": [
+              "author"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "email"
+                  ]
+                },
+                {
+                  "required": [
+                    "sms",
+                    "sip"
+                  ]
+                },
+                {
+                  "required": [
+                    "sms",
+                    "fax"
+                  ]
+                },
+                {
+                  "required": [
+                    "sip",
+                    "fax"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "sms": {
+                "properties": {
+                  "direction": {
+                    "enum": [
+                      "outgoing"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "unconfirmed",
+                      "accepted",
+                      "sent",
+                      "delivered",
+                      "failed"
+                    ]
+                  }
+                }
+              },
+              "sip": {
+                "properties": {
+                  "direction": {
+                    "enum": [
+                      "outgoing"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "unconfirmed",
+                      "accepted",
+                      "failed"
+                    ]
+                  }
+                }
+              },
+              "fax": {
+                "properties": {
+                  "direction": {
+                    "enum": [
+                      "outgoing"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "unconfirmed",
+                      "delivered",
+                      "failed"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "required": [
+              "email"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "author"
+                  ]
+                },
+                {
+                  "required": [
+                    "sms"
+                  ]
+                },
+                {
+                  "required": [
+                    "sip"
+                  ]
+                },
+                {
+                  "required": [
+                    "fax"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "required": [
+              "sms"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "author"
+                  ]
+                },
+                {
+                  "required": [
+                    "email"
+                  ]
+                },
+                {
+                  "required": [
+                    "sip"
+                  ]
+                },
+                {
+                  "required": [
+                    "fax"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "sms": {
+                "properties": {
+                  "direction": {
+                    "enum": [
+                      "incoming"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "received"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "required": [
+              "sip"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "author"
+                  ]
+                },
+                {
+                  "required": [
+                    "email"
+                  ]
+                },
+                {
+                  "required": [
+                    "sms"
+                  ]
+                },
+                {
+                  "required": [
+                    "fax"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "sip": {
+                "properties": {
+                  "direction": {
+                    "enum": [
+                      "incoming"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "received"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "required": [
+              "fax"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "author"
+                  ]
+                },
+                {
+                  "required": [
+                    "email"
+                  ]
+                },
+                {
+                  "required": [
+                    "sms"
+                  ]
+                },
+                {
+                  "required": [
+                    "sip"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "fax": {
+                "properties": {
+                  "direction": {
+                    "enum": [
+                      "incoming"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "received"
+                    ]
+                  }
+                }
+              }
+            }
+          }
         ],
         "allOf": [
-          {"if": {"required": ["location"]}, "then": {
-            "required": ["member_id"],
-            "not": {"anyOf": [{"required": ["email"]}, {"required": ["outgoing_email"]}, {"required": ["sms"]}, {"required": ["sip"]}, {"required": ["fax"]}, {"required": ["deleted_at"]}]}
-          }},
-          {"if": {"required": ["deleted_at"]}, "then": {
-            "required": ["member_id", "created_at"],
-            "properties": {"body": {"const": ""}, "assets": {"maxItems": 0}},
-            "not": {"anyOf": [{"required": ["email"]}, {"required": ["outgoing_email"]}, {"required": ["sms"]}, {"required": ["sip"]}, {"required": ["fax"]}, {"required": ["location"]}, {"required": ["updated_at"]}]}
-          }},
-          {"if": {"required": ["outgoing_email"]}, "then": {
-            "required": ["member_id", "created_at"],
-            "not": {"anyOf": [{"required": ["email"]}, {"required": ["sms"]}, {"required": ["sip"]}, {"required": ["fax"]}, {"required": ["updated_at"]}]},
-            "properties": {"assets": {"maxItems": 4}}
-          }},
-          {"if": {"required": ["fax"]}, "then": {
-            "required": ["created_at"],
-            "not": {"required": ["updated_at"]},
-            "allOf": [{"if": {"properties": {"fax": {"properties": {"direction": {"const": "incoming"}}}}}, "then": {"not": {"required": ["attribution"]}}}],
-            "properties": {"body": {"const": ""}, "assets": {"minItems": 1, "maxItems": 1}}
-          }}
+          {
+            "if": {
+              "required": [
+                "location"
+              ]
+            },
+            "then": {
+              "required": [
+                "author"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "email"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "outgoing_email"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "sms"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "sip"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "fax"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "deleted_at"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "deleted_at"
+              ]
+            },
+            "then": {
+              "required": [
+                "author",
+                "created_at"
+              ],
+              "properties": {
+                "body": {
+                  "const": ""
+                },
+                "assets": {
+                  "maxItems": 0
+                }
+              },
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "email"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "outgoing_email"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "sms"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "sip"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "fax"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "location"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "updated_at"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "outgoing_email"
+              ]
+            },
+            "then": {
+              "required": [
+                "author",
+                "created_at"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "email"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "sms"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "sip"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "fax"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "updated_at"
+                    ]
+                  }
+                ]
+              },
+              "properties": {
+                "assets": {
+                  "maxItems": 4
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "fax"
+              ]
+            },
+            "then": {
+              "required": [
+                "created_at"
+              ],
+              "not": {
+                "required": [
+                  "updated_at"
+                ]
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "fax": {
+                        "properties": {
+                          "direction": {
+                            "const": "incoming"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "then": {
+                    "not": {
+                      "required": [
+                        "attribution"
+                      ]
+                    }
+                  }
+                }
+              ],
+              "properties": {
+                "body": {
+                  "const": ""
+                },
+                "assets": {
+                  "minItems": 1,
+                  "maxItems": 1
+                }
+              }
+            }
+          }
         ],
         "properties": {
+          "author": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
           "id": {
             "type": "string"
           },
           "body": {
             "type": "string"
-          },
-          "member_id": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Present only for a Member-authored Message, including explicit outgoing phone messages and personal email. External email, incoming phone texts and faxes never authenticate or impersonate a Member."
           },
           "created_at": {
             "type": "string"
@@ -14627,6 +15532,10 @@
             "type": "string"
           },
           "deleted_at": {"type": "string", "format": "date-time", "description": "Present after the author deletes an ordinary Message. Its text, location and attachment references are removed."},
+          "reaction_summary": {
+            "$ref": "#/components/schemas/ReactionSummary",
+            "description": "Present on Message history and exact-Message reads when visible reactions exist. Derived from currently authorized Chat reactions, never external transport acknowledgments. Counts sum to total_count and total at most 32; empty/withdrawn Messages omit this presentation, as may creation responses and list previews."
+          },
           "assets": {
             "type": "array",
             "items": {
@@ -15170,7 +16079,7 @@
         "type": "object", "additionalProperties": false, "required": ["connection_id", "recipient", "subject", "body"],
         "properties": {
           "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-          "recipient": {"type": "string", "format": "email", "maxLength": 254, "description": "One plain ASCII address, without display name or header syntax."},
+          "recipient": {"type": "string", "minLength": 3, "maxLength": 5118, "description": "Ordered comma-separated To list of 1–20 distinct plain ASCII dot-atom@DNS-name mailboxes, each at most 254 bytes. ASCII spaces/tabs around each mailbox are trimmed and domains lowercased; local-part case and order are preserved. Empty elements, duplicates after normalization, CR/LF or other controls, display names, comments, groups, quoted local parts, address literals and SMTPUTF8 are rejected as a whole. No Cc/Bcc. A single address is a one-element list."},
           "subject": {"type": "string", "maxLength": 512, "description": "At most 512 UTF-8 bytes, without control characters; may be empty."},
           "body": {"type": "string", "maxLength": 16384, "description": "UTF-8 plain text or CommonMark source selected by body_format, at most 16384 bytes. May be empty when attachments are present. Plain text is escaped into canonical CommonMark; markdown is saved as CommonMark and rendered to safe plain-text and HTML MIME alternatives. Raw HTML and unsafe links are omitted from the outgoing HTML alternative."},
           "body_format": {"type": "string", "enum": ["text", "markdown"], "default": "text", "description": "Optional input format. Omission preserves literal plain-text sending. This selects input interpretation; the saved Message body remains CommonMark."},
@@ -15185,7 +16094,7 @@
         "properties": {
           "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "from": {"type": "string", "format": "email", "maxLength": 254},
-          "to": {"type": "string", "format": "email", "maxLength": 254},
+          "to": {"type": "string", "maxLength": 5118, "description": "The complete normalized ordered To list: 1–20 distinct plain ASCII mailboxes, domains lowercased and separated by comma plus one space. This is the sole durable recipient representation."},
           "subject": {"type": "string", "maxLength": 512},
           "message_id": {"type": "string", "description": "Stable outgoing RFC Message-ID without angle brackets."},
           "reply_to_message_id": {"type": "string", "format": "uuid"},
@@ -15199,6 +16108,7 @@
         "required": ["claimed_from", "subject"],
         "properties": {
           "claimed_from": {"type": "string", "description": "Unverified sender-supplied From presentation. Display as an external sender; never use it to look up a Member, profile photo or trusted brand logo."},
+          "brand_asset_id": {"type": ["string", "null"], "format": "uuid", "description": "Optional server-verified sender-domain logo snapshot. The referenced PNG is in this Message's assets and inherits the same Chat/history authorization; display it as the sender image rather than an attachment. Absence uses ordinary initials. This is not a Member identity, trust badge or assurance that message content is safe. Never fetch a logo directly from claimed_from or message headers."},
           "subject": {"type": "string"},
           "message_id": {"type": ["string", "null"], "maxLength": 998, "description": "Untrusted source Message-ID; a presentation hint, never identity or access authority."},
           "references": {"type": ["array", "null"], "maxItems": 64, "uniqueItems": true, "items": {"type": "string", "maxLength": 998}, "description": "Bounded source References and In-Reply-To identifiers for grouping related email within this Chat. These do not authorize access to another Message."}
@@ -15337,9 +16247,24 @@
           "id",
           "participants",
           "assets",
-          "participant_members"
+          "participant_members",
+          "owner_account_id"
         ],
         "properties": {
+          "created_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MemberIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Absent or null when creation precedes participant admission."
+          },
+          "owner_account_id": {
+            "type": "string"
+          },
           "id": {
             "type": "string"
           },
@@ -15349,12 +16274,8 @@
           "participants": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CanonicalReference"
+              "$ref": "#/components/schemas/ChatParticipant"
             }
-          },
-          "created_by_member_id": {
-            "type": "string",
-            "description": "The creating Member when creation is within the caller's Chat visibility boundary. Omitted for a participant admitted later."
           },
           "created_at": {
             "type": "string"
@@ -15368,7 +16289,7 @@
           "participant_members": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/MemberPresentation"
+              "$ref": "#/components/schemas/ChatMemberPresentation"
             }
           },
           "latest_message": {
@@ -15594,6 +16515,13 @@
           "read"
         ],
         "properties": {
+          "owner_account_id": {
+            "type": "string",
+            "description": "Owner of a Chat/Message target. Reads use the source origin and session."
+          },
+          "actor": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
           "id": {
             "type": "string"
           },
@@ -15603,9 +16531,6 @@
               "ContentComment",
               "Message"
             ]
-          },
-          "actor_member_id": {
-            "type": "string"
           },
           "content_id": {
             "type": "string"
@@ -15639,6 +16564,13 @@
           "preview"
         ],
         "properties": {
+          "owner_account_id": {
+            "type": "string",
+            "description": "Owner of a Chat/Message target. Reads use the source origin and session."
+          },
+          "actor": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
           "id": {
             "type": "string"
           },
@@ -15648,9 +16580,6 @@
               "ContentComment",
               "Message"
             ]
-          },
-          "actor_member_id": {
-            "type": "string"
           },
           "content_id": {
             "type": "string"
@@ -15906,7 +16835,7 @@
           "blocked_members": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CanonicalReference"
+              "$ref": "#/components/schemas/MemberIdentity"
             }
           },
           "deletion_requested_at": {
@@ -16491,14 +17420,14 @@
       "CallParticipant": {
         "type": "object",
         "required": [
-          "member_id",
+          "member",
           "display_name",
           "joined",
           "outbound_kbps"
         ],
         "properties": {
-          "member_id": {
-            "type": "string"
+          "member": {
+            "$ref": "#/components/schemas/MemberIdentity"
           },
           "display_name": {
             "type": "string"
@@ -16519,11 +17448,17 @@
         "required": [
           "id",
           "sequence",
-          "from_member_id",
-          "to_member_id",
+          "from",
+          "to",
           "kind"
         ],
         "properties": {
+          "to": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
+          "from": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
           "id": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
@@ -16531,12 +17466,6 @@
           "sequence": {
             "type": "integer",
             "minimum": 1
-          },
-          "from_member_id": {
-            "type": "string"
-          },
-          "to_member_id": {
-            "type": "string"
           },
           "kind": {
             "type": "string",
@@ -16567,24 +17496,37 @@
         "required": [
           "id",
           "chat_id",
-          "started_by_member_id",
+          "started_by",
           "media",
           "status",
           "recording_status",
-          "recording_consented_member_ids",
+          "recording_consented_members",
           "participants",
           "signals",
           "created_at",
-          "expires_at"
+          "expires_at",
+          "owner_account_id"
         ],
         "properties": {
+          "owner_account_id": {
+            "type": "string"
+          },
+          "recording_consented_members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemberIdentity"
+            }
+          },
+          "recording_requested_by": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
+          "started_by": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
           "id": {
             "type": "string"
           },
           "chat_id": {
-            "type": "string"
-          },
-          "started_by_member_id": {
             "type": "string"
           },
           "media": {
@@ -16606,15 +17548,6 @@
               "recording",
               "declined"
             ]
-          },
-          "recording_requested_by_member_id": {
-            "type": "string"
-          },
-          "recording_consented_member_ids": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
           },
           "participants": {
             "type": "array",
@@ -16647,6 +17580,10 @@
           "outbound_kbps"
         ],
         "properties": {
+          "owner_account_id": {
+            "type": "string",
+            "description": "Exact Chat owner; omission selects the source Account. Addressing grants no access."
+          },
           "chat_id": {
             "type": "string"
           },
@@ -16680,9 +17617,12 @@
         "required": [
           "id",
           "kind",
-          "to_member_id"
+          "to"
         ],
         "properties": {
+          "to": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
           "id": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
@@ -16694,9 +17634,6 @@
               "answer",
               "ice_candidate"
             ]
-          },
-          "to_member_id": {
-            "type": "string"
           },
           "session_description": {
             "type": [
@@ -16833,6 +17770,13 @@
           },
           "member_id": {
             "type": "string"
+          },
+          "member": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
+          "owner_account_id": {
+            "type": "string",
+            "description": "Exact owner hint for a Chat or Call. The source session and ordinary current authorization are still required on re-read."
           }
         },
         "additionalProperties": false
@@ -17178,6 +18122,17 @@
               "type": "string"
             }
           }
+        },
+        "additionalProperties": false
+      },
+      "CurrentApplicationGrant": {
+        "type": "object",
+        "required": ["account_id", "member_id", "grant", "access_expires_at"],
+        "properties": {
+          "account_id": {"type": "string"},
+          "member_id": {"type": "string", "description": "The responsible Member within this Account, not a cross-Account identity."},
+          "grant": {"$ref": "#/components/schemas/ApplicationGrant"},
+          "access_expires_at": {"type": "integer", "format": "uint64", "minimum": 1, "description": "This access credential's expiry as Unix seconds; not a promise of continuing authorization."}
         },
         "additionalProperties": false
       },
@@ -17717,15 +18672,24 @@
       },
       "MessageSearchHit": {
         "type": "object",
-        "required": ["chat_id", "message_id", "excerpt"],
+        "required": [
+          "chat_id",
+          "message_id",
+          "excerpt",
+          "owner_account_id"
+        ],
         "properties": {
+          "owner_account_id": {
+            "type": "string"
+          },
           "chat_id": {"type": "string"},
           "message_id": {"type": "string"},
           "excerpt": {"type": "string"},
           "subject": {"type": "string"},
           "address": {"type": "string"},
           "incoming": {"type": "boolean"},
-          "created_at": {"type": "string"}
+          "created_at": {"type": "string"},
+          "brand_asset_id": {"type": "string", "format": "uuid", "description": "Optional authorized sender-logo Asset from the matching email Message, not a Member identity."}
         },
         "additionalProperties": false
       },
