@@ -8817,6 +8817,17 @@
         }
       }
     },
+    "/api/v1/notifications/unread-counts": {
+      "get": {
+        "operationId": "getNotificationUnreadCounts",
+        "description": "Return the current human membership's unread counts across its complete retained notification inbox, not a paginated preview. Current participant history, blocking, source access and deletion apply to every counted target. Email and other Messages are counted separately; Content/Comment activity is separate. Reading counts does not mark activity read. No acting identity, delegation, owner selector or query parameters. Responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {"description": "Current authorized unread counts.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NotificationUnreadCounts"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/notifications/{notificationId}": {
       "parameters": [
         {
@@ -17393,12 +17404,24 @@
         },
         "additionalProperties": false
       },
+      "NotificationUnreadCounts": {
+        "type": "object",
+        "required": ["messages", "email", "activity"],
+        "properties": {
+          "messages": {"type": "integer", "minimum": 0, "maximum": 1024},
+          "email": {"type": "integer", "minimum": 0, "maximum": 1024},
+          "activity": {"type": "integer", "minimum": 0, "maximum": 1024}
+        },
+        "additionalProperties": false,
+        "description": "Counts of unread retained notifications with currently readable targets. Their sum cannot exceed 1024. Email includes incoming and outgoing email notifications; other Message transports are messages. These are membership-scoped counts, not a global identity or delivery/read-receipt assertion."
+      },
       "PushRegistration": {
         "type": "object",
         "required": [
           "id",
           "platform",
-          "purpose"
+          "purpose",
+          "updates_badge"
         ],
         "properties": {
           "id": {
@@ -17415,6 +17438,10 @@
           "purpose": {
             "type": "string",
             "enum": ["activity", "phone_call"]
+          },
+          "updates_badge": {
+            "type": "boolean",
+            "description": "Whether this iOS activity registration updates the app icon from this membership's unread Message/email count. Other activity and call registrations do not change the badge."
           }
         },
         "additionalProperties": false,
@@ -17441,6 +17468,11 @@
           "purpose": {
             "type": "string",
             "enum": ["activity", "phone_call"]
+          },
+          "updates_badge": {
+            "type": "boolean",
+            "default": false,
+            "description": "Use only for the iOS activity registration selected to represent the personal inbox. Changes affect notification presentation only, never authority or unread state."
           }
         },
         "additionalProperties": false
