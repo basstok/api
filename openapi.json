@@ -27,7 +27,7 @@
     "/api/v1/member-access/contact": {
       "get": {
         "operationId": "getPersonalContact",
-        "description": "Returns the currently admitted personal creator’s server-issued shareable address without private phone or email information. No global directory or browser contact page.",
+        "description": "Returns the currently admitted personal creator's current display name, already assigned public @basstok.com address and clean HTTPS contact link. The address and link are absent until an address is assigned through managed-email setup; reading never assigns one and never falls back to a phone, recovery email or Account hostname. The display name comes from the current Member, never an email From field. Sharing discovers direct Basstok messaging and calls, never authentication or automatic Connection/call approval, and does not require external email sending or receiving readiness. No global directory or browser contact page. Responses are no-store.",
         "security": [
           {
             "memberBearer": []
@@ -53,7 +53,7 @@
     "/api/v1/direct-chats": {
       "post": {
         "operationId": "createDirectChat",
-        "description": "Opens or reuses one two-person Chat between admitted creators of distinct personal Accounts in this hosting cell without joining either Account. Use the source origin and its ordinary source session. Incoming exact-address messaging may precede Connection; native Calls require explicit accepted Connection. One Account holds history and Assets; its deletion removes that shared history for both. No federation, groups, global identity, App delegation or external spending.",
+        "description": "Opens or reuses one two-person Chat between admitted creators of distinct personal Accounts in this hosting cell without joining either Account. Submit the exact public @basstok.com address using the source origin and its ordinary source session. The service resolves its current assigned address and hosting route; clients supply no target Member or origin. Private phone and recovery email matching, email From and remote discovery assertions confer no identity or authority. Incoming exact-address messaging may precede Connection; native Calls require explicit accepted Connection. One Account holds history and Assets; its deletion removes that shared history for both. No federation, groups, global identity, App delegation or external spending. Responses are no-store.",
         "security": [
           {
             "memberBearer": []
@@ -612,8 +612,8 @@
                               },
                               "components": {
                                 "type": "array",
-                                "minItems": 2,
-                                "maxItems": 2,
+                                "minItems": 6,
+                                "maxItems": 6,
                                 "items": false,
                                 "prefixItems": [{
                                   "type": "object",
@@ -668,6 +668,22 @@
                                         }
                                       }
                                     }
+                                  },
+                                  {
+                                    "type": "object", "additionalProperties": false, "required": ["/"],
+                                    "properties": {"/": {"type": "string", "const": "/contact/*"}}
+                                  },
+                                  {
+                                    "type": "object", "additionalProperties": false, "required": ["/"],
+                                    "properties": {"/": {"type": "string", "const": "/oauth/cloudflare/return"}}
+                                  },
+                                  {
+                                    "type": "object", "additionalProperties": false, "required": ["/"],
+                                    "properties": {"/": {"type": "string", "const": "/oauth/mailbox/google/return"}}
+                                  },
+                                  {
+                                    "type": "object", "additionalProperties": false, "required": ["/"],
+                                    "properties": {"/": {"type": "string", "const": "/oauth/mailbox/microsoft/return"}}
                                   }
                                 ]
                               }
@@ -686,7 +702,7 @@
           }
         },
         "operationId": "getAppleAppAssociation",
-        "description": "Served without redirect at basstok.com and routed managed subdomains. Declares the configured Apple app for shared passkeys and /account links carrying recovery_token or email_sign_in_token. Verification links remain browser actions. Missing BASSTOK_APPLE_APPLICATION_ID fails closed; credential-free onboarding and email sign-in do not require an app association."
+        "description": "Served without redirect at basstok.com and routed managed subdomains. Declares the configured Apple app for shared passkeys, /account links carrying recovery_token or email_sign_in_token, /contact/* discovery links and the three provider return destinations. Native contact parsing requires the exact https://basstok.com/contact/<assigned-address-local-part> form; association does not establish identity or authority. Verification links remain browser actions. Missing BASSTOK_APPLE_APPLICATION_ID fails closed; credential-free onboarding and email sign-in do not require an app association."
       }
     },
     "/.well-known/assetlinks.json": {
@@ -1443,7 +1459,16 @@
       "get": {
         "operationId": "listScheduledRequests",
         "summary": "List owned scheduled batches and progress",
-        "description": "Returns a no-store JSON array of at most 32 retained batches. A current admitted human Member sees only their personal-email schedules; a current delegated Grant sees only its own batches. Human and delegated ownership remain separate. Other Members, Grants and Accounts cannot inspect them. Includes pending and retained completed or cancelled work, using the same records as lookup by ID. Another session or device can discover intentionally scheduled mail without a device-owned list of IDs. No query parameters or collection mutations are supported.",
+        "description": "Returns a no-store JSON array of at most 1024 retained batches, independently bounded by total request count and bytes. A current admitted human Member sees only their personal-email schedules; a current delegated Grant sees only its own batches. Human and delegated ownership remain separate. Other Members, Grants and Accounts cannot inspect them. By default includes pending and retained completed or cancelled work, using the same records as lookup by ID. The optional pending=true filter excludes completed and cancelled batches. Another session or device can discover pending mail without a device-owned list of IDs. No collection mutations are supported.",
+        "parameters": [
+          {
+            "name": "pending",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "boolean", "enum": [true]},
+            "description": "When present, must be true; return only owned unfinished, non-cancelled batches, including paused work."
+          }
+        ],
         "security": [
           {
             "memberBearer": []
@@ -1459,7 +1484,7 @@
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "maxItems": 32,
+                  "maxItems": 1024,
                   "items": {
                     "$ref": "#/components/schemas/ScheduledBatch"
                   }
@@ -11805,50 +11830,60 @@
         "type": "object",
         "required": [
           "member",
-          "contact_url"
+          "display_name"
         ],
         "properties": {
           "member": {
             "$ref": "#/components/schemas/MemberIdentity"
           },
-          "contact_url": {
+          "display_name": {
             "type": "string",
+            "description": "The current Member's server-owned display name, suitable for the own identity row and contact-share title. Presentation only, never an authenticated email sender claim or private phone/recovery identity."
+          },
+          "address": {
+            "type": ["string", "null"],
+            "pattern": "^(?:[a-z]{6}|[a-z]{10})@basstok\\.com$",
+            "description": "The creator's already assigned public Basstok email address. Present together with contact_url; otherwise absent or null. Never a private phone, recovery address or authenticated sender claim."
+          },
+          "contact_url": {
+            "type": ["string", "null"],
             "format": "uri",
-            "description": "Server-issued HTTPS address on the authoritative source origin: /contact?account_id=...&member_id=.... Not a credential, private phone, recovery proof or browser page."
+            "pattern": "^https://basstok\\.com/contact/(?:[a-z]{6}|[a-z]{10})$",
+            "description": "Server-issued clean link whose final segment is address's exact local-part. Present together with address; otherwise absent or null. Discovery only, never a credential, automatic Connection/call approval or browser page."
           }
         },
+        "oneOf": [
+          {"properties": {"address": {"type": "null"}, "contact_url": {"type": "null"}}},
+          {"required": ["address", "contact_url"], "properties": {"address": {"type": "string"}, "contact_url": {"type": "string"}}}
+        ],
         "additionalProperties": false,
         "example": {
           "member": {
             "account_id": "alice",
             "member_id": "m"
           },
-          "contact_url": "https://alice.basstok.com/contact?account_id=alice&member_id=m"
+          "display_name": "Taylor Reed",
+          "address": "talora@basstok.com",
+          "contact_url": "https://basstok.com/contact/talora"
         }
       },
       "DirectChatInput": {
         "type": "object",
         "required": [
-          "recipient",
-          "recipient_origin"
+          "address"
         ],
         "properties": {
-          "recipient": {
-            "$ref": "#/components/schemas/MemberIdentity"
-          },
-          "recipient_origin": {
+          "address": {
             "type": "string",
-            "format": "uri",
-            "description": "Exact HTTPS origin from contact_url. Current authoritative routing must map it to recipient.account_id in this hosting cell. Remote discovery assertions confer no trust."
+            "minLength": 18,
+            "maxLength": 22,
+            "pattern": "^(?:[a-z]{6}|[a-z]{10})@basstok\\.com$",
+            "description": "Exact assigned public Basstok email address. Resolved against current address ownership and hosting routing, then rechecked for creator eligibility, admission and blocking. Links are parsed into this address before submission; external or private addresses are not matched."
           }
         },
         "additionalProperties": false,
         "example": {
-          "recipient": {
-            "account_id": "bob",
-            "member_id": "m"
-          },
-          "recipient_origin": "https://bob.basstok.com"
+          "address": "morila@basstok.com"
         }
       },
       "PhoneUsageUnits": {
