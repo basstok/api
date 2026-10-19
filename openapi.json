@@ -24,6 +24,271 @@
     }
   ],
   "paths": {
+    "/api/v1/member-access/linked-websites": {
+      "get": {
+        "operationId": "readLinkedWebsites",
+        "description": "Read at most eight private saved website links and recent reading positions. Metadata do not grant source access; the website remains authoritative. Current admitted human only; no delegated App or another Member's access. No query parameters. Responses are no-store.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "maxItems": 8,
+                  "items": {
+                    "$ref": "#/components/schemas/LinkedWebsite"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "addLinkedWebsite",
+        "description": "Save a scope and name without authenticating to it. Exact existing scope returns its saved link. Success is durable; no page bodies or new Account are created. Current admitted human only; no delegated App or another Member's access. No query parameters. Responses are no-store.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkedWebsiteInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkedWebsite"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/member-access/linked-websites/{linkId}": {
+      "parameters": [
+        {
+          "name": "linkId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      ],
+      "delete": {
+        "operationId": "removeLinkedWebsite",
+        "description": "Durably remove your link, fence active reads and clear its private session credential. This does not delete the source account. Missing links are successful no-ops. Current admitted human only; no delegated App or another Member's access. No query parameters. Responses are no-store.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Operation completed."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/member-access/linked-websites/{linkId}/authorization": {
+      "parameters": [
+        {
+          "name": "linkId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "beginWebsiteAuthorization",
+        "description": "Start a ten-minute one-time session transfer bound to this Basstok session. Replaces the generation, clears previous consent/reading positions and makes earlier credentials unusable. This does not itself grant source access. Current admitted human only; no delegated App or another Member's access. No query parameters. Responses are no-store.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkedWebsite"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/member-access/linked-websites/{linkId}/authorization/complete": {
+      "parameters": [
+        {
+          "name": "linkId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "completeWebsiteAuthorization",
+        "description": "Confirm website-server-read-1 consent and transfer scoped cookies. Basstok probes the requested source page before durably recording consent and its website-local signed-in name. A cookie session can technically allow source writes; this adapter issues GET reads only. Never submit passwords or authenticator secrets. Failed verification grants no source session; completed authorization cannot be replayed. Source challenges may reject the server's IP even after browser login. Current admitted human only; no delegated App or another Member's access. No query parameters. Responses are no-store.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebsiteConsentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebsiteReaderPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/member-access/linked-websites/{linkId}/read": {
+      "parameters": [
+        {
+          "name": "linkId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "readLinkedWebsite",
+        "description": "Read one supported discussion/private-message page fresh. Requires current link generation and explicit consent for a saved source session; public reading needs no cookie transfer. Bounded HTTPS requests and redirects stay in the selected host/path and cannot reach private networks. No crawling, source mutation, media download, cached private fallback or migration. Bodies are transient, never saved as Basstok history. Non-ready responses have no message bodies. Source changes or unsupported challenges require website fallback. Current admitted human only; no delegated App or another Member's access. No query parameters. Responses are no-store.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebsiteReadInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebsiteReaderPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/member-access/linked-websites/{linkId}/progress": {
+      "parameters": [
+        {
+          "name": "linkId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      ],
+      "put": {
+        "operationId": "setWebsiteReadPosition",
+        "description": "Save one private page/message navigation marker in existing Member data, most recent first, at most 32 per link. It is not source visibility proof or source read-status synchronization. Ordinary activity acknowledgement may precede saving. Current admitted human only; no delegated App or another Member's access. No query parameters. Responses are no-store.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebsiteProgressInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Operation completed."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/api/v1/member-access/contact": {
       "get": {
         "operationId": "getPersonalContact",
@@ -779,6 +1044,47 @@
         },
         "operationId": "getAndroidAppAssociation",
         "description": "Served without redirect at basstok.com and routed managed subdomains. Declares com.basstok.app with configured signing SHA-256 for get_login_creds and handle_all_urls. Native intent filters bound recovery link paths. Missing BASSTOK_ANDROID_SIGNING_SHA256 fails closed."
+      }
+    },
+    "/api/v1/account/usage": {
+      "get": {
+        "operationId": "getAccountUsage",
+        "description": "Read current customer allowance and this UTC calendar month's communication activity using the current admitted human Account creator's session. No selectors, query parameters or body. Another Member, an Admin who is not the creator, and delegated Apps cannot read this private presentation. No purchases, allowance changes, refunds or provider requests occur.",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Private bounded usage; Cache-Control: no-store. Reservations survive restart and are distinct from settled spending and measured time.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountUsage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Selectors, query parameters and bodies are rejected."
+          },
+          "401": {
+            "description": "A current first-party Member session is required."
+          },
+          "403": {
+            "description": "An admitted human Account creator is required."
+          },
+          "409": {
+            "description": "The usage clock or current state requires reconciliation."
+          },
+          "503": {
+            "description": "Required canonical or private security state is unavailable."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
       }
     },
     "/api/v1/account/plan": {
@@ -11853,13 +12159,13 @@
           },
           "address": {
             "type": ["string", "null"],
-            "pattern": "^(?:[a-z]{6}|[a-z]{10})@basstok\\.com$",
+            "pattern": "^[a-z]{4,6}\\.[a-z]{3,6}@basstok\\.com$",
             "description": "The creator's already assigned public Basstok email address. Present together with contact_url; otherwise absent or null. Never a private phone, recovery address or authenticated sender claim."
           },
           "contact_url": {
             "type": ["string", "null"],
             "format": "uri",
-            "pattern": "^https://basstok\\.com/contact/(?:[a-z]{6}|[a-z]{10})$",
+            "pattern": "^https://basstok\\.com/contact/[a-z]{4,6}\\.[a-z]{3,6}$",
             "description": "Server-issued clean link whose final segment is address's exact local-part. Present together with address; otherwise absent or null. Discovery only, never a credential, automatic Connection/call approval or browser page."
           }
         },
@@ -11874,8 +12180,8 @@
             "member_id": "m"
           },
           "display_name": "Taylor Reed",
-          "address": "talora@basstok.com",
-          "contact_url": "https://basstok.com/contact/talora"
+          "address": "calm.cedar@basstok.com",
+          "contact_url": "https://basstok.com/contact/calm.cedar"
         }
       },
       "DirectChatInput": {
@@ -11886,15 +12192,15 @@
         "properties": {
           "address": {
             "type": "string",
-            "minLength": 18,
-            "maxLength": 22,
-            "pattern": "^(?:[a-z]{6}|[a-z]{10})@basstok\\.com$",
+            "minLength": 20,
+            "maxLength": 25,
+            "pattern": "^[a-z]{4,6}\\.[a-z]{3,6}@basstok\\.com$",
             "description": "Exact assigned public Basstok email address. Resolved against current address ownership and hosting routing, then rechecked for creator eligibility, admission and blocking. Links are parsed into this address before submission; external or private addresses are not matched."
           }
         },
         "additionalProperties": false,
         "example": {
-          "address": "morila@basstok.com"
+          "address": "brisk.maple@basstok.com"
         }
       },
       "PhoneUsageUnits": {
@@ -15706,9 +16012,22 @@
           "registration",
           "sip_message_available",
           "fax_receiving_supported",
-          "fax_sending_available"
+          "fax_sending_available",
+          "enterprise"
         ],
         "properties": {
+          "enterprise": {
+            "type": "boolean",
+            "description": "Current verified production Enterprise access for this Account. Required for selecting or using a customer provider, independently of Admin authority and Chat participation. Test purchases do not grant this access."
+          },
+          "plan_checked_at_ms": {
+            "type": ["integer", "null"], "format": "int64", "minimum": 1,
+            "description": "Last saved store verification time, not a promise of background refund detection."
+          },
+          "enterprise_until_ms": {
+            "type": ["integer", "null"], "format": "int64", "minimum": 1,
+            "description": "Verified access deadline, present only while Enterprise access is current."
+          },
           "connection": {
             "$ref": "#/components/schemas/CallingConnection"
           },
@@ -16093,7 +16412,7 @@
       "ManagedEmailState": {
         "type": "object", "additionalProperties": false, "required": ["can_send", "can_receive"],
         "properties": {
-          "address": {"type": "string", "pattern": "^[a-z]{10}@basstok\\.com$"},
+          "address": {"type": "string", "pattern": "^[a-z]{4,6}\\.[a-z]{3,6}@basstok\\.com$"},
           "chat_id": {"type": "string", "format": "uuid"},
           "can_send": {"type": "boolean"}, "can_receive": {"type": "boolean"}
         }
@@ -16692,6 +17011,7 @@
           "blocked_members"
         ],
         "properties": {
+          "linked_websites": {"type": "array", "maxItems": 8, "readOnly": true, "description": "Optional private links, returned only to this human Member; no source cookies or page bodies.", "items": {"$ref": "#/components/schemas/LinkedWebsite"}},
           "member_id": {
             "type": "string"
           },
@@ -16750,6 +17070,256 @@
         },
         "additionalProperties": false
       },
+      "AccountUsageAllowanceValues": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "budget_usd_micros"
+        ],
+        "properties": {
+          "budget_usd_micros": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "call_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "messages": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "faxes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100000
+          }
+        }
+      },
+      "AccountUsageSpend": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "usd_micros",
+          "call_seconds",
+          "messages",
+          "faxes"
+        ],
+        "properties": {
+          "usd_micros": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          "call_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          "messages": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          "faxes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000000
+          }
+        }
+      },
+      "AccountUsageAllowance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "granted",
+          "spent",
+          "reserved",
+          "remaining",
+          "starts_at_ms",
+          "pending_operations",
+          "messages_submitted"
+        ],
+        "properties": {
+          "granted": {
+            "$ref": "#/components/schemas/AccountUsageAllowanceValues"
+          },
+          "spent": {
+            "$ref": "#/components/schemas/AccountUsageSpend"
+          },
+          "reserved": {
+            "$ref": "#/components/schemas/AccountUsageSpend"
+          },
+          "remaining": {
+            "$ref": "#/components/schemas/AccountUsageAllowanceValues"
+          },
+          "starts_at_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 253402300799000
+          },
+          "ends_at_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 253402300799000,
+            "description": "Actual saved or verified paid-period end. Absent for the nonrenewing starter allowance. Does not promise automatic replenishment or release of pending holds."
+          },
+          "pending_operations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 128
+          },
+          "messages_submitted": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000000,
+            "description": "Managed text submissions charged to this allowance, including unfinished submissions; not successful delivery and not calling-account SIP MESSAGE activity."
+          }
+        }
+      },
+      "AccountUsageMonth": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "starts_at_ms",
+          "ends_at_ms",
+          "incoming",
+          "outgoing",
+          "pending_incoming_call_seconds",
+          "pending_outgoing_call_seconds",
+          "earlier_pending_call_seconds",
+          "earlier_pending_operations",
+          "outgoing_limits",
+          "outgoing_remaining"
+        ],
+        "properties": {
+          "starts_at_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 253402300799000
+          },
+          "ends_at_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 253402300800000
+          },
+          "incoming": {
+            "$ref": "#/components/schemas/PhoneUsageUnits"
+          },
+          "outgoing": {
+            "$ref": "#/components/schemas/PhoneUsageUnits",
+            "description": "Admitted operations and fax pages; call_seconds is confirmed connected voice time, excluding pending time, fax sessions and cellular texts."
+          },
+          "pending_incoming_call_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1843200
+          },
+          "pending_outgoing_call_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1843200
+          },
+          "earlier_pending_call_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1843200
+          },
+          "earlier_pending_operations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 128
+          },
+          "outgoing_limits": {
+            "$ref": "#/components/schemas/PhoneUsageLimits"
+          },
+          "outgoing_remaining": {
+            "$ref": "#/components/schemas/PhoneUsageLimits",
+            "description": "Remaining explicitly configured calling-line quotas, after admitted usage including pending reservations; absent/null means no quota of that kind, never unlimited service. A lower limit clamps remaining to zero. Calendar rollover does not release earlier holds."
+          }
+        }
+      },
+      "AccountUsage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "as_of_ms",
+          "reconciliation_required",
+          "call_allowance_available",
+          "fax_allowance_available",
+          "starter",
+          "month"
+        ],
+        "properties": {
+          "as_of_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 253402300799000
+          },
+          "subscription_checked_at_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 253402300799000
+          },
+          "current_source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "trial",
+              "monthly",
+              null
+            ]
+          },
+          "reconciliation_required": {
+            "type": "boolean"
+          },
+          "call_allowance_available": {
+            "type": "boolean"
+          },
+          "fax_allowance_available": {
+            "type": "boolean"
+          },
+          "starter": {
+            "$ref": "#/components/schemas/AccountUsageAllowance",
+            "description": "The once-only starter snapshot, including when a paid allowance is selected. It is not a fallback for exhausted active paid credit."
+          },
+          "monthly": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AccountUsageAllowance"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The selected verified paid-period presentation, or the last saved paid allowance when not selected or awaiting reconciliation. Unused previous credit is not available for new work."
+          },
+          "month": {
+            "$ref": "#/components/schemas/AccountUsageMonth"
+          }
+        },
+        "description": "A bounded private presentation of the Account's customer allowance and observed activity. Money is retail micro-USD, independent of supplier costs. Spent excludes pending holds; remaining excludes both. A current paid allowance may be derived from saved verified production proof without issuing a grant or writing any state. Current source is absent only when reconciliation is required. Call/fax allowance availability describes funding alone, never service readiness or a fixed number of remaining minutes. Subscription verification time is shown; this read makes no store request. Calendar activity uses UTC admission months and remains separate from paid periods."
+      },
       "AccountPlan": {
         "type": "object",
         "additionalProperties": false,
@@ -16758,9 +17328,22 @@
           "paid",
           "test_purchase",
           "auto_renews",
-          "acknowledgement_pending"
+          "acknowledgement_pending",
+          "enterprise"
         ],
         "properties": {
+          "tier": {
+            "type": ["string", "null"], "enum": ["monthly", "enterprise", null],
+            "description": "Saved verified subscription tier, retained through expiry. Google Play currently supports monthly only."
+          },
+          "enterprise": {
+            "type": "boolean",
+            "description": "Current production Enterprise access. Neither a test purchase nor payment alone grants Admin authority, ordinary admission or provider readiness."
+          },
+          "enterprise_product_id": {
+            "type": ["string", "null"], "minLength": 1, "maxLength": 255,
+            "description": "Explicitly configured Apple Enterprise product, absent until separate store setup is complete. The proposed commercial price does not create a product or establish purchase authority."
+          },
           "can_purchase": {
             "type": "boolean",
             "description": "Apple purchasing is configured for this Account and it is not owned by Google Play. Android purchasing is described by google_play. Store availability is checked on the device."
@@ -18713,6 +19296,369 @@
           }
         },
         "additionalProperties": false
+      },
+      "LinkedWebsiteInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "base_url",
+          "name"
+        ],
+        "properties": {
+          "base_url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096,
+            "description": "Public HTTPS website scope without credentials, query, fragment or nondefault port. Read URLs remain in the selected host and path."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1
+          }
+        }
+      },
+      "WebsiteReadPosition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "url",
+          "message_id",
+          "read_at"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096
+          },
+          "message_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "read_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LinkedWebsite": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "base_url",
+          "name",
+          "generation",
+          "created_at",
+          "positions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "base_url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "generation": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "consent_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "consent_version": {
+            "type": "string",
+            "const": "website-server-read-1"
+          },
+          "source_name": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "positions": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/WebsiteReadPosition"
+            }
+          }
+        }
+      },
+      "WebsiteSessionCookie": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "value",
+          "domain",
+          "path",
+          "expires_at",
+          "secure",
+          "http_only"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 4096,
+            "writeOnly": true
+          },
+          "domain": {
+            "type": "string",
+            "maxLength": 253,
+            "minLength": 1
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 2048,
+            "minLength": 1
+          },
+          "expires_at": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 253402300799
+          },
+          "secure": {
+            "type": "boolean"
+          },
+          "http_only": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WebsiteReadInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "generation",
+          "url"
+        ],
+        "properties": {
+          "generation": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096
+          }
+        }
+      },
+      "WebsiteConsentInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "generation",
+          "url",
+          "consent_version",
+          "cookies"
+        ],
+        "properties": {
+          "generation": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096
+          },
+          "consent_version": {
+            "type": "string",
+            "const": "website-server-read-1"
+          },
+          "cookies": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "description": "Sensitive source-session cookies; explicit server-access consent required. At most 32 KiB combined cookie fields.",
+            "items": {
+              "$ref": "#/components/schemas/WebsiteSessionCookie"
+            }
+          }
+        }
+      },
+      "WebsiteProgressInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "generation",
+          "url",
+          "message_id"
+        ],
+        "properties": {
+          "generation": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096
+          },
+          "message_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          }
+        }
+      },
+      "WebsiteReaderReference": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "url",
+          "label"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 256
+          }
+        }
+      },
+      "WebsiteReaderMessage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "author_name",
+          "body",
+          "links"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "author_name": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "author_reference": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "Website-local attribution, never a Basstok Member identity."
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 65536,
+            "description": "Read-only CommonMark-escaped source text; not canonical Basstok Content or a Message."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reactions": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source summary, not a Basstok engagement or mutation control."
+          },
+          "links": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/WebsiteReaderReference"
+            }
+          }
+        }
+      },
+      "WebsiteReaderPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "url",
+          "kind",
+          "title",
+          "messages",
+          "warnings"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "needs_sign_in",
+              "needs_interaction",
+              "unsupported",
+              "unavailable"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "",
+              "discussion",
+              "private_conversation"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "source_name": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "messages": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/WebsiteReaderMessage"
+            }
+          },
+          "previous": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096
+          },
+          "next": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096
+          },
+          "warnings": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        }
       },
       "SavedCommunity": {
         "type": "object", "required": ["account_id", "origin", "name"], "additionalProperties": false,
