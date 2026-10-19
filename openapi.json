@@ -453,7 +453,7 @@
       "put": {
         "operationId": "labelChatEmails",
         "summary": "Set your private Labels on selected email",
-        "description": "Current human participant only. Atomically replaces this Member's complete Label selection for 1–100 distinct received or outgoing email Messages in one Chat. Up to 16 distinct Label IDs must belong to this Member in this Account; other Members' definitions and Account discovery Labels are rejected. Every Message must pass current participant-history and blocked-author checks. Empty label_ids removes all Labels. Folders are preserved, including a labelled Inbox entry; unlabelled Inbox needs no filing entry. No shared Message, other Member's filing or provider mailbox is changed. Any invalid selection rejects the whole operation. Successful acknowledgement is durable, and exact repetition is safe. Cookie writes require browser presence protection. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
+        "description": "Current human participant only. Atomically replaces this Member's complete Label selection for 1–100 distinct received or outgoing email Messages in one Chat. Up to 16 distinct Label IDs must belong to this Member in this Account; other Members' definitions and Account discovery Labels are rejected. Every Message must pass current participant-history and blocked-author checks. Empty label_ids removes all Labels. Folders and stars are preserved; an unlabelled, unstarred Inbox email needs no filing entry. No shared Message, other Member's filing or provider mailbox is changed. Any invalid selection rejects the whole operation. Successful acknowledgement is durable, and exact repetition is safe. Cookie writes require browser presence protection. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {
           "type": "object", "required": ["message_ids", "label_ids"], "additionalProperties": false,
@@ -476,11 +476,13 @@
       "get": {
         "operationId": "searchMessages",
         "summary": "Search your authorized Chat Messages",
-        "description": "Human Member only; delegated applications and acting identities are rejected. Searches complete Message text, received/sent email subjects and retained sender/recipient addresses using case-insensitive substring matching after trimming the query. Received email matches claimed_from and its delivered recipient; outgoing email matches from and to. The original received To header is not retained separately and cannot be searched independently. Markdown bodies are searched as plain text. Query size is 1–512 UTF-8 bytes. Omit chat_id to search all currently authorized Chats, or supply it to search exactly one Chat. An unknown, foreign or forbidden Chat is rejected, including when the offset is past the end; scope never falls back to broader search. Only current authorized Chat history at or after the participant's admission boundary is searched; blocked authors and withdrawn Messages are excluded. Email search includes all of your folders and sent email; messages excludes received and sent email. Results contain exact Chat/Message destinations, a short body excerpt and created_at whenever the Message has a timestamp. Email hits additionally include subject, displayed sender (incoming) or recipient (outgoing) in address, and incoming direction; these email-only fields are absent for ordinary Messages. Without chat_id, Chats are visited in reverse inventory order; within each Chat, including an explicitly selected Chat, newest Messages come first. This is not global relevance or chronological ordering. Each request examines at most eight Chat positions and 512 Messages; a Chat-scoped request visits only the selected Chat. Continue with next_offset even after an empty page, using the same query, kind, Chat scope, Label filter and authorization context. Continuations are opaque and results can change with concurrent activity; restart from zero after changing context. Query parameters must have unique decoded names and nonempty values. Unknown parameters, malformed percent encoding, invalid UTF-8, NUL bytes and invalid unsigned integers are rejected. Responses are no-store. Includes authorized personal Chat locators from the source inbox. owner_account_id requires an exact chat_id, and results retain their owner.",
+        "description": "Human Member only; delegated applications and acting identities are rejected. Searches complete Message text, received/sent email subjects and retained sender/recipient addresses using case-insensitive substring matching after trimming the query. Received email matches claimed_from and its delivered recipient; outgoing email matches from and to. The original received To header is not retained separately and cannot be searched independently. Markdown bodies are searched as plain text. A supplied query is 1–512 UTF-8 bytes of meaningful text. Only explicit kind=email and starred=true permits omitted q for starred discovery; supplied empty q never widens discovery. Omit chat_id to search all currently authorized Chats, or supply it to search exactly one Chat. An unknown, foreign or forbidden Chat is rejected, including when the offset is past the end; scope never falls back to broader search. Only current authorized Chat history at or after the participant's admission boundary is searched; blocked authors and withdrawn Messages are excluded. Email search includes all of your folders and sent email; messages excludes received and sent email. Results contain exact Chat/Message destinations, a short body excerpt and created_at whenever the Message has a timestamp. Email hits additionally include subject, displayed sender (incoming) or recipient (outgoing) in address, and incoming direction; these email-only fields are absent for ordinary Messages. Without chat_id, Chats are visited in reverse inventory order; within each Chat, including an explicitly selected Chat, newest Messages come first. This is not global relevance or chronological ordering. Each request examines at most eight Chat positions and 512 Messages; a Chat-scoped request visits only the selected Chat. Continue with next_offset even after an empty page, using exactly the same query, kind, Chat scope, folder, Label, star filter and authorization context. Integer continuations are scan positions, not server-bound context tokens. Results can change with concurrent activity; clients must discard the continuation and results and restart from zero after changing any filter or authorization context. Query parameters must have unique decoded names and nonempty values. Unknown parameters, malformed percent encoding, invalid UTF-8, NUL bytes and invalid unsigned integers are rejected. Responses are no-store. Includes authorized personal Chat locators from the source inbox. owner_account_id requires an exact chat_id, and results retain their owner.",
         "security": [{"memberBearer": []}],
         "parameters": [
-          {"$ref": "#/components/parameters/SearchQuery"},
+          {"name": "q", "in": "query", "description": "Required except with explicit kind=email and starred=true. A supplied value must contain meaningful text; empty or whitespace-only values are always rejected, never interpreted as discovery.", "schema": {"type": "string", "minLength": 1, "maxLength": 512}},
           {"name": "kind", "in": "query", "schema": {"type": "string", "enum": ["all", "email", "messages"], "default": "all"}},
+          {"name": "starred", "in": "query", "description": "Private email filter. Presence requires explicit kind=email, including false. True discovers only your starred email in Inbox or Archive unless folder is explicit; false applies no star filter. Does not reveal another human's filing. Omit q only with true.", "schema": {"type": "boolean", "default": false}},
+          {"name": "folder", "in": "query", "description": "Requires starred=true. Intersects starred discovery with this exact folder, including Junk or Trash; without it, starred discovery excludes Junk and Trash.", "schema": {"type": "string", "enum": ["inbox", "archive", "trash", "junk"]}},
           {"name": "chat_id", "in": "query", "description": "Search exactly this Chat within the current Account. Requires current participant access and preserves admission/history and blocked-author restrictions. Omission searches all authorized Chats; an empty value is invalid. Keep the same scope on continuation requests.", "schema": {"type": "string", "minLength": 1, "maxLength": 256}},
           {"name": "label_id", "in": "query", "description": "Filter by one of your private email Labels across all folders. Requires kind all or email. Unknown or another Member's Label is rejected.", "schema": {"type": "string", "minLength": 1, "maxLength": 256}},
           {"name": "offset", "in": "query", "schema": {"type": "integer", "minimum": 0, "default": 0}},
@@ -503,17 +505,18 @@
       "get": {
         "operationId": "listChatEmails",
         "summary": "Read your email in one Chat folder",
-        "description": "Human participant only; delegated applications and acting identities are rejected. Returns received and outgoing email Messages together in newest-first order from this Member's selected folder, within their current authorized Chat history. Blocked authors are excluded. Filing is private to the acting Member; another participant or Admin cannot read it. An email without a filing entry is in Inbox, in either direction. Inbox, Archive, Trash and Junk all support received and outgoing email. Ordinary Chat Messages are not included. Folder changes do not remove Messages, Assets or other participants' access. Responses are no-store. Concurrent folder changes can shift offsets; refresh from zero to reconcile. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
+        "description": "Human participant only; delegated applications and acting identities are rejected. Returns received and outgoing email Messages together in newest-first order from this Member's selected folder, within their current authorized Chat history. Blocked authors are excluded. Filing is private to the acting Member; another participant or Admin cannot read it. An email without a filing entry is in Inbox, in either direction. Inbox, Archive, Trash and Junk all support received and outgoing email. Ordinary Chat Messages are not included. Folder changes do not remove Messages, Assets or other participants' access. Responses are no-store. Concurrent filing changes can shift offsets. Integer offsets are not server-bound context tokens: reuse them only with the same folder, Label, star and authorization context, and reset offsets and results to zero after context changes. Reads never change filing or read state. Duplicate or unknown query names, empty values, malformed encoding/UTF-8 and invalid integers/booleans are rejected. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [
           {
             "memberBearer": []
           }
         ],
         "parameters": [
+          {"name": "starred", "in": "query", "description": "True selects only your starred received/sent email. Without an explicit folder, includes Inbox and Archive but excludes Junk and Trash. False or omission preserves ordinary list defaults. Intersects label_id and any explicit folder.", "schema": {"type": "boolean", "default": false}},
           {
             "name": "folder",
             "in": "query",
-            "description": "Defaults to Inbox without label_id. With label_id, omission reads the Label across every folder; an explicit folder intersects that Label.",
+            "description": "Defaults to Inbox without label_id or starred=true. With label_id alone, omission spans every folder. With starred=true, omission includes Inbox and Archive only. An explicit folder intersects the other filters, including Junk or Trash.",
             "schema": {
               "$ref": "#/components/schemas/EmailFolder"
             }
@@ -559,12 +562,35 @@
         }
       }
     },
+    "/api/v1/chats/{chatId}/email/starred": {
+      "parameters": [{"$ref": "#/components/parameters/ChatId"}],
+      "put": {
+        "operationId": "starChatEmails",
+        "summary": "Star or unstar your selected email",
+        "description": "Current human participant only; delegated, acting and synthetic application identities are rejected. Atomically sets only your private star for 1–100 distinct received or sent email Messages in this Chat. Every selected Message must exist within your current participant/history and blocked-author boundaries; one inaccessible or non-email selection rejects the entire batch. Folder and private Labels are preserved. A star never changes shared Message data, another human's filing, read state, notifications or an upstream mailbox. Successful acknowledgement is durable and repetition is safe. Cookie writes require browser presence protection. Account-local only; owner selectors and all query parameters are rejected. No provider send is performed.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {
+          "type": "object", "required": ["message_ids", "starred"], "additionalProperties": false,
+          "properties": {
+            "message_ids": {"type": "array", "minItems": 1, "maxItems": 100, "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+            "starred": {"type": "boolean", "description": "A JSON boolean, not a string or number."}
+          }
+        }}}},
+        "responses": {
+          "204": {"description": "Your private stars are saved."},
+          "400": {"description": "Malformed body, duplicate or excessive IDs, nonboolean star, or any query parameter."},
+          "403": {"description": "The human or any selected email is unauthorized."},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/chats/{chatId}/email/folder": {
       "parameters": [{"$ref": "#/components/parameters/ChatId"}],
       "put": {
         "operationId": "fileChatEmails",
         "summary": "Move email to your chosen folder",
-        "description": "Human participant only; delegated applications and acting identities are rejected. Atomically sets the acting Member's folder for 1–100 distinct received or outgoing email Messages in this Chat, including mixed-direction batches. Every selected Message must exist within their authorized participant history and pass current blocked-author checks. Any invalid or inaccessible selection rejects the whole batch. Inbox, Archive, Trash and Junk all support both directions. Archive, Trash and Junk are reversible; Delete uses Trash and never destroys the shared Message or Assets. Inbox removes exceptional folder state while preserving private Labels. Successful acknowledgement is durable, and repeating the same selection and folder is safe. No source mailbox changes, spam training or other participants' filing are implied. Cookie-authenticated writes require the usual browser presence header. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
+        "description": "Human participant only; delegated applications and acting identities are rejected. Atomically sets the acting Member's folder for 1–100 distinct received or outgoing email Messages in this Chat, including mixed-direction batches. Every selected Message must exist within their authorized participant history and pass current blocked-author checks. Any invalid or inaccessible selection rejects the whole batch. Inbox, Archive, Trash and Junk all support both directions. Archive, Trash and Junk are reversible; Delete uses Trash and never destroys the shared Message or Assets. Inbox removes exceptional folder state while preserving private Labels and stars. Successful acknowledgement is durable, and repeating the same selection and folder is safe. No source mailbox changes, spam training or other participants' filing are implied. Cookie-authenticated writes require the usual browser presence header. This operation remains Account-local; foreign personal Chats and owner selectors are rejected.",
         "security": [{"memberBearer": []}],
         "requestBody": {
           "required": true,
@@ -16029,6 +16055,7 @@
             "$ref": "#/components/schemas/ReactionSummary",
             "description": "Present on Message history and exact-Message reads when visible reactions exist. Derived from currently authorized Chat reactions, never external transport acknowledgments. Counts sum to total_count and total at most 32; empty/withdrawn Messages omit this presentation, as may creation responses and list previews."
           },
+          "starred": {"type": "boolean", "enum": [true], "description": "Your private star on received or sent email, derived only for a current local human participant. False is omitted and means unstarred. Not shared Message data or another human's state; absent from delegated/acting and foreign-owner presentations. Returned by email lists and human Message history/exact reads, not necessarily create responses."},
           "assets": {
             "type": "array",
             "items": {
@@ -19885,7 +19912,8 @@
           "address": {"type": "string"},
           "incoming": {"type": "boolean"},
           "created_at": {"type": "string"},
-          "brand_asset_id": {"type": "string", "format": "uuid", "description": "Optional authorized sender-logo Asset from the matching email Message, not a Member identity."}
+          "brand_asset_id": {"type": "string", "format": "uuid", "description": "Optional authorized sender-logo Asset from the matching email Message, not a Member identity."},
+          "starred": {"type": "boolean", "enum": [true], "description": "Your private email star only. False is omitted; never another human's filing or an ordinary Message property."}
         },
         "additionalProperties": false
       },
