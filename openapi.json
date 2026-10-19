@@ -155,6 +155,29 @@
         }
       }
     },
+    "/api/v1/member-access/linked-websites/{linkId}/authorization/sign-in": {
+      "parameters": [{"name": "linkId", "in": "path", "required": true, "schema": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}],
+      "post": {
+        "operationId": "signInLinkedWebsite",
+        "description": "Explicitly submit website credentials through Basstok's server under separate website-server-sign-in-1 consent. First begin authorization to obtain the exact link generation. Send username/password with empty code; when needs_code or invalid_code is returned, submit code with empty username/password and the same target URL. The website's offered authenticator-code method is supported; no authenticator setup, secret or device trust is requested. Passwords/codes are transient, not stored or logged. One bounded source POST per call, no automatic retry. Native-source cookies and a pending challenge are private, bound to the current human session and ten-minute attempt. A verified signed-in source discussion/private-message read is required before ready and durable consent. Uncertain or cancelled work consumes the attempt and requires beginning again. Unsupported security/SSO/passkey/CAPTCHA flows require website interaction, which may not complete linking. No source content writes, crawling or canonical imports. Current admitted human only; no delegated Apps. No query parameters; responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WebsiteNativeSignInInput"}}}},
+        "responses": {
+          "200": {"description": "Explicit sign-in state; no credentials or challenge tokens are returned.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WebsiteNativeSignInStatus"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/member-access/linked-websites/{linkId}/authorization/cancel": {
+      "parameters": [{"name": "linkId", "in": "path", "required": true, "schema": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}],
+      "post": {
+        "operationId": "cancelWebsiteAuthorization",
+        "description": "Cancel only this human session's pending website authorization for the exact generation, remove its pending private cookies/challenge and cancel active source work. Does not delete the saved website link or revoke an already completed website session. Current admitted human only; no delegated Apps or query parameters.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["generation"], "properties": {"generation": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}}}},
+        "responses": {"204": {"description": "Pending authorization cancelled."}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
     "/api/v1/member-access/linked-websites/{linkId}/authorization/complete": {
       "parameters": [
         {
@@ -19297,6 +19320,25 @@
         },
         "additionalProperties": false
       },
+      "WebsiteNativeSignInInput": {
+        "type": "object", "additionalProperties": false,
+        "required": ["generation", "consent_version", "url", "username", "password", "code"],
+        "properties": {
+          "generation": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "consent_version": {"type": "string", "const": "website-server-sign-in-1"},
+          "url": {"type": "string", "format": "uri", "maxLength": 4096},
+          "username": {"type": "string", "maxLength": 256},
+          "password": {"type": "string", "maxLength": 4096, "writeOnly": true},
+          "code": {"type": "string", "maxLength": 16, "pattern": "^[0-9]*$", "writeOnly": true}
+        }
+      },
+      "WebsiteNativeSignInStatus": {
+        "type": "object", "additionalProperties": false, "required": ["state"],
+        "properties": {
+          "state": {"type": "string", "enum": ["ready", "needs_password", "needs_code", "invalid_code", "expired", "needs_interaction"]},
+          "page": {"$ref": "#/components/schemas/WebsiteReaderPage", "description": "Present only for ready, after independently verifying the signed-in source session."}
+        }
+      },
       "LinkedWebsiteInput": {
         "type": "object",
         "additionalProperties": false,
@@ -19383,7 +19425,7 @@
           },
           "consent_version": {
             "type": "string",
-            "const": "website-server-read-1"
+            "enum": ["website-server-read-1", "website-server-sign-in-1"]
           },
           "source_name": {
             "type": "string",
