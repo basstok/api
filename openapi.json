@@ -17419,6 +17419,12 @@
           "fax_allowance_available": {
             "type": "boolean"
           },
+          "calling_seconds_available": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "maximum": 14400,
+            "description": "Upper bound for one outgoing call from the currently selected allowance, customer tariff and remaining time/call quotas, excluding reserved capacity. Zero means none currently available; null or absent means the allowance needs reconciliation. This read grants no credit and does not establish destination or service readiness. Calls and fax share the allowance; this is not an additional grant or a fixed fax-page allowance."
+          },
           "starter": {
             "$ref": "#/components/schemas/AccountUsageAllowance",
             "description": "The once-only starter snapshot, including when a paid allowance is selected. It is not a fallback for exhausted active paid credit."
@@ -19432,7 +19438,7 @@
       "WebsiteNativeSignInStatus": {
         "type": "object", "additionalProperties": false, "required": ["state"],
         "properties": {
-          "state": {"type": "string", "enum": ["ready", "needs_password", "needs_code", "invalid_code", "expired", "needs_interaction"]},
+          "state": {"type": "string", "enum": ["ready", "needs_password", "needs_code", "invalid_code", "expired", "needs_interaction", "unsupported"], "description": "Expired describes an expired authorization attempt or source verification challenge. Unsupported means the requested page cannot be presented by this reader, even if website sign-in may have succeeded. Needs interaction includes website security checks; completing one in a browser does not guarantee server access."},
           "page": {"$ref": "#/components/schemas/WebsiteReaderPage", "description": "Present only for ready, after independently verifying the signed-in source session."}
         }
       },
