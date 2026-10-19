@@ -8675,6 +8675,27 @@
         }
       }
     },
+    "/api/v1/chats/{chatId}/messages/window": {
+      "parameters": [
+        {"$ref": "#/components/parameters/ChatId"},
+        {"$ref": "#/components/parameters/OwnerAccountId"}
+      ],
+      "get": {
+        "operationId": "getChatMessageWindow",
+        "description": "Read a bounded, contiguous Message window for the current admitted human participant. Items are oldest first within currently authorized history and blocking rules. Stable Message identities, not offsets, select nearby history. latest forbids message_id; around, before and after require it. before and after exclude their anchor; around includes it, balances nearby context and fills available space at the history boundaries. The optional first unread identity belongs only to this participant, ignores their own and deleted Messages, and is independent of whether they share read receipts. It may precede the returned window. No read position, receipt or notification is advanced by this request. kind=messages excludes email; kind=all includes every supported Message type. No acting identity, delegated App or other participant's read position. Responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "parameters": [
+          {"name": "position", "in": "query", "schema": {"type": "string", "enum": ["latest", "around", "before", "after"], "default": "latest"}},
+          {"name": "message_id", "in": "query", "schema": {"type": "string", "minLength": 1, "maxLength": 256}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}},
+          {"name": "kind", "in": "query", "schema": {"type": "string", "enum": ["all", "messages"], "default": "all"}}
+        ],
+        "responses": {
+          "200": {"description": "Currently authorized history and this participant's private unread location.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatMessageWindow"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/chats/{chatId}/messages/{messageId}": {
       "delete": {
         "operationId": "deleteMessage",
@@ -15363,6 +15384,17 @@
       "ChatReadInput": {
         "type": "object", "required": ["through_message_id"], "additionalProperties": false,
         "properties": {"through_message_id": {"type": "string", "minLength": 1, "maxLength": 256}}
+      },
+      "ChatMessageWindow": {
+        "type": "object",
+        "required": ["items", "has_earlier", "has_later"],
+        "additionalProperties": false,
+        "properties": {
+          "items": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/Message"}},
+          "has_earlier": {"type": "boolean", "description": "Earlier history exists within the selected authorized kind."},
+          "has_later": {"type": "boolean", "description": "Later history exists within the selected authorized kind."},
+          "first_unread_message_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 256, "description": "This participant's first accessible, non-deleted incoming Message after their own saved read position. It need not be within items. Omitted or null when none exists."}
+        }
       },
       "ChatReadReceipts": {
         "type": "object", "required": ["items"], "additionalProperties": false,
