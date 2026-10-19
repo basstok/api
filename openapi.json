@@ -587,12 +587,12 @@
       "get": {
         "operationId": "getAccountCallingSenders",
         "tags": ["Account"],
-        "summary": "Read your Account's outgoing calling and fax numbers",
-        "description": "Verified-phone human session of the personal Account creator only. Returns up to eight distinct telephone numbers currently configured for Basstok-provided outgoing calls and fax. These numbers are shared: the selected number may vary between attempts, and incoming calls or fax to it are not assigned to this Account. This is sending identity, not a reservation, dedicated receiving number, caller-ID suppression setting or guarantee of carrier readiness. An empty list means no outgoing numbers are configured. Customer-connected lines retain their own calling resource. No credentials or provider details are returned. No query parameters are accepted.",
+        "summary": "Read your Account's outgoing calling number",
+        "description": "Verified-phone human session of the personal Account creator only. An assigned current paid number is the calling identity; it never silently falls back to a shared number on an error. Otherwise returns the configured shared starter calling numbers, which can vary between attempts and do not receive calls for this Account. Assignment is not readiness: inspect the number status before new calls. Fax uses its separate sending-number resource. No credentials, provider costs or query parameters.",
         "security": [{"memberBearer": []}],
         "responses": {
           "200": {
-            "description": "Configured shared sending numbers.",
+            "description": "Current calling identity or shared starter numbers.",
             "content": {"application/json": {"schema": {
               "type": "array", "maxItems": 8, "uniqueItems": true,
               "items": {"type": "string", "pattern": "^\\+[1-9][0-9]{1,14}$"}
@@ -602,12 +602,92 @@
         }
       }
     },
+    "/api/v1/account/fax/senders": {
+      "get": {
+        "operationId": "getAccountFaxSenders",
+        "tags": ["Account"],
+        "summary": "Read shared fax sending numbers",
+        "description": "Verified-phone human Account creator only. These shared outgoing fax numbers are independent of an assigned calling number and do not assign incoming fax to this Account. No purchase or provider changes. No query parameters.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {"description": "Shared fax sending numbers.", "content": {"application/json": {"schema": {
+            "type": "array", "maxItems": 8, "uniqueItems": true, "items": {"type": "string", "pattern": "^\\+[1-9][0-9]{1,14}$"}
+          }}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/account/phone-number/incoming-sms": {
+      "post": {
+        "operationId": "receiveAssignedNumberText",
+        "tags": ["Phone"],
+        "summary": "Receive a signed assigned-number text",
+        "description": "Signed supplier event on the hosting destination only. The exact owned receiving number selects the Account; sender identity, a phone proof and arbitrary Account identifiers cannot select it. Unknown, ambiguous, suspended or unassigned numbers are rejected. This operation never rents or sends a message.",
+        "security": [],
+        "parameters": [
+          {"in": "header", "name": "telnyx-signature-ed25519", "required": true, "schema": {"type": "string", "maxLength": 128}},
+          {"in": "header", "name": "telnyx-timestamp", "required": true, "schema": {"type": "string", "maxLength": 16}}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "description": "The signed provider event, bounded to 32768 bytes."}}}},
+        "responses": {
+          "200": {"description": "The authorized event is accepted or is an exact replay."},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/account/phone-number": {
+      "get": {
+        "operationId": "getAccountPhoneNumber",
+        "tags": ["Account"],
+        "summary": "Read your assigned number and current availability",
+        "description": "Verified-phone human Account creator only. Reads the existing assignment and each service's readiness; never orders, rents, releases or replaces a number. Receiving calls, sending texts, receiving texts and receiving faxes are independent. A number being assigned does not prove any service is ready. Outgoing calls and fax keep their existing sending service. No query parameters are accepted.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {"description": "Current assignment and readiness. No-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccountPhoneNumber"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/account/phone-number/ensure": {
+      "post": {
+        "operationId": "ensureAccountPhoneNumber",
+        "tags": ["Account"],
+        "summary": "Explicitly request or check your number setup",
+        "description": "A new assignment requires the admitted verified-phone human Account creator and freshly verified Production monthly proof. Setup is disabled until separately approved recurring resource authorization is installed. An omitted chat_id prepares or reuses your own private receiving destination without a provider form. An explicitly supplied Chat must be your own private Chat. Later requests check the existing immutable destination. Existing orders can be checked by the same admitted creator after plan expiry; checks never submit another order. Timeouts, rejection or an empty reconciliation result cannot authorize another purchase. Test purchases cannot create real resources. This does not grant Admin authority, enroll a text sender, promise service readiness or buy a second fax number. Browser cookie requests require the usual presence header.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {
+          "type": "object", "additionalProperties": false,
+          "properties": {"chat_id": {"type": ["string", "null"], "format": "uuid"}}
+        }}}},
+        "responses": {
+          "200": {"description": "Existing request and current readiness, including an unconfirmed outcome. No-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccountPhoneNumber"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/account/phone-number/release": {
+      "post": {
+        "operationId": "releaseAccountPhoneNumber",
+        "tags": ["Account"],
+        "summary": "Explicitly release your assigned number",
+        "description": "Current admitted verified-phone human Account creator only, including after plan expiry or revocation. Requires explicit confirmation. New use stops before the single release request is submitted. An uncertain release is checked without repeating the release request or ordering another number. A release_pending result is not confirmation that rental billing has stopped. Unresolved ordering requires a setup review first. Message history and the subscription are unchanged. Released numbers are not automatically restored or re-rented. Browser cookie requests require the usual presence header.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {
+          "type": "object", "additionalProperties": false, "required": ["confirm"],
+          "properties": {"confirm": {"type": "boolean", "const": true}}
+        }}}},
+        "responses": {
+          "200": {"description": "Release or its unconfirmed outcome. No-store.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccountPhoneNumber"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/account/sms": {
       "get": {
         "operationId": "getAccountSmsSending",
         "tags": ["Account"],
         "summary": "Read your text message sending service",
-        "description": "Verified-phone human session of the personal Account creator only. Returns the configured shared SMS sender, current sending readiness and explicit reply support. This is neither a dedicated receiving line nor a phone-number mailbox; replies_supported is currently always false. Missing configuration returns not_configured without inventing a sender. A current production paid plan is required; test purchases, grace and starter allowance cannot enable this service. Readiness uses the current verified plan snapshot and read-only provider inspection; each new send refreshes production purchase proof and checks current authorization and limits again. Provider acceptance never promises delivery. Customer-connected Chat numbers retain their separate phone resource. No query parameters are accepted.",
+        "description": "Verified-phone human session of the personal Account creator only. Returns the actual configured sender, current sending readiness and explicit reply availability. Uses the existing shared sender unless a dedicated assignment has been explicitly requested. An assigned number does not silently fall back to a shared sender on supplier or setup failure. Dedicated sending additionally requires approved sender use and completed registration; SMS-capable inventory alone is not sufficient. Missing configuration returns not_configured without inventing a sender. A current Production monthly plan is required; test purchases, grace and starter allowance cannot enable sending. Each new send refreshes production purchase proof and rechecks authorization and limits. Reply availability requires the current assigned number's exact receiving destination; it does not imply per-recipient Chat threading. Provider acceptance never promises delivery. No query parameters are accepted.",
         "security": [{"memberBearer": []}],
         "responses": {
           "200": {"description": "Current text message sending readiness.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ManagedSmsSending"}}}},
@@ -15996,8 +16076,7 @@
           "direction": {"type": "string", "enum": ["incoming", "outgoing"]},
           "status": {"type": "string", "enum": ["received", "unconfirmed", "accepted", "sent", "delivered", "failed"]},
           "text": {"type": "string", "description": "Derived plain-text rendering of canonical Message.body, retaining line layout. Not independently stored."},
-          "service": {"type": "string", "enum": ["basstok"], "description": "Present for outgoing texts through Basstok's shared sending service; omitted for customer-connected SMS."},
-          "replies_supported": {"type": "boolean", "enum": [false], "description": "Present and false for Basstok's shared sender. An incoming reply is not assigned to this Account."}
+          "service": {"type": "string", "enum": ["basstok"], "description": "Present for allowance-funded text messages. Current sending and reply readiness are read separately from the service resource."}
         },
         "additionalProperties": false
       },
@@ -16339,14 +16418,32 @@
           }
         }
       },
+      "AccountPhoneNumber": {
+        "type": "object", "additionalProperties": false,
+        "required": ["state", "can_ensure", "can_release", "calls", "outgoing_calls", "text_messages", "receiving_texts", "receiving_faxes"],
+        "properties": {
+          "state": {"type": "string", "enum": ["not_assigned", "pending", "assigned", "suspended", "release_pending", "released"]},
+          "number": {"type": ["string", "null"], "pattern": "^\\+[1-9][0-9]{1,14}$", "description": "The confirmed assignment, never an unconfirmed inventory candidate or the private verification number."},
+          "can_ensure": {"type": "boolean", "description": "An explicit setup/check mutation is currently available; this read never submits it."},
+          "can_release": {"type": "boolean"},
+          "outgoing_calls": {"$ref": "#/components/schemas/PhoneNumberReadiness", "description": "Calling with the assigned number when routable and actually ready. Shared fax remains separate."},
+          "calls": {"$ref": "#/components/schemas/PhoneNumberReadiness", "description": "Receiving calls on the current connected line; not an outgoing caller-ID or background notification guarantee."},
+          "text_messages": {"$ref": "#/components/schemas/PhoneNumberReadiness", "description": "Sending text readiness, separate from number capability and receiving."},
+          "receiving_texts": {"$ref": "#/components/schemas/PhoneNumberReadiness"},
+          "receiving_faxes": {"type": "string", "enum": ["not_supported"]}
+        }
+      },
+      "PhoneNumberReadiness": {
+        "type": "string", "enum": ["not_connected", "ready", "connecting", "setup_required", "provider_setup", "paid_plan_required", "limit_reached", "unavailable", "suspended", "not_supported"]
+      },
       "ManagedSmsSending": {
         "type": "object",
         "required": ["state", "can_send", "replies_supported"],
         "properties": {
-          "sender": {"type": "string", "minLength": 1, "maxLength": 16, "description": "Configured shared telephone number or alphanumeric sender. Omitted when unconfigured. Never a dedicated incoming line."},
+          "sender": {"type": "string", "minLength": 1, "maxLength": 16, "description": "Actual configured telephone number or alphanumeric sender. Omitted when unconfigured. Sending identity alone does not prove receiving readiness."},
           "state": {"type": "string", "enum": ["not_configured", "paid_plan_required", "provider_setup", "unavailable", "limit_reached", "ready"]},
           "can_send": {"type": "boolean", "description": "Current verified plan snapshot, inspected sender and remaining sending limit permit a new attempt; the send operation rechecks all admission requirements."},
-          "replies_supported": {"type": "boolean", "enum": [false]}
+          "replies_supported": {"type": "boolean", "description": "Current assigned-number replies can reach the own private receiving Chat. False for a shared sender. Independent of outbound sending readiness."}
         },
         "additionalProperties": false
       },
