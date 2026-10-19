@@ -239,7 +239,7 @@
       ],
       "post": {
         "operationId": "readLinkedWebsite",
-        "description": "Read one supported discussion/private-message page fresh. Requires current link generation and explicit consent for a saved source session; public reading needs no cookie transfer. Bounded HTTPS requests and redirects stay in the selected host/path and cannot reach private networks. No crawling, source mutation, media download, cached private fallback or migration. Bodies are transient, never saved as Basstok history. Non-ready responses have no message bodies. Source changes or unsupported challenges require website fallback. Current admitted human only; no delegated App or another Member's access. No query parameters. Responses are no-store.",
+        "description": "Read one supported discussion/private-message page fresh. Requires current link generation and explicit consent for a saved source session; public reading needs no cookie transfer. Bounded HTTPS requests and redirects stay in the selected host/path and cannot reach private networks. URL fragments returned by a read redirect are not sent to the website; scheme, host and installation-path restrictions still apply. No crawling, source mutation, media download, cached private fallback or migration. Bodies are transient, never saved as Basstok history. Non-ready responses have no message bodies. Source changes or unsupported challenges require website fallback. Current admitted human only; no delegated App or another Member's access. No query parameters. Responses are no-store.",
         "security": [
           {
             "memberBearer": []
