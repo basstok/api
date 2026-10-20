@@ -8532,6 +8532,31 @@
         }
       }
     },
+    "/api/v1/chats/{chatId}/notification-preference": {
+      "parameters": [
+        {"$ref": "#/components/parameters/ChatId"},
+        {"$ref": "#/components/parameters/OwnerAccountId"}
+      ],
+      "get": {
+        "operationId": "getChatNotificationPreference",
+        "description": "Read only the current admitted human participant's private alert preference for this exact Chat. Authenticate at the participant's own Account; owner_account_id selects the Chat owner, not another identity. No acting identity, delegated application or other query parameters. Responses are no-store. The preference is not disclosed in shared Chat or Member profiles.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {"description": "Current private preference; false is the ordinary default.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatNotificationPreference"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      },
+      "put": {
+        "operationId": "setChatNotificationPreference",
+        "description": "Durably set the current human participant's private alert preference for this exact authorized Chat. Muting suppresses new message push alerts and optional activity email across devices; Messages, unread state, foreground updates and Calls remain unchanged. Unmuting does not replay alerts suppressed at notification acceptance. Already dispatched external alerts cannot be retracted. Repeat the same boolean safely. No acting identity or delegated application; cookie-authenticated writes require browser presence protection. Maximum request body 1024 bytes; responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatNotificationPreference"}}}},
+        "responses": {
+          "200": {"description": "Preference saved, or already current.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatNotificationPreference"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/chats/{chatId}/typing": {
       "parameters": [
         {
@@ -16655,6 +16680,10 @@
       "MemberAvatarInput": {
         "type": "object", "required": ["avatar"], "additionalProperties": false,
         "properties": {"avatar": {"anyOf": [{"$ref": "#/components/schemas/CanonicalReference"}, {"type": "null"}]}}
+      },
+      "ChatNotificationPreference": {
+        "type": "object", "required": ["muted"], "additionalProperties": false,
+        "properties": {"muted": {"type": "boolean"}}
       },
       "ChatReadInput": {
         "type": "object", "required": ["through_message_id"], "additionalProperties": false,
