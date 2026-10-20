@@ -1295,8 +1295,8 @@
                               },
                               "components": {
                                 "type": "array",
-                                "minItems": 6,
-                                "maxItems": 6,
+                                "minItems": 7,
+                                "maxItems": 7,
                                 "items": false,
                                 "prefixItems": [{
                                   "type": "object",
@@ -1353,6 +1353,16 @@
                                     }
                                   },
                                   {
+                                    "type": "object", "additionalProperties": false, "required": ["/", "?"],
+                                    "properties": {
+                                      "/": {"type": "string", "const": "/account"},
+                                      "?": {
+                                        "type": "object", "additionalProperties": false, "required": ["invitation_token"],
+                                        "properties": {"invitation_token": {"type": "string", "const": "?*"}}
+                                      }
+                                    }
+                                  },
+                                  {
                                     "type": "object", "additionalProperties": false, "required": ["/"],
                                     "properties": {"/": {"type": "string", "const": "/contact/*"}}
                                   },
@@ -1385,7 +1395,7 @@
           }
         },
         "operationId": "getAppleAppAssociation",
-        "description": "Served without redirect at basstok.com and routed managed subdomains. Declares the configured Apple app for shared passkeys, /account links carrying recovery_token or email_sign_in_token, /contact/* discovery links and the three provider return destinations. Native contact parsing requires the exact https://basstok.com/contact/<assigned-address-local-part> form; association does not establish identity or authority. Verification links remain browser actions. Missing BASSTOK_APPLE_APPLICATION_ID fails closed; credential-free onboarding and email sign-in do not require an app association."
+        "description": "Served without redirect at basstok.com and routed managed subdomains. Declares the configured Apple app for shared passkeys, /account links carrying recovery_token, email_sign_in_token or invitation_token, /contact/* discovery links and the three provider return destinations. Invitations require an explicit join to their exact Account and confer no login, verification or role authority. Native contact parsing requires the exact https://basstok.com/contact/<assigned-address-local-part> form; association does not establish identity or authority. Verification links remain browser actions. Missing BASSTOK_APPLE_APPLICATION_ID fails closed; credential-free onboarding and email sign-in do not require an app association."
       }
     },
     "/.well-known/assetlinks.json": {
