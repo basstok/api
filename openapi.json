@@ -817,7 +817,7 @@
       "get": {
         "operationId": "searchMessages",
         "summary": "Search your authorized Chat Messages",
-        "description": "Human Member only; delegated Apps and acting identities are rejected. Searches complete authorized Chat Message text using case-insensitive substring matching after trimming a required meaningful query of 1–512 UTF-8 bytes. Markdown bodies are searched as plain text. Email history is separate at /api/v1/mailbox/emails. Omit chat_id to search authorized Chats or supply it to search exactly one Chat. An unknown or forbidden Chat is rejected even beyond the end of a scan; scope never widens. An authorized foreign personal Chat may be selected with its exact owner_account_id and chat_id. Only history at or after the current participant's admission boundary is searched; blocked authors and withdrawn Messages are excluded. Results contain owner_account_id, chat_id, message_id, a short body excerpt and created_at when available. Without chat_id, Chats are visited in reverse inventory order; within each Chat, newest Messages come first, not global relevance or chronological order. A request examines at most eight Chat positions and 512 Messages. Follow next_offset even after an empty page, retaining the same query, scope and authorization context; continuations are scan positions, not bound context tokens. Restart from zero after changing query, scope or authorization. Query names must be unique, decoded values nonempty and UTF-8 valid. Unknown parameters, malformed escapes and unsigned integers are rejected. owner_account_id requires an exact chat_id; account_id may select only the already routed Account. No kind, folder, Label or star filters. Responses are no-store.",
+        "description": "Human Member only; delegated Apps and acting identities are rejected. Searches complete authorized Chat Message text using case-insensitive substring matching after trimming a required meaningful query of 1–512 UTF-8 bytes. Markdown bodies are searched as plain text. Email history is separate at /api/v1/mailbox/emails. Omit chat_id to search authorized Chats or supply it to search exactly one Chat. An unknown or forbidden Chat is rejected even beyond the end of a scan; scope never widens. An authorized foreign personal Chat may be selected with its exact owner_account_id and chat_id. Only history at or after the current participant's admission boundary is searched; blocked authors and withdrawn Messages are excluded. Results contain owner_account_id, chat_id, message_id, a short body excerpt and created_at when available. Without chat_id, Chats are visited in reverse inventory order; within each Chat, newest Messages come first, not global relevance or chronological order. A request examines at most eight Chat positions and 512 admitted Messages, including archived history. Follow next_cursor even after an empty page, retaining the same query and scope. Cursors qualify traversal to the requesting Account, Member, normalized query, optional Chat and current admission; they never authorize access. Omit cursor to start again after changing context or an unavailable continuation. Current authorization and blocking are checked on every page. Query names must be unique, decoded values nonempty and UTF-8 valid. Unknown parameters, malformed escapes and unsigned integers are rejected. owner_account_id requires an exact chat_id; account_id may select only the already routed Account. No kind, folder, Label or star filters. Responses are no-store.",
         "security": [
           {
             "memberBearer": []
@@ -846,12 +846,12 @@
             }
           },
           {
-            "name": "offset",
+            "name": "cursor",
             "in": "query",
             "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
             }
           },
           {
@@ -8641,21 +8641,77 @@
         }
       }
     },
-    "/api/v1/chats/{chatId}/assets/{assetId}": {
+    "/api/v1/chats/{chatId}/assets": {
       "parameters": [
         {
           "$ref": "#/components/parameters/ChatId"
         },
         {
-          "$ref": "#/components/parameters/AssetId"
-        },
-        {
           "$ref": "#/components/parameters/OwnerAccountId"
         }
       ],
-      "put": {
-        "operationId": "attachChatAsset",
-        "description": "Attaches an already uploaded Chat-owned Asset to a Chat available to the effective participant.",
+      "get": {
+        "operationId": "listChatAssets",
+        "description": "Lists shared files currently visible to the effective Chat participant, newest first. Follow next_cursor even when a page is empty. Each continuation stays bound to the original owner, Chat and participant admission; later shares are visible after a fresh read. Responses are private and no-store.",
+        "security": [
+          {"memberBearer": []},
+          {"oauth": ["chat:read"]}
+        ],
+        "parameters": [
+          {"$ref": "#/components/parameters/ActorQuery"},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 50, "default": 50}},
+          {"name": "cursor", "in": "query", "schema": {"type": "string", "minLength": 1, "maxLength": 4096}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized shared-file page",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChatAssetPage"}}}
+          },
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      },
+      "post": {
+        "operationId": "publishChatAsset",
+        "description": "Shares a currently readable upload or attachment with this Chat's authorized participants, creating an independently owned shared Asset. Exact retries require the same source and idempotency key; they do not restore removed shares or bypass current source access. The returned identity is the shared Asset, not the source upload. Responses are private and no-store.",
+        "security": [
+          {"memberBearer": []},
+          {"oauth": ["chat:write"]}
+        ],
+        "parameters": [
+          {"$ref": "#/components/parameters/ActorQuery"},
+          {"$ref": "#/components/parameters/IdempotencyKey"}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["source_asset_id"],
+                "additionalProperties": false,
+                "properties": {"source_asset_id": {"type": "string", "format": "uuid"}}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Published shared Asset or exact completed retry",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Asset"}}}
+          },
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/chats/{chatId}/assets/{assetId}": {
+      "parameters": [
+        {"$ref": "#/components/parameters/ChatId"},
+        {"$ref": "#/components/parameters/AssetId"},
+        {"$ref": "#/components/parameters/OwnerAccountId"}
+      ],
+      "delete": {
+        "operationId": "removeChatAsset",
+        "description": "Removes the exact shared Asset from a Chat managed by the effective participant. This does not change independently owned Message attachments. Removal cannot be undone by retrying the earlier publication.",
         "security": [
           {
             "memberBearer": []
@@ -8672,67 +8728,53 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Updated Chat",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Chat"
-                    },
-                    {
-                      "$ref": "#/components/schemas/CanonicalReference"
-                    }
-                  ]
-                }
-              }
-            }
-          },
+          "204": {"description": "Shared Asset removed"},
           "default": {
             "$ref": "#/components/responses/Error"
           }
         }
-      },
-      "delete": {
-        "operationId": "detachChatAsset",
-        "description": "Detaches a Chat-owned Asset from a Chat managed by the effective participant.",
+      }
+    },
+    "/api/v1/chats/{chatId}/asset-copies": {
+      "parameters": [
+        {"$ref": "#/components/parameters/ChatId"},
+        {"$ref": "#/components/parameters/OwnerAccountId"}
+      ],
+      "post": {
+        "operationId": "copyMessageAttachment",
+        "description": "Copies an exact currently readable Message attachment into a private upload for this Chat's effective participant. The source and destination each retain their own current authorization, admission boundary and custody. Copying does not send a Message or share the upload with other participants. A later explicit Message send creates that Message's own attachment identities. Exact retries require the same source and idempotency key; an unavailable source cannot be used to recover access through a retry. Copies across Accounts retain independently owned bytes in the destination. Responses are private and no-store.",
         "security": [
-          {
-            "memberBearer": []
-          },
-          {
-            "oauth": [
-              "chat:write"
-            ]
-          }
+          {"memberBearer": []},
+          {"oauth": ["chat:read", "chat:write"]}
         ],
         "parameters": [
-          {
-            "$ref": "#/components/parameters/ActorQuery"
-          }
+          {"$ref": "#/components/parameters/ActorQuery"},
+          {"$ref": "#/components/parameters/IdempotencyKey"}
         ],
-        "responses": {
-          "200": {
-            "description": "Updated Chat",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Chat"
-                    },
-                    {
-                      "$ref": "#/components/schemas/CanonicalReference"
-                    }
-                  ]
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["source_owner_account_id", "source_chat_id", "source_message_id", "asset_id"],
+                "additionalProperties": false,
+                "properties": {
+                  "source_owner_account_id": {"type": "string", "minLength": 1},
+                  "source_chat_id": {"type": "string", "minLength": 1, "maxLength": 256},
+                  "source_message_id": {"type": "string", "minLength": 1, "maxLength": 256},
+                  "asset_id": {"type": "string", "format": "uuid"}
                 }
               }
             }
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
           }
+        },
+        "responses": {
+          "200": {
+            "description": "New private upload, not a sent Message",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Asset"}}}
+          },
+          "default": {"$ref": "#/components/responses/Error"}
         }
       }
     },
@@ -8844,7 +8886,7 @@
       ],
       "get": {
         "operationId": "getChatMessageWindow",
-        "description": "Read a bounded, contiguous Message window for the current admitted human participant. Items are oldest first within currently authorized history and blocking rules. Stable Message identities, not offsets, select nearby history. latest forbids message_id; around, before and after require it. before and after exclude their anchor; around includes it, balances nearby context and fills available space at the history boundaries. The optional first unread identity belongs only to this participant, ignores their own and deleted Messages, and is independent of whether they share read receipts. It may precede the returned window. No read position, receipt or notification is advanced by this request. No acting identity, delegated App or other participant's read position. Responses are no-store.",
+        "description": "Read a bounded Message window for the current admitted human participant, including selected archived history. Items are oldest first within currently authorized history and blocking rules. Stable Message identities select nearby history. latest forbids message_id; around, before and after require it. before and after exclude their anchor; around includes it, balances nearby context and fills available space at history boundaries. continue requires an opaque cursor and forbids message_id; other positions forbid cursor. Cursors are qualified to the exact source Account, Member, owning Account, Chat and admission boundary; they never authorize access. Follow directional cursors even after an empty filtered page. Each directional scan examines at most 512 admitted Messages; a window performs at most two such scans plus a separate bounded unread scan. The optional first unread identity belongs only to this participant, ignores their own and deleted Messages, and is independent of whether they share read receipts. It may precede the returned window. If discovery is unfinished, unread_cursor continues the captured read position; that continuation returns empty items and either the first unread identity, further unread_cursor, or neither when exhausted. No read position, receipt or notification is advanced. No acting identity, delegated App or other participant's read position. Responses are no-store.",
         "security": [
           {
             "memberBearer": []
@@ -8860,9 +8902,19 @@
                 "latest",
                 "around",
                 "before",
-                "after"
+                "after",
+                "continue"
               ],
               "default": "latest"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
             }
           },
           {
@@ -9064,7 +9116,7 @@
       ],
       "get": {
         "operationId": "getAsset",
-        "description": "Returns an authorized Asset payload or metadata. A private Mailbox Asset requires its current admitted human owner; another Manager, acting identity and delegated Apps, including email:send, have no general access to payload, metadata, range or conditional responses. A Member-owned photo requires current human access: self may read own uploads; others need an accepted Connection, enabled photo sharing and the currently selected image. Blocking and deletion suppress sharing. No administrator or delegated bypass exists. For a Chat-owned Asset, chat:read and effective-participant access from that Member's admission boundary are both required; actor_id may select an existing controlled Member. Payload responses include a strong ETag. Anonymous payloads use private, no-cache, must-revalidate; authenticated payloads use no-store. Asset URLs are not immutable. Conditional payload requests always evaluate current authorization before returning bytes or 304. Metadata responses are not conditional.",
+        "description": "Returns an authorized Asset payload or metadata. A private Mailbox Asset requires its current admitted human owner; another Manager, acting identity and delegated Apps, including email:send, have no general access to payload, metadata, range or conditional responses. A Member-owned photo requires current human access: self may read own uploads; others need an accepted Connection, enabled photo sharing and the currently selected image. Blocking and deletion suppress sharing. No administrator or delegated bypass exists. For a Chat-owned Asset, chat:read and effective-participant access from that Member's admission boundary are both required; actor_id may select an existing controlled Member. Supply paired chat_id and message_id to read an attachment through its exact current accessible Message reference, including archived history, without scanning unrelated history. That Message must still reference this Asset and cannot be withdrawn or blocked. Another surviving Message reference never authorizes this source. The qualification applies to metadata, complete/ranged bytes and conditional responses; never drop it after an access failure. Payload responses include a strong ETag. Anonymous payloads use private, no-cache, must-revalidate; authenticated payloads use no-store. Asset URLs are not immutable. Every request evaluates current authorization before returning metadata, bytes, 304, 412 or 416; an admitted streaming response does not promise per-chunk reauthorization. Metadata responses are not conditional.",
         "security": [
           {},
           {
@@ -9084,6 +9136,18 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/ActorQuery"
+          },
+          {
+            "name": "chat_id",
+            "in": "query",
+            "description": "Exact Chat containing the source attachment Message. Requires message_id; never selects another Asset owner.",
+            "schema": {"type": "string", "minLength": 1, "maxLength": 256}
+          },
+          {
+            "name": "message_id",
+            "in": "query",
+            "description": "Exact surviving attachment source. Requires chat_id and current source access.",
+            "schema": {"type": "string", "minLength": 1, "maxLength": 256}
           },
           {
             "$ref": "#/components/parameters/AssetMetadata"
@@ -10184,7 +10248,7 @@
       ],
       "post": {
         "operationId": "beginCallRecordingUpload",
-        "description": "Creates a short-lived direct multipart Object Storage upload during this unanimously consented Call recording session's bounded recovery window.",
+        "description": "Admits this participant's exact immutable recording declaration within the unanimously consented session's recovery window. Returns a short-lived direct multipart upload grant, or the matching completed Asset for an exact retry. A completed retry does not require uploading the bytes again. Current participant and history authorization always apply.",
         "security": [
           {
             "memberBearer": []
@@ -10201,6 +10265,10 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Exact recording already completed",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Asset"}}}
+          },
           "201": {
             "description": "Direct multipart upload admitted",
             "content": {
@@ -16705,9 +16773,12 @@
         "additionalProperties": false,
         "properties": {
           "items": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/Message"}},
-          "has_earlier": {"type": "boolean", "description": "Earlier history exists within the selected authorized kind."},
-          "has_later": {"type": "boolean", "description": "Later history exists within the selected authorized kind."},
-          "first_unread_message_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 256, "description": "This participant's first accessible, non-deleted incoming Message after their own saved read position. It need not be within items. Omitted or null when none exists."}
+          "has_earlier": {"type": "boolean", "description": "Earlier admitted history remains to examine; equivalent to presence of earlier_cursor. Filtering may produce another empty page."},
+          "has_later": {"type": "boolean", "description": "Later admitted history remains to examine; equivalent to presence of later_cursor. Filtering may produce another empty page."},
+          "first_unread_message_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 256, "description": "This participant's first accessible, non-deleted incoming Message after the captured saved read position. It need not be within items. Absent with unread_cursor means discovery is unfinished; absent without it means no unread Message was found."},
+          "earlier_cursor": {"type": ["string", "null"], "minLength": 1, "maxLength": 4096, "description": "Opaque continuation toward earlier admitted history. Use position=continue and retain the same Chat and authorization context."},
+          "later_cursor": {"type": ["string", "null"], "minLength": 1, "maxLength": 4096, "description": "Opaque continuation toward later admitted history. Use position=continue and retain the same Chat and authorization context."},
+          "unread_cursor": {"type": ["string", "null"], "minLength": 1, "maxLength": 4096, "description": "Opaque private unread-discovery continuation preserving the captured read baseline. Use position=continue; it returns no window items. Never interprets a physical scan boundary as the first unread Message."}
         }
       },
       "ChatReadReceipts": {
@@ -17863,6 +17934,7 @@
           },
           "asset_ids": {
             "type": "array",
+            "description": "Currently authorized source Assets for this Chat. Each sent Message receives its own immutable attachment identities, returned in the Message response; these may differ from the submitted source IDs. Retry with the original source IDs and idempotency key. Forwarding an attachment from another Chat first uses the explicit attachment-copy operation.",
             "items": {
               "type": "string"
             }
@@ -17882,7 +17954,6 @@
         "required": [
           "id",
           "participants",
-          "assets",
           "participant_members",
           "owner_account_id"
         ],
@@ -17916,12 +17987,6 @@
           "created_at": {
             "type": "string"
           },
-          "assets": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CanonicalReference"
-            }
-          },
           "participant_members": {
             "type": "array",
             "items": {
@@ -17945,6 +18010,15 @@
           }
         },
         "additionalProperties": false
+      },
+      "ChatAssetPage": {
+        "type": "object",
+        "required": ["items"],
+        "additionalProperties": false,
+        "properties": {
+          "items": {"type": "array", "maxItems": 50, "items": {"$ref": "#/components/schemas/Asset"}},
+          "next_cursor": {"type": "string", "minLength": 1, "maxLength": 4096}
+        }
       },
       "ChatWrite": {
         "type": "object",
@@ -21730,7 +21804,7 @@
         "required": ["items"],
         "properties": {
           "items": {"type": "array", "maxItems": 50, "items": {"$ref": "#/components/schemas/MessageSearchHit"}},
-          "next_offset": {"type": "integer", "minimum": 0, "description": "Opaque continuation; continue even if items is empty, until next_offset is absent."}
+          "next_cursor": {"type": "string", "minLength": 1, "maxLength": 4096, "description": "Opaque continuation. Keep the same query and scope; continue even if items is empty, until next_cursor is absent."}
         },
         "additionalProperties": false
       },
@@ -21748,7 +21822,8 @@
           },
           "next_offset": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "description": "Opaque scan progress within admitted Chat history, not a visible-result count. Keep the same Chat, order and authorization context. Continue even after an empty filtered page while next_offset is present. Each request examines at most 512 admitted Messages."
           }
         },
         "additionalProperties": false
