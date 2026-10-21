@@ -5762,6 +5762,35 @@
         }
       }
     },
+    "/api/v1/member-access/contact-directory": {
+      "get": {
+        "operationId": "getContactDirectory",
+        "description": "Read the current human Member's private contact presentation from permitted address books and deliberate communication. Incoming strangers, newsletters and incidental views do not create entries. Phone numbers and email addresses never imply a Basstok Member identity. Reads neither save contacts nor send communication. Pages are bounded scans, can be empty with a continuation, and may repeat an exact target with additional evidence; consumers merge exact targets in a bounded presentation window. Continue until next_cursor is absent rather than treating a page limit as a history limit. Authorization is evaluated for every source. Other Members, administrators and delegated Apps cannot read this presentation. Unknown or duplicate query parameters are rejected.",
+        "security": [{"memberBearer": []}],
+        "parameters": [
+          {"name": "query", "in": "query", "schema": {"type": "string", "maxLength": 256}, "description": "Search saved labels and exact endpoint presentation across continued source reads; at most 256 UTF-8 bytes."},
+          {"name": "cursor", "in": "query", "schema": {"type": "string", "minLength": 1, "maxLength": 4096}, "description": "Opaque continuation bound to this Account, Member, search and hidden selection. Not authorization."},
+          {"name": "hidden", "in": "query", "schema": {"type": "boolean", "default": false}, "description": "Review only explicit hidden targets, including targets whose original activity no longer exists. Hidden entries provide no communication actions."},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}}
+        ],
+        "responses": {
+          "200": {"description": "Private bounded contact page; never shared-cacheable.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ContactDirectoryPage"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/member-access/contact-visibility": {
+      "put": {
+        "operationId": "setContactVisibility",
+        "description": "Durably hide or unhide an exact contact target for the current human Member only. Hidden targets stay hidden after reconstruction and later activity until explicitly unhidden. This does not block anyone, delete history or address-book entries, mute notifications or unsubscribe from email. The request is idempotent. No query parameters or delegated access are accepted. Browser requests require normal mutation-presence protection. The body is limited to 4 KiB.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ContactVisibilityInput"}}}},
+        "responses": {
+          "204": {"description": "The current Member's visibility preference is durable."},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/member-access/contact-sources/{sourceId}": {
       "parameters": [{"name": "sourceId", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}, "description": "Lowercase random UUID identifying this device's source, not a hardware identifier."}],
       "put": {
@@ -13647,13 +13676,13 @@
           },
           "address": {
             "type": ["string", "null"],
-            "pattern": "^[a-z]{4,6}\\.[a-z]{3,6}@basstok\\.com$",
+            "pattern": "^[a-z]{3,12}@basstok\\.com$",
             "description": "The creator's already assigned public Basstok email address. Present together with contact_url; otherwise absent or null. Never a private phone, recovery address or authenticated sender claim."
           },
           "contact_url": {
             "type": ["string", "null"],
             "format": "uri",
-            "pattern": "^https://basstok\\.com/contact/[a-z]{4,6}\\.[a-z]{3,6}$",
+            "pattern": "^https://basstok\\.com/contact/[a-z]{3,12}$",
             "description": "Server-issued clean link whose final segment is address's exact local-part. Present together with address; otherwise absent or null. Discovery only, never a credential, automatic Connection/call approval or browser page."
           }
         },
@@ -13668,8 +13697,8 @@
             "member_id": "m"
           },
           "display_name": "Taylor Reed",
-          "address": "calm.cedar@basstok.com",
-          "contact_url": "https://basstok.com/contact/calm.cedar"
+          "address": "james@basstok.com",
+          "contact_url": "https://basstok.com/contact/james"
         }
       },
       "DirectChatInput": {
@@ -13680,15 +13709,15 @@
         "properties": {
           "address": {
             "type": "string",
-            "minLength": 20,
-            "maxLength": 25,
-            "pattern": "^[a-z]{4,6}\\.[a-z]{3,6}@basstok\\.com$",
+            "minLength": 15,
+            "maxLength": 24,
+            "pattern": "^[a-z]{3,12}@basstok\\.com$",
             "description": "Exact assigned public Basstok email address. Resolved against current address ownership and hosting routing, then rechecked for creator eligibility, admission and blocking. Links are parsed into this address before submission; external or private addresses are not matched."
           }
         },
         "additionalProperties": false,
         "example": {
-          "address": "brisk.maple@basstok.com"
+          "address": "marie@basstok.com"
         }
       },
       "PhoneUsageUnits": {
@@ -17889,7 +17918,7 @@
         "properties": {
           "address": {
             "type": "string",
-            "pattern": "^[a-z]{4,6}\\.[a-z]{3,6}@basstok\\.com$"
+            "pattern": "^[a-z]{3,12}@basstok\\.com$"
           },
           "can_send": {
             "type": "boolean"
@@ -18441,6 +18470,55 @@
           "email_addresses": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "format": "email", "maxLength": 254}}
         },
         "description": "At least one phone number or email address is required. Formatting separators are removed from numbers, but no country is inferred. Email addresses use the normalized lowercase form. Contacts prove no ownership, permission to send, or membership."
+      },
+      "ChatLocator": {
+        "type": "object", "additionalProperties": false, "required": ["owner_account_id", "chat_id"],
+        "properties": {
+          "owner_account_id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "chat_id": {"type": "string", "minLength": 1, "maxLength": 256}
+        },
+        "description": "An exact Chat qualified by its owning Account. Knowing the locator grants no access."
+      },
+      "ContactTarget": {
+        "oneOf": [
+          {"type": "object", "additionalProperties": false, "required": ["type", "number"], "properties": {
+            "type": {"const": "phone"}, "number": {"type": "string", "pattern": "^\\+?[0-9]+$", "maxLength": 32}
+          }},
+          {"type": "object", "additionalProperties": false, "required": ["type", "address"], "properties": {
+            "type": {"const": "email"}, "address": {"type": "string", "format": "email", "maxLength": 254}
+          }},
+          {"type": "object", "additionalProperties": false, "required": ["type", "member"], "properties": {
+            "type": {"const": "member"}, "member": {"$ref": "#/components/schemas/MemberIdentity"}
+          }}
+        ],
+        "discriminator": {"propertyName": "type"},
+        "description": "An exact endpoint or an independently authorized, Account-qualified Basstok Member. These alternatives never imply a person-level merge. Email local-part case is preserved; only the domain is normalized. Local phone numbers retain their existing saved spelling without guessing a country."
+      },
+      "ContactDirectoryEntry": {
+        "type": "object", "additionalProperties": false,
+        "required": ["target", "display_name", "reasons", "actions"],
+        "properties": {
+          "target": {"$ref": "#/components/schemas/ContactTarget"},
+          "display_name": {"type": "string", "minLength": 1, "maxLength": 512},
+          "reasons": {"type": "array", "uniqueItems": true, "maxItems": 7, "items": {"type": "string", "enum": ["address_book", "called", "emailed", "texted", "faxed", "messaged", "connected"]}},
+          "actions": {"type": "array", "uniqueItems": true, "maxItems": 5, "items": {"type": "string", "enum": ["call", "email", "sms", "fax", "basstok_message"]}},
+          "chat": {"$ref": "#/components/schemas/ChatLocator"}
+        },
+        "description": "Truthful source labels and supported review/compose actions, not proof of an external destination's identity or availability. Only an authorized Member entry can carry a Chat locator. Every actual send or call retains ordinary authorization, Connection, admission and funding checks. Hidden review entries carry no actions or Chat locator."
+      },
+      "ContactDirectoryPage": {
+        "type": "object", "additionalProperties": false, "required": ["items"],
+        "properties": {
+          "items": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/ContactDirectoryEntry"}},
+          "next_cursor": {"type": "string", "minLength": 1, "maxLength": 4096}
+        }
+      },
+      "ContactVisibilityInput": {
+        "type": "object", "additionalProperties": false, "required": ["target", "hidden"],
+        "properties": {
+          "target": {"$ref": "#/components/schemas/ContactTarget"},
+          "hidden": {"type": "boolean"}
+        }
       },
       "MemberContacts": {
         "type": "object",
