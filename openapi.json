@@ -19529,11 +19529,11 @@
         "required": ["messages", "email", "activity"],
         "properties": {
           "messages": {"type": "integer", "minimum": 0, "maximum": 1024},
-          "email": {"type": "integer", "minimum": 0, "maximum": 1024},
+          "email": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
           "activity": {"type": "integer", "minimum": 0, "maximum": 1024}
         },
         "additionalProperties": false,
-        "description": "Bounded counts for currently readable retained notification targets. Their sum cannot exceed 1024. Messages and Content activity count unread notifications. Email counts unread received emails outside Junk referenced by retained Email notifications, independently of Activity read state. Outgoing email and dismissed or aged-out targets are excluded; this is not a whole-mailbox unread total. Marking an email read also marks its retained Activity notification read in the same backend operation; retrying an already-read email repairs an interrupted Activity update. These counts belong to the current membership."
+        "description": "Current authorized unread counts for this membership. Messages and Content activity count readable unread retained notifications; their combined total cannot exceed 1024. Email is the owner's whole-mailbox unread received-email total outside Spam, including Archive and Trash, independent of notification retention, dismissal or Activity read state. Outgoing email is excluded. Email uses an unsigned 64-bit count; platform badge display may clamp to its supported integer range without changing this total. Marking an email read also marks its retained Activity notification read in the same backend operation; retrying an already-read email repairs an interrupted Activity update."
       },
       "PushRegistration": {
         "type": "object",
