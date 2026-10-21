@@ -12202,6 +12202,10 @@
     "/api/v1/phone-texts": {
       "get": {
         "operationId": "listPrivatePhoneTextRecords",
+        "parameters": [
+          {"$ref": "#/components/parameters/PhoneHistoryLimit"},
+          {"$ref": "#/components/parameters/PhoneHistoryBefore"}
+        ],
         "tags": [
           "Phone"
         ],
@@ -12218,11 +12222,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "maxItems": 512,
-                  "items": {
-                    "$ref": "#/components/schemas/PhoneTextRecord"
-                  }
+                  "$ref": "#/components/schemas/PhoneTextPage"
                 }
               }
             }
@@ -12301,6 +12301,10 @@
           "Phone"
         ],
         "summary": "Read your line's texts",
+        "parameters": [
+          {"$ref": "#/components/parameters/PhoneHistoryLimit"},
+          {"$ref": "#/components/parameters/PhoneHistoryBefore"}
+        ],
         "description": "Current owner only. Reads do not require outgoing funding or Chat participation.",
         "security": [
           {
@@ -12313,11 +12317,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "maxItems": 512,
-                  "items": {
-                    "$ref": "#/components/schemas/PhoneTextRecord"
-                  }
+                  "$ref": "#/components/schemas/PhoneTextPage"
                 }
               }
             }
@@ -12422,6 +12422,10 @@
     "/api/v1/phone-faxes": {
       "get": {
         "operationId": "listPrivatePhoneFaxRecords",
+        "parameters": [
+          {"$ref": "#/components/parameters/PhoneHistoryLimit"},
+          {"$ref": "#/components/parameters/PhoneHistoryBefore"}
+        ],
         "tags": [
           "Phone"
         ],
@@ -12438,11 +12442,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "maxItems": 256,
-                  "items": {
-                    "$ref": "#/components/schemas/PhoneFaxRecord"
-                  }
+                  "$ref": "#/components/schemas/PhoneFaxPage"
                 }
               }
             }
@@ -12521,6 +12521,10 @@
           "Phone"
         ],
         "summary": "Read your line's faxes",
+        "parameters": [
+          {"$ref": "#/components/parameters/PhoneHistoryLimit"},
+          {"$ref": "#/components/parameters/PhoneHistoryBefore"}
+        ],
         "description": "Current owner only. Reads do not require outgoing funding or Chat participation.",
         "security": [
           {
@@ -12533,11 +12537,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "maxItems": 256,
-                  "items": {
-                    "$ref": "#/components/schemas/PhoneFaxRecord"
-                  }
+                  "$ref": "#/components/schemas/PhoneFaxPage"
                 }
               }
             }
@@ -13010,6 +13010,16 @@
       }
     },
     "parameters": {
+      "PhoneHistoryLimit": {
+        "name": "limit", "in": "query", "required": false,
+        "description": "Maximum results for this request, not a retention limit. History grows automatically.",
+        "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}
+      },
+      "PhoneHistoryBefore": {
+        "name": "before_sequence", "in": "query", "required": false,
+        "description": "Pass the previous response's next_before unchanged to read earlier history. Omit or use zero for newest. An empty page can still have a continuation; absence of next_before means the end. Unknown, duplicate and empty query fields are rejected.",
+        "schema": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615, "default": 0}
+      },
       "OwnerAccountId": {
         "name": "owner_account_id",
         "in": "query",
@@ -22700,6 +22710,20 @@
             "maxLength": 1600,
             "description": "Plain UTF-8 text, at most 1600 Unicode scalars and 6400 bytes. Further managed-service segment and destination bounds may be stricter."
           }
+        }
+      },
+      "PhoneTextPage": {
+        "type": "object", "additionalProperties": false, "required": ["items"],
+        "properties": {
+          "items": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/PhoneTextRecord"}},
+          "next_before": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615}
+        }
+      },
+      "PhoneFaxPage": {
+        "type": "object", "additionalProperties": false, "required": ["items"],
+        "properties": {
+          "items": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/PhoneFaxRecord"}},
+          "next_before": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615}
         }
       },
       "PhoneTextRecord": {
