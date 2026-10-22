@@ -340,6 +340,25 @@
         }
       }
     },
+    "/api/v1/mailbox/emails/{email_id}/unsubscribe": {
+      "parameters": [{"name": "email_id", "in": "path", "required": true, "schema": {"$ref": "#/components/schemas/MailboxResourceId"}}],
+      "get": {
+        "operationId": "readOwnEmailListUnsubscribe",
+        "summary": "Inspect an incoming Email's supported list action",
+        "description": "Exact Email id and positive sequence in the current admitted human owner's private Mailbox only. Reading never contacts the list destination or sends email. One-click availability requires server-verified DKIM coverage of the exact single List-Unsubscribe and List-Unsubscribe-Post fields in retained original MIME. The supported target is HTTPS on port 443 with a DNS hostname; preview does not establish current DNS/TLS availability. Host is sender-selected, not a trusted Member identity. Existing or unsupported messages without this evidence have no action. No body or additional selectors. Apps and another Manager have no access. All responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "parameters": [{"name": "sequence", "in": "query", "required": true, "schema": {"$ref": "#/components/schemas/MailboxEmailSequence"}}],
+        "responses": {"200": {"description": "Supported action and any retained attempt, without a destination URL.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmailUnsubscribeView"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      },
+      "post": {
+        "operationId": "requestOwnEmailListUnsubscribe",
+        "summary": "Explicitly request one incoming list unsubscribe",
+        "description": "Owner confirmation only, pinned to the exact Email sequence and source SHA-256 returned by inspection. A durable unconfirmed attempt precedes one bounded RFC8058 HTTPS POST. The server resolves and pins public addresses, verifies TLS and rechecks current source, owner and session before sending. No credentials, cookies, redirects, GET fallback or automatic retry. A 2xx response means requested, never proof that email has stopped. Other HTTP responses are failed; ambiguous transport, deadline, cancellation or process outcomes remain unconfirmed. Repetition returns the retained attempt without another contact. Unsubscribe does not block, file, delete or alter Basstok authentication/security or optional-notification preferences. No query parameters; JSON body at most 4096 bytes. Unknown/duplicate keys and missing/false confirmation are rejected. Browser presence and same-origin protection apply. All responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmailUnsubscribeInput"}}}},
+        "responses": {"200": {"description": "Retained request state, not an Unsubscribed claim.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmailUnsubscribeView"}}}}, "409": {"description": "Source mismatch or no supported one-click action; no new contact."}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
     "/api/v1/mailbox/emails/{email_id}/folder": {
       "parameters": [{"name": "email_id", "in": "path", "required": true, "schema": {"$ref": "#/components/schemas/MailboxResourceId"}}],
       "post": {
@@ -777,6 +796,47 @@
         "security": [{"memberBearer": []}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CommunitySessionsInput"}}}},
         "responses": {"204": {"description": "Target membership is admitted or already admitted; no session issued."}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/api/v1/member-access/messages": {
+      "get": {
+        "operationId": "readMessagesEntries",
+        "summary": "Read your private Messages-list entries",
+        "description": "Current human Member only. Returns authorized Chat entries, private text/fax shortcuts, linked websites and saved group links in the selected folder. Filing is private organization, not permission to read the underlying resource. Every page rechecks current source access. Source traversal is bounded: a page scans at most 100 positions and eight Chat pages, not a global recency index. Follow next_cursor even when items is empty; only an absent cursor means the scan finished. Loaded Chats may be sorted by activity for presentation. Cursors bind the current Account, Member, session, admission, folder and query; they grant no authority. query searches entry names and addresses, not Message bodies; use /api/v1/messages/search for full authorized Message history. Unknown or duplicate parameters are rejected. Responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "parameters": [
+          {"name": "folder", "in": "query", "schema": {"$ref": "#/components/schemas/MessagesFolder"}},
+          {"name": "query", "in": "query", "schema": {"type": "string", "maxLength": 256}, "description": "Optional UTF-8 entry query, at most 256 bytes, without control characters."},
+          {"name": "cursor", "in": "query", "schema": {"type": "string", "minLength": 1, "maxLength": 4096}, "description": "Exact continuation from the same scope and query."},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}}
+        ],
+        "responses": {
+          "200": {"description": "Your bounded authorized entry page.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MessagesEntryPage"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/member-access/messages/filing": {
+      "put": {
+        "operationId": "fileMessagesEntry",
+        "summary": "Archive, remove or restore one private Messages-list entry",
+        "description": "Current human Member only, with owner matching that exact Account and Member. The qualified target must remain authorized at mutation and response. inbox restores the entry; archive and trash keep it out of the ordinary list until deliberate restoration, including after new activity. trash removes the entry from Messages, not its communications, fax documents, website access, memberships, notifications or billing records. This is not blocking, muting or unsubscribing. The Idempotency-Key binds the exact target, folder and expected revision; an exact current retry returns the same result, while stale revisions or changed inputs conflict. Success is durable. Independent bulk operations are not an atomic batch. Browser presence protection applies. No query parameters. Responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {
+          "type": "object", "additionalProperties": false,
+          "required": ["owner", "target", "folder", "expected_revision"],
+          "properties": {
+            "owner": {"$ref": "#/components/schemas/MemberIdentity"},
+            "target": {"$ref": "#/components/schemas/MessagesEntryTarget"},
+            "folder": {"$ref": "#/components/schemas/MessagesFolder"},
+            "expected_revision": {"type": "integer", "format": "uint64", "minimum": 0, "description": "Current entry revision; zero for an entry never filed. An exhausted revision is rejected."}
+          }
+        }}}},
+        "responses": {
+          "200": {"description": "The saved entry folder and revision.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MessagesEntryFiling"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
       }
     },
     "/api/v1/member-access/email-labels": {
@@ -8193,9 +8253,10 @@
         "description": "Start an outgoing telephone call from this Account. Requires its admitted human creator with a currently verified phone number, available calling service and sufficient funded usage; Admin activation is not required. Supply one E.164 number and a fresh lowercase UUIDv4 attempt identifier. The response authorizes a single native endpoint connection, not a connected recipient. Exact setup retries preserve the original call and expiry and never start another dialing job; connected or ended attempts cannot enroll another endpoint. Connect the returned native SIP endpoint using its exact TLS certificate and proof. Dialing requires that authenticated connection. The call uses the Account's allowance and Basstok's customer tariff, fixed for the attempt; supplier charges do not determine the customer charge. Read this call or react to Member phone-call events for current state; Live means the recipient is connected. Leave through the ordinary owner-session call endpoint. No automatic redial after failure or restart, no Chat or reusable calling credentials, and no browser media implementation. At most 256 body bytes; unknown fields, duplicate fields and query parameters are rejected. Cookie-authenticated writes require matching presence and same-origin checks.",
         "security": [{"memberBearer": []}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {
-          "type": "object", "additionalProperties": false, "required": ["number", "attempt_id"],
+          "type": "object", "additionalProperties": false, "required": ["number", "attempt_id", "preview_id"],
           "properties": {
             "number": {"type": "string", "pattern": "^\\+[1-9][0-9]{7,14}$", "maxLength": 16},
+            "preview_id": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Exact reviewed preview expectation. A changed route, source or outgoing identity returns call_preview_changed; review a fresh preview before another deliberate call attempt."},
             "attempt_id": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}
           }
         }}}},
@@ -8230,6 +8291,22 @@
           "default": {
             "$ref": "#/components/responses/Error"
           }
+        }
+      }
+    },
+    "/api/v1/phone-calls/preview": {
+      "get": {
+        "operationId": "previewPhoneCall",
+        "description": "Read the selected destination, current authorized route, outgoing identity and existing retail allowance before a deliberate call. No call, reservation, provider mutation or purchase refresh occurs. Allowance is advisory and dispatch rechecks current authority, service, destination, tariff and spending. Supply either a private line or shared Chat, never both; omit both for managed calling. Provider-controlled caller ID is unknown, not hidden or anonymous. A selected verified personal number may be replaced by a lawful owned number before this preview when destination restrictions require it. A preview is not a delivery, coverage or caller-ID acceptance guarantee. Pass its opaque expectation unchanged to the corresponding start operation. A changed expectation returns 409 call_preview_changed and requires review, never automatic redial. Unknown or duplicate query fields are rejected; encoded query at most 512 bytes. Cache-Control: no-store.",
+        "security": [{"memberBearer": []}],
+        "parameters": [
+          {"name": "number", "in": "query", "required": true, "schema": {"type": "string", "maxLength": 16, "pattern": "^\\+[1-9][0-9]{7,14}$"}},
+          {"name": "line_id", "in": "query", "schema": {"type": "string", "format": "uuid"}},
+          {"name": "chat_id", "in": "query", "schema": {"type": "string", "format": "uuid"}}
+        ],
+        "responses": {
+          "200": {"description": "Current read-only advisory preview.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PhoneCallPreview"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
         }
       }
     },
@@ -11743,7 +11820,7 @@
     "/api/v1/auth/phone-device/challenge": {
       "post": {
         "operationId": "createPhoneDeviceChallenge",
-        "description": "Obtain a one-use random challenge at basstok.com without authentication, including for a signed-in request to a tenant. Bind the installation key and the lowercase hexadecimal SHA-256 request_hash. Hash the UTF-8 encoding of seven strings joined by U+000A newline characters, without a final newline: basstok-sms-v1, public_origin, request_path, phone_number, channel, binding. public_origin is the target request's canonical HTTPS origin with lowercase host, default port 443 omitted and no trailing slash. request_path is /api/v1/member-access/phone/verification or /api/v1/auth/phone-recovery/request. channel is sms or whatsapp; recovery uses sms. binding is the current session token for Member verification or completion_token for recovery. The server recomputes this hash from the actual code request. Challenges expire after 300 seconds, are bounded and may be lost on restart. An exact pending request returns the same challenge without extending expiry. A different binding for the same key replaces its pending challenge. No SMS or provider lookup occurs here. This is installation proof, not a permanent physical device identifier surviving reinstall.",
+        "description": "Obtain a one-use random challenge at basstok.com without authentication, including for a signed-in request to a tenant. Bind the installation key and the lowercase hexadecimal SHA-256 request_hash. Hash seven UTF-8 strings joined by U+000A newline characters, without a final newline: basstok-sms-v2, public_origin, request_path, phone_number, channel, binding, voice_caller_id_consent=value. The last string ends in lowercase true or false, matching the explicit boolean on the actual code request. public_origin is the target request's canonical HTTPS origin with lowercase host, default port 443 omitted and no trailing slash. request_path is /api/v1/member-access/phone/verification or /api/v1/auth/phone-recovery/request. channel is sms or whatsapp; recovery uses sms. binding is the current session token for Member verification or completion_token for recovery. The server recomputes this hash from the actual code request. Challenges expire after 300 seconds, are bounded and may be lost on restart. An exact pending request returns the same challenge without extending expiry. A different binding for the same key replaces its pending challenge. No SMS or provider lookup occurs here. This is installation proof, not a permanent physical device identifier surviving reinstall.",
         "security": [],
         "requestBody": {
           "required": true,
@@ -17661,6 +17738,7 @@
             "maxLength": 64
           },
           "owner": {"$ref": "#/components/schemas/PhoneCallOwner"},
+          "outgoing_identity": {"$ref": "#/components/schemas/PhoneOutgoingIdentity"},
           "line_id": {"type": "string", "format": "uuid", "description": "Private customer line used by this personal call. Absent for managed calls and genuinely shared Chat calls. It never grants callback or answering authority."},
           "remote_address": {
             "type": "string",
@@ -17740,11 +17818,67 @@
           "active": {"type": "boolean", "description": "Currently in progress. False does not imply a known completion."}
         }
       },
+      "PhoneOutgoingIdentity": {
+        "oneOf": [
+          {"type": "object", "additionalProperties": false, "required": ["type", "number", "source"], "properties": {
+            "type": {"const": "number"}, "number": {"type": "string", "pattern": "^\\+[1-9][0-9]{7,14}$"},
+            "source": {"type": "string", "enum": ["verified_personal", "assigned", "shared"]}
+          }},
+          {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "provider_controlled"}}}
+        ],
+        "discriminator": {"propertyName": "type"}
+      },
+      "PhoneCallPreviewRoute": {
+        "oneOf": [
+          {"type": "object", "additionalProperties": false, "required": ["type", "connection_id"], "properties": {
+            "type": {"const": "managed_shared"}, "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }},
+          {"type": "object", "additionalProperties": false, "required": ["type", "connection_id"], "properties": {
+            "type": {"const": "managed_number"}, "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }},
+          {"type": "object", "additionalProperties": false, "required": ["type", "line_id", "connection_id"], "properties": {
+            "type": {"const": "private_line"}, "line_id": {"type": "string", "format": "uuid"}, "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }},
+          {"type": "object", "additionalProperties": false, "required": ["type", "chat_id", "connection_id"], "properties": {
+            "type": {"const": "chat_line"}, "chat_id": {"type": "string", "format": "uuid"}, "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }}
+        ],
+        "discriminator": {"propertyName": "type"}
+      },
+      "PhoneCallPreviewAllowance": {
+        "oneOf": [
+          {"type": "object", "additionalProperties": false, "required": ["type", "currency", "rate", "usage", "maximum_connected_seconds"], "properties": {
+            "type": {"const": "basstok"}, "currency": {"type": "string", "const": "USD"},
+            "rate": {"type": "object", "additionalProperties": false,
+              "required": ["usd_micros_per_minute", "connection_usd_micros", "minimum_seconds", "increment_seconds"], "properties": {
+                "usd_micros_per_minute": {"type": "integer", "minimum": 0}, "connection_usd_micros": {"type": "integer", "minimum": 0},
+                "minimum_seconds": {"type": "integer", "minimum": 1}, "increment_seconds": {"type": "integer", "minimum": 1}
+              }},
+            "usage": {"$ref": "#/components/schemas/AccountUsage"},
+            "maximum_connected_seconds": {"type": "integer", "minimum": 0, "maximum": 14400,
+              "description": "Current route-specific and retail allowance upper bound, including zero. Advisory only; dispatch rechecks admission and spending."}
+          }},
+          {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "provider"}}}
+        ],
+        "discriminator": {"propertyName": "type"}
+      },
+      "PhoneCallPreview": {
+        "type": "object", "additionalProperties": false,
+        "required": ["preview_id", "number", "route", "outgoing_identity", "allowance"],
+        "properties": {
+          "preview_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "number": {"type": "string", "pattern": "^\\+[1-9][0-9]{7,14}$"},
+          "route": {"$ref": "#/components/schemas/PhoneCallPreviewRoute"},
+          "outgoing_identity": {"$ref": "#/components/schemas/PhoneOutgoingIdentity"},
+          "allowance": {"$ref": "#/components/schemas/PhoneCallPreviewAllowance"}
+        }
+      },
       "PhoneCallDialInput": {
         "type": "object", "additionalProperties": false,
-        "required": ["number", "attempt_id"],
+        "required": ["number", "attempt_id", "preview_id"],
         "properties": {
           "number": {"type": "string", "pattern": "^\\+[1-9][0-9]{1,14}$"},
+          "preview_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "attempt_id": {"type": "string", "format": "uuid"}
         }
       },
@@ -18479,6 +18613,62 @@
         },
         "description": "An exact Chat qualified by its owning Account. Knowing the locator grants no access."
       },
+      "MessagesFolder": {
+        "type": "string", "enum": ["inbox", "archive", "trash"], "default": "inbox",
+        "description": "Private Messages-list placement only; underlying resources retain their own access and lifecycle."
+      },
+      "MessagesEntryTarget": {
+        "oneOf": [
+          {"type": "object", "additionalProperties": false, "required": ["type", "chat"], "properties": {
+            "type": {"const": "chat"}, "chat": {"$ref": "#/components/schemas/ChatLocator"}
+          }},
+          {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "phone_texts"}}},
+          {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "phone_faxes"}}},
+          {"type": "object", "additionalProperties": false, "required": ["type", "id"], "properties": {
+            "type": {"const": "linked_website"}, "id": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+          }},
+          {"type": "object", "additionalProperties": false, "required": ["type", "account_id", "origin"], "properties": {
+            "type": {"const": "saved_group"}, "account_id": {"type": "string", "minLength": 1, "maxLength": 256},
+            "origin": {"type": "string", "format": "uri", "maxLength": 2048, "description": "Exact saved HTTPS origin without path, query, fragment or user information; never target authentication authority."}
+          }}
+        ],
+        "discriminator": {"propertyName": "type"},
+        "description": "A source-qualified entry, not a synthetic Chat, Message or person. Phone alternatives organize the whole private shortcut, not one provider record."
+      },
+      "MessagesEntryFiling": {
+        "type": "object", "additionalProperties": false, "required": ["target", "folder", "revision"],
+        "properties": {
+          "target": {"$ref": "#/components/schemas/MessagesEntryTarget"},
+          "folder": {"$ref": "#/components/schemas/MessagesFolder"},
+          "revision": {"type": "integer", "format": "uint64", "minimum": 0}
+        }
+      },
+      "MessagesEntry": {
+        "type": "object", "additionalProperties": false, "required": ["target", "folder", "revision"],
+        "properties": {
+          "target": {"$ref": "#/components/schemas/MessagesEntryTarget"},
+          "folder": {"$ref": "#/components/schemas/MessagesFolder"},
+          "revision": {"type": "integer", "format": "uint64", "minimum": 0},
+          "chat": {"$ref": "#/components/schemas/Chat"},
+          "website": {"$ref": "#/components/schemas/LinkedWebsite"},
+          "group": {"$ref": "#/components/schemas/SavedCommunity"}
+        },
+        "oneOf": [
+          {"properties": {"target": {"properties": {"type": {"const": "chat"}}}}, "required": ["chat"], "not": {"anyOf": [{"required": ["website"]}, {"required": ["group"]}]}},
+          {"properties": {"target": {"properties": {"type": {"const": "linked_website"}}}}, "required": ["website"], "not": {"anyOf": [{"required": ["chat"]}, {"required": ["group"]}]}},
+          {"properties": {"target": {"properties": {"type": {"const": "saved_group"}}}}, "required": ["group"], "not": {"anyOf": [{"required": ["chat"]}, {"required": ["website"]}]}},
+          {"properties": {"target": {"properties": {"type": {"enum": ["phone_texts", "phone_faxes"]}}}}, "not": {"anyOf": [{"required": ["chat"]}, {"required": ["website"]}, {"required": ["group"]}]}}
+        ],
+        "description": "Only the matching source payload is present and its identity must equal target. Revision zero denotes an unfiled inbox entry."
+      },
+      "MessagesEntryPage": {
+        "type": "object", "additionalProperties": false, "required": ["owner", "items"],
+        "properties": {
+          "owner": {"$ref": "#/components/schemas/MemberIdentity"},
+          "items": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/MessagesEntry"}},
+          "next_cursor": {"type": "string", "minLength": 1, "maxLength": 4096}
+        }
+      },
       "ContactTarget": {
         "oneOf": [
           {"type": "object", "additionalProperties": false, "required": ["type", "number"], "properties": {
@@ -19157,10 +19347,12 @@
         "additionalProperties": false,
         "required": [
           "phone_number",
+          "voice_caller_id_consent",
           "device_proof"
         ],
         "properties": {
           "device_proof": {"$ref": "#/components/schemas/PhoneDeviceProof"},
+          "voice_caller_id_consent": {"type": "boolean", "description": "Permission to show this number on outgoing voice calls after independent authorization and current calling readiness. True requires SMS verification, but if optional caller-ID setup is absent the fresh code verifies phone control only and grants no caller-ID rights. False verifies control only. This does not publish the number, route incoming calls or authorize external-number SMS/fax sending. The installation proof binds this value."},
           "channel": {
             "$ref": "#/components/schemas/PhoneVerificationChannel",
             "default": "sms",
@@ -21807,9 +21999,35 @@
           "body": {"type": "string", "maxLength": 10485760, "description": "Canonical CommonMark Markdown source, bounded to 10 MiB of UTF-8."},
           "delivery": {"oneOf": [{"$ref": "#/components/schemas/EmailReception"}, {"$ref": "#/components/schemas/EmailDispatch"}], "discriminator": {"propertyName": "type", "mapping": {"received": "#/components/schemas/EmailReception", "outgoing": "#/components/schemas/EmailDispatch"}}},
           "organization": {"$ref": "#/components/schemas/EmailOrganization"},
+          "unsubscribe": {"$ref": "#/components/schemas/EmailUnsubscribeAttempt"},
           "message_id": {"type": "string", "minLength": 5, "maxLength": 998},
           "references": {"type": "array", "maxItems": 64, "uniqueItems": true, "items": {"type": "string", "minLength": 5, "maxLength": 998}},
           "assets": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"$ref": "#/components/schemas/CanonicalReference"}}
+        }
+      },
+      "EmailUnsubscribeAttempt": {
+        "type": "object", "additionalProperties": false, "required": ["status", "attempted_at_ms"], "readOnly": true,
+        "description": "One retained user-authorized list action for this exact received Email. It is never an automatic retry obligation or a claim that the subscription ended.",
+        "properties": {
+          "status": {"type": "string", "enum": ["unconfirmed", "requested", "failed"]},
+          "attempted_at_ms": {"type": "integer", "minimum": 1, "maximum": 253402300799999}
+        }
+      },
+      "EmailUnsubscribeView": {
+        "type": "object", "additionalProperties": false, "required": ["available", "host", "source_sha256"],
+        "properties": {
+          "available": {"type": "boolean", "description": "A supported action with no previous attempt; execution still requires explicit confirmation."},
+          "host": {"type": "string", "maxLength": 253, "description": "Sender-selected destination hostname for confirmation; empty when unsupported. Never a Member identity."},
+          "source_sha256": {"type": "string", "pattern": "^([0-9a-f]{64})?$", "description": "Exact received MIME identity; empty for outgoing Email."},
+          "attempt": {"$ref": "#/components/schemas/EmailUnsubscribeAttempt"}
+        }
+      },
+      "EmailUnsubscribeInput": {
+        "type": "object", "additionalProperties": false, "required": ["sequence", "source_sha256", "confirmed"],
+        "properties": {
+          "sequence": {"$ref": "#/components/schemas/MailboxEmailSequence"},
+          "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "confirmed": {"const": true}
         }
       },
       "MailboxEmailPresentation": {
@@ -22502,10 +22720,12 @@
         "required": [
           "phone_number",
           "completion_token",
+          "voice_caller_id_consent",
           "device_proof"
         ],
         "properties": {
           "device_proof": {"$ref": "#/components/schemas/PhoneDeviceProof"},
+          "voice_caller_id_consent": {"type": "boolean", "description": "Permission to show this number on outgoing voice calls after independent authorization and current calling readiness. If optional caller-ID setup is absent, the fresh SMS code verifies phone control only and grants no caller-ID rights, including when consent is true. False verifies phone control only. Registry presence never authenticates the caller. This does not publish the number, route incoming calls or authorize external-number SMS/fax sending. The installation proof binds this value."},
           "phone_number": {
             "type": "string",
             "pattern": "^\\+[1-9][0-9]{7,14}$"
@@ -23093,13 +23313,15 @@
         "required": [
           "connection_id",
           "number",
-          "attempt_id"
+          "attempt_id",
+          "preview_id"
         ],
         "properties": {
           "connection_id": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
           },
+          "preview_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "number": {
             "type": "string",
             "pattern": "^\\+[1-9][0-9]{1,14}$"
