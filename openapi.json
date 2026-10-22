@@ -24,6 +24,42 @@
     }
   ],
   "paths": {
+    "/api/v1/mailbox/receiving": {
+      "get": {
+        "operationId": "readOwnMailboxReceiving",
+        "summary": "Read your receiving connection and Inbox import status",
+        "description": "Current admitted human Mailbox owner only; Apps and another Manager have no private access. Optional address returns incoming-server hints without contacting that provider. Fresh Google and Microsoft OAuth setup is unavailable. import_state distinguishes new_mail_only, importing and complete. Complete means the available initial Inbox has been scanned, including gaps; it does not promise a full account export, unchanged source contents, or a message count. State/detail are recent connection observations and may be absent after restart. No request body, unknown or duplicate query parameters. All responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "parameters": [{"name": "address", "in": "query", "schema": {"type": "string", "maxLength": 254}}],
+        "responses": {"200": {"description": "Your current receiving selection and optional setup hints.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxReceiving"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      },
+      "put": {
+        "operationId": "importOwnMailboxInbox",
+        "summary": "Connect read-only IMAP and copy your existing Inbox",
+        "description": "Explicit current admitted human owner authorization to copy the source Inbox, then receive new Inbox mail through the same connection. Verified encrypted public IMAP only; no source changes, deletion, outgoing sends, email-address replacement or sending authority. Preserves original MIME, supported CommonMark presentation, threading headers, attachments, source received date and initial read/star state. Other folders, custom labels, other flags and later source filing changes are not copied. Source removals during the scan may remain absent. Historical copies do not generate new-mail notifications; unread counts reflect retained unread source email. Unsupported, malformed, oversized or changed source mail stops the scan with attention instead of silently skipping it. Server acquisition continues after the request, in bounded pages without a lifetime count cap. Successful setup does not mean copying is complete. Identical setup retries retain the current selection and progress; a different selection requires explicit disconnect. A changed mailbox identity requires explicit reconnect, never automatic reset. Credentials stay private on the server. JSON at most 8192 UTF-8 bytes; all fields required, unknown and duplicate keys rejected. Browser presence and same-origin protection apply. All responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxImapConnectInput"}}}},
+        "responses": {"200": {"description": "Durably selected connection; inspect import_state for initial Inbox completion.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxReceiving"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      },
+      "delete": {
+        "operationId": "disconnectOwnMailboxReceiving",
+        "summary": "Disconnect your exact receiving connection",
+        "description": "Current admitted human owner only. Requires the exact current connection_id; a replaced selection conflicts. Stops future source acquisition and removes private credentials while retaining copied Email and Assets. Does not contact or mutate the source provider. JSON at most 8192 UTF-8 bytes; unknown, duplicate or missing keys rejected. Browser presence and same-origin protection apply. All responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxReceivingSelection"}}}},
+        "responses": {"200": {"description": "Current receiving state after disconnection.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxReceiving"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/api/v1/mailbox/receiving/check": {
+      "post": {
+        "operationId": "checkOwnMailboxInbox",
+        "summary": "Check one bounded page on your exact IMAP connection",
+        "description": "Current admitted human owner only. Requires the exact current IMAP connection_id; no provider fallback. Reads at most one bounded source page and publishes covered Email before advancing saved progress. Existing server synchronization continues the remaining pages. Repeated checks cannot create duplicate Emails or alerts, reset filing or resend outgoing email. A concurrent acquisition may return conflict; no automatic mutation retry is required. Read-only at the provider. No query parameters. JSON at most 8192 UTF-8 bytes; unknown, duplicate or missing keys rejected. Browser presence and same-origin protection apply. All responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxReceivingSelection"}}}},
+        "responses": {"200": {"description": "Current receiving and import state after the bounded check.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxReceiving"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
     "/api/v1/mailbox/sending": {
       "get": {
         "operationId": "readMailboxEmailSending",
@@ -958,16 +994,29 @@
         }
       }
     },
+    "/api/v1/account/calling/identity": {
+      "get": {
+        "operationId": "getAccountCallingIdentity",
+        "tags": ["Account"],
+        "summary": "Read the current outgoing calling identity",
+        "description": "Verified-phone human Account creator only. Returns an authorized known number, an explicitly unknown provider-controlled number, unavailable calling, or per_call when a destination or available line is needed to select caller ID. A verified phone number and the configured sender inventory alone do not establish caller ID. For per_call, read the destination-specific call preview before calling. No call, reservation, supplier changes or purchase refresh. Fax uses its separate sending-number resource. No query parameters or request body. Cache-Control: no-store.",
+        "security": [{"memberBearer": []}],
+        "responses": {
+          "200": {"description": "Current calling identity facts.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PhoneCallingIdentity"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
     "/api/v1/account/calling/senders": {
       "get": {
         "operationId": "getAccountCallingSenders",
         "tags": ["Account"],
-        "summary": "Read your Account's outgoing calling number",
-        "description": "Verified-phone human session of the personal Account creator only. An assigned current paid number is the calling identity; it never silently falls back to a shared number on an error. Otherwise returns the configured shared starter calling numbers, which can vary between attempts and do not receive calls for this Account. Assignment is not readiness: inspect the number status before new calls. Fax uses its separate sending-number resource. No credentials, provider costs or query parameters.",
+        "summary": "Read configured calling numbers",
+        "description": "Verified-phone human session of the personal Account creator only. Returns the assigned current paid number or configured shared starter numbers. This inventory does not establish the actual outgoing caller ID: use the calling identity resource and destination-specific call preview. Assignment is not readiness. Shared numbers do not receive calls for this Account. Fax uses its separate sending-number resource. No credentials, provider costs or query parameters.",
         "security": [{"memberBearer": []}],
         "responses": {
           "200": {
-            "description": "Current calling identity or shared starter numbers.",
+            "description": "Assigned number or configured shared starter inventory.",
             "content": {"application/json": {"schema": {
               "type": "array", "maxItems": 8, "uniqueItems": true,
               "items": {"type": "string", "pattern": "^\\+[1-9][0-9]{1,14}$"}
@@ -8313,14 +8362,21 @@
     "/api/v1/phone-calls/history": {
       "get": {
         "operationId": "readPhoneCallHistory",
-        "description": "Recent telephone calls, newest admitted first, filtered to the current human Member. Retains up to 256 calls per Account. Chat calls require original and current participant access; other calls belong only to their initiating Member. Disconnecting a phone service does not remove authorized history. An inactive item without completion has an unknown outcome: do not label it missed, answered or zero-duration. History never authorizes answering or redialing. Member SSE phone-call, ready and reset signals prompt a fresh read.",
+        "description": "Telephone-call history, newest admitted first, filtered to the current human Member. Retained calls grow automatically without a lifetime count limit. Chat calls require original and current participant access; other calls belong only to their initiating Member. Disconnecting a phone service does not remove authorized history. An empty filtered page may still have next_before: only its absence is the end. Pass that continuation unchanged, independently of item count. An inactive item without completion has an unknown outcome: do not label it missed, answered or zero-duration. History never authorizes answering or redialing. Member SSE phone-call, ready and reset signals prompt a fresh read.",
         "security": [{"memberBearer": []}],
+        "parameters": [
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}},
+          {"name": "before_sequence", "in": "query", "description": "Exclusive admission-order continuation. Omit or use zero for newest.", "schema": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615}}
+        ],
         "responses": {
           "200": {
             "description": "Authorized recent calls; Cache-Control: no-store.",
             "content": {"application/json": {"schema": {
-              "type": "array", "maxItems": 256,
-              "items": {"$ref": "#/components/schemas/RecentPhoneCall"}
+              "type": "object", "additionalProperties": false, "required": ["items"],
+              "properties": {
+                "items": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/RecentPhoneCall"}},
+                "next_before": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615}
+              }
             }}}
           },
           "default": {"$ref": "#/components/responses/Error"}
@@ -17828,6 +17884,13 @@
         ],
         "discriminator": {"propertyName": "type"}
       },
+      "PhoneCallingIdentity": {
+        "oneOf": [
+          {"$ref": "#/components/schemas/PhoneOutgoingIdentity"},
+          {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "per_call"}}},
+          {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "unavailable"}}}
+        ]
+      },
       "PhoneCallPreviewRoute": {
         "oneOf": [
           {"type": "object", "additionalProperties": false, "required": ["type", "connection_id"], "properties": {
@@ -21537,6 +21600,47 @@
           }
         }
       },
+      "MailboxReceivingSelection": {
+        "type": "object", "additionalProperties": false, "required": ["connection_id"],
+        "properties": {"connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+      },
+      "MailboxImapConnectInput": {
+        "type": "object", "additionalProperties": false, "required": ["address", "host", "username", "password", "port"],
+        "properties": {
+          "address": {"type": "string", "maxLength": 254}, "host": {"type": "string", "maxLength": 253},
+          "username": {"type": "string", "minLength": 1, "maxLength": 320},
+          "password": {"type": "string", "minLength": 1, "maxLength": 4096, "writeOnly": true},
+          "port": {"type": "integer", "minimum": 1, "maximum": 65535, "default": 993}
+        }
+      },
+      "MailboxReceiving": {
+        "type": "object", "additionalProperties": false, "required": ["can_manage"],
+        "properties": {
+          "can_manage": {"const": true},
+          "connection": {
+            "type": "object", "additionalProperties": false,
+            "required": ["connection_id", "address", "state", "method", "import_state"],
+            "properties": {
+              "connection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "address": {"type": "string", "maxLength": 254},
+              "state": {"type": "string", "enum": ["waiting", "checked", "attention"]}, "detail": {"type": "string", "maxLength": 1024},
+              "method": {"type": "string", "enum": ["imap", "google", "microsoft"]},
+              "import_state": {"type": "string", "enum": ["new_mail_only", "importing", "complete"]}
+            }
+          },
+          "setup": {
+            "type": "object", "additionalProperties": false,
+            "required": ["address", "host", "username", "port", "method", "google_available", "microsoft_available", "instructions"],
+            "properties": {
+              "address": {"type": "string", "maxLength": 254}, "host": {"type": "string", "maxLength": 253},
+              "username": {"type": "string", "maxLength": 320}, "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+              "method": {"type": "string", "enum": ["imap", "unavailable"]},
+              "google_available": {"const": false}, "microsoft_available": {"const": false},
+              "instructions": {"type": "string", "maxLength": 4096},
+              "help_url": {"type": "string", "const": "https://support.apple.com/102525"}
+            }
+          }
+        }
+      },
       "MailboxEmailSmtpInput": {
         "type": "object",
         "additionalProperties": false,
@@ -21935,6 +22039,10 @@
           "default_junk": {
             "type": "boolean",
             "description": "Immutable initial junk classification at reception; the current folder is organization.folder and may later change."
+          },
+          "source_date_ms": {
+            "type": "integer", "format": "int64", "minimum": -62135596800000, "maximum": 253402300799999,
+            "description": "Optional received timestamp supplied by the connected source mailbox. It is not sender authentication, the claimed Date header, or the time Basstok recorded this Email."
           }
         }
       },
