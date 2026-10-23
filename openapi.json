@@ -147,6 +147,51 @@
         ]
       }
     },
+    "/api/v1/mailbox/drafts": {
+      "post": {
+        "operationId": "createMailboxDraft", "summary": "Save a private editable email draft", "security": [{"memberBearer": []}],
+        "description": "Current admitted human Mailbox owner only, without Manager substitution, acting identity or Apps. Recipient, sender and body may remain incomplete. Save never sends or notifies. Existing attachments must be authorized private Mailbox Assets. The lowercase UUIDv4 Idempotency-Key selects one exact creation, even after later edits or response loss; changed original input conflicts. Request JSON is at most 64 KiB. Responses are no-store.",
+        "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxDraftInput"}}}},
+        "responses": {"200": {"description": "Durably saved draft", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxEmailPresentation"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/api/v1/mailbox/drafts/{email_id}": {
+      "parameters": [{"name": "email_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
+      "put": {
+        "operationId": "saveMailboxDraft", "security": [{"memberBearer": []}],
+        "description": "Replace only this owner's editable draft at the exact Email sequence and draft revision. The complete new snapshot is saved atomically. Exact lost-response replay returns the accepted revision; stale different input conflicts. It neither sends nor changes other Emails. No query parameters; private no-store response. A conflict requires reload, not an automatic overwrite.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxDraftChange"}}}},
+        "responses": {"200": {"description": "Saved draft and accepted revision", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxEmailPresentation"}}}}, "409": {"description": "Changed revision or draft no longer editable"}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/api/v1/mailbox/drafts/{email_id}/discard": {
+      "parameters": [{"name": "email_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
+      "post": {
+        "operationId": "discardMailboxDraft", "security": [{"memberBearer": []}],
+        "description": "Discard only the exact editable revision. Clears its current canonical text and attachment references while retaining an empty once-only creation fact. A started send must first be resolved; discarding never retracts mail or deletes source/provider messages. Human owner only; no query parameters; no-store.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxDraftRevision"}}}},
+        "responses": {"200": {"description": "Discarded draft", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxEmailPresentation"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/api/v1/mailbox/drafts/{email_id}/send": {
+      "parameters": [{"name": "email_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
+      "post": {
+        "operationId": "sendMailboxDraft", "security": [{"memberBearer": []}],
+        "description": "Explicitly send the exact saved revision through its currently authorized sender. Freezes its exact input and one submission identity before the ordinary durable Email dispatch. Retries inspect that same dispatch and never manufacture another send, including after restart or response loss. Accepted is provider acceptance, not delivery. Unconfirmed may already have sent. Human owner only; no query parameters; no-store.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxDraftRevision"}}}},
+        "responses": {"200": {"description": "Original outgoing Email result", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxEmailPresentation"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/api/v1/mailbox/drafts/{email_id}/edit": {
+      "parameters": [{"name": "email_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
+      "post": {
+        "operationId": "resolveMailboxDraftForEditing", "security": [{"memberBearer": []}],
+        "description": "Inspect a frozen draft's exact ordinary submission while excluding an in-flight send. Only proven absence of a dispatch permits a new editable revision. A retained dispatch instead completes the draft with its exact result locator, including failed or unconfirmed results. This operation never sends or automatically retries email. Human owner only; no query parameters; no-store.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxDraftRevision"}}}},
+        "responses": {"200": {"description": "Editable or completed draft state", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxEmailPresentation"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
     "/api/v1/mailbox/import": {
       "post": {
         "operationId": "importOwnHistoricalMailbox",
@@ -489,7 +534,7 @@
         "parameters": [
           {"name": "before_sequence", "in": "query", "schema": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615, "default": 0}, "description": "Exclusive logical history position; zero or omission starts at the newest Email."},
           {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}},
-          {"name": "folder", "in": "query", "schema": {"type": "string", "enum": ["inbox", "archive", "trash", "junk"]}},
+          {"name": "folder", "in": "query", "schema": {"$ref": "#/components/schemas/EmailFolder"}},
           {"name": "q", "in": "query", "schema": {"type": "string", "minLength": 1, "maxLength": 512}, "description": "Case-folded phrase matching in subject, body and received or outgoing addresses. Claimed sender text is not authenticated identity."},
           {"name": "read", "in": "query", "schema": {"type": "boolean"}, "description": "Exactly true or false."},
           {"name": "starred", "in": "query", "schema": {"type": "boolean"}, "description": "Exactly true or false."},
@@ -2499,7 +2544,7 @@
       "put": {
         "operationId": "scheduleRequests",
         "summary": "Schedule a bounded batch of existing API mutations",
-        "description": "Current admitted human Members may schedule private Email through POST /api/v1/mailbox/send or one ordinary Chat Message through POST chats/{id}/messages. A human Message batch contains exactly one request and cannot mix email or other operations. Only its Message request may specify owner_account_id, selecting the exact Chat-owning Account; omission means the signed-in Account. That field is forbidden for delegated applications and other operations. Message author selection and client-created chronology are rejected. Current participant, blocking, history and Asset access are checked at admission and execution; unavailable attachments fail rather than sending a partial draft. Upload attachments first and retain their authorized Asset IDs. Human schedules belong to the submitting Member and survive logout, device closure and session expiry without retaining session or provider credentials. Email rechecks the current sender, reply/Asset history, service availability and ordinary limits; uncertain email is not automatically resubmitted. A successful result identifies the saved Message or exact Email, not delivery or reading. Delegated applications retain their existing scopes and supported mutations: PUT member-creations/{id}, PUT content-drafts/{id}, POST content-drafts/{id}/publish, PUT contents/{id}/comment-creations/{id}, POST chats, POST chats/{id}/messages and POST mailbox/send under /api/v1/. Delegated Email sending requires email:send and separate current Mailbox-owner consent, not Chat capabilities. Chat, Message and email creation require idempotency_key for the ordinary Idempotency-Key header. No arbitrary headers, hosts, query parameters, edits or nested schedules. Times use UTC YYYY-MM-DDTHH:MM:SSZ, nondecreasing and future-dated at admission; four-digit years through 9999 are supported with no application-defined future scheduling horizon. Bounds are 8192 requests per batch, 16384 retained requests and 1024 batches per Account, 64 KiB per body and 16 MiB total request data. Every execution rechecks current authority; admission snapshots never confer authority. Exact submission retries return current progress. Changing a running batch returns 409; pause before correcting its unattempted tail. Completed requests and any attempted next request, including its time, are immutable. Correction keeps the batch paused without resetting attempts. Completed and cancelled records retain identity for at least seven days from their actual terminal time. Scheduled Email uses /api/v1/mailbox/send and the same current sending authorization at execution. The existing 64 KiB body cap still applies: use previously uploaded Mailbox asset_ids for human-owned attachments that do not fit inline. An Email result includes resource_id and email_sequence for the exact locator; these references do not grant private reads to an App.",
+        "description": "Current admitted human Members may schedule private Email through POST /api/v1/mailbox/send or one ordinary Chat Message through POST chats/{id}/messages. A human Message batch contains exactly one request and cannot mix email or other operations. Only its Message request may specify owner_account_id, selecting the exact Chat-owning Account; omission means the signed-in Account. That field is forbidden for delegated applications and other operations. Message author selection and client-created chronology are rejected. Current participant, blocking, history and Asset access are checked at admission and execution; unavailable attachments fail rather than sending a partial draft. Upload attachments first and retain their authorized Asset IDs. Human schedules belong to the submitting Member and survive logout, device closure and session expiry without retaining session or provider credentials. Email rechecks the current sender, reply/Asset history, service availability and ordinary limits; uncertain email is not automatically resubmitted. A successful result identifies the saved Message or exact Email, not delivery or reading. Delegated applications retain their existing scopes and supported mutations: PUT member-creations/{id}, PUT content-drafts/{id}, POST content-drafts/{id}/publish, PUT contents/{id}/comment-creations/{id}, POST chats, POST chats/{id}/messages and POST mailbox/send under /api/v1/. Delegated Email sending requires email:send and separate current Mailbox-owner consent, not Chat capabilities. Chat, Message and email creation require idempotency_key for the ordinary Idempotency-Key header. No arbitrary headers, hosts, query parameters, edits or nested schedules. Times use UTC YYYY-MM-DDTHH:MM:SSZ, nondecreasing and future-dated at admission; four-digit years through 9999 are supported with no application-defined future scheduling horizon. Bounds are 8192 requests per batch, 16384 retained requests and 1024 batches per Account, 64 KiB per body and 16 MiB total request data. Every execution rechecks current authority; admission snapshots never confer authority. Exact submission retries return current progress. A saved Email draft uses a single-request batch: admission freezes that exact revision and a separate sending identity before acknowledgment. Other devices cannot edit that accepted snapshot. Cancel before replacing it; accepted draft batches cannot be rewritten through paused-tail correction. Cancellation may restore editing at a newer revision only after excluding a live send and proving no dispatch. A lost batch publication can retain a locked draft preparation for exact inspection and deliberate recovery. Changing a running batch returns 409; pause before correcting its unattempted tail. Completed requests and any attempted next request, including its time, are immutable. Correction keeps the batch paused without resetting attempts. Completed and cancelled records retain identity for at least seven days from their actual terminal time. Scheduled Email uses /api/v1/mailbox/send and the same current sending authorization at execution. The existing 64 KiB body cap still applies: use previously uploaded Mailbox asset_ids for human-owned attachments that do not fit inline. An Email result includes resource_id and email_sequence for the exact locator; these references do not grant private reads to an App.",
         "security": [
           {
             "memberBearer": []
@@ -6016,11 +6061,12 @@
     "/api/v1/member-access/contact-directory": {
       "get": {
         "operationId": "getContactDirectory",
-        "description": "Read the current human Member's private contact presentation from permitted address books and deliberate communication. Incoming strangers, newsletters and incidental views do not create entries. Phone numbers and email addresses never imply a Basstok Member identity. Reads neither save contacts nor send communication. Pages are bounded scans, can be empty with a continuation, and may repeat an exact target with additional evidence; consumers merge exact targets in a bounded presentation window. Continue until next_cursor is absent rather than treating a page limit as a history limit. Authorization is evaluated for every source. Other Members, administrators and delegated Apps cannot read this presentation. Unknown or duplicate query parameters are rejected.",
+        "description": "Read the current human Member's private contact presentation from permitted address books and deliberate communication. Incoming strangers, newsletters and incidental views do not create entries. Phone numbers and email addresses never imply a Basstok Member identity. Reads neither save contacts nor send communication. Pages are bounded scans, can be empty with a continuation, and may repeat an exact target with additional evidence; consumers merge exact targets in a bounded presentation window. Continue until next_cursor is absent rather than treating a page limit as a history limit. Authorization is evaluated for every source. Other Members, administrators and delegated Apps cannot read this presentation. Unknown or duplicate query parameters are rejected. Saved records with only raw local numbers or no endpoints remain visible in the contacts view. Their exact card is read through the owner-private saved-contact endpoint.",
         "security": [{"memberBearer": []}],
         "parameters": [
+          {"name": "view", "in": "query", "schema": {"type": "string", "enum": ["contacts", "recipients"], "default": "contacts"}, "description": "Contacts shows each exact owner-saved record independently of usable endpoints. Recipients projects eligible saved-record endpoints. This read choice grants no authority and is bound into continuation. Hidden review is contacts-only."},
           {"name": "query", "in": "query", "schema": {"type": "string", "maxLength": 256}, "description": "Search saved labels and exact endpoint presentation across continued source reads; at most 256 UTF-8 bytes."},
-          {"name": "cursor", "in": "query", "schema": {"type": "string", "minLength": 1, "maxLength": 4096}, "description": "Opaque continuation bound to this Account, Member, search and hidden selection. Not authorization."},
+          {"name": "cursor", "in": "query", "schema": {"type": "string", "minLength": 1, "maxLength": 4096}, "description": "Opaque continuation bound to this Account, Member, search, read view and current hidden selection. Not authorization."},
           {"name": "hidden", "in": "query", "schema": {"type": "boolean", "default": false}, "description": "Review only explicit hidden targets, including targets whose original activity no longer exists. Hidden entries provide no communication actions."},
           {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}}
         ],
@@ -6030,12 +6076,165 @@
         }
       }
     },
+    "/api/v1/member-access/saved-contacts": {
+      "get": {
+        "operationId": "listSavedPrivateContacts",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "Enumerate the current human owner's saved contact records, at most 20 per page. Revision- and session-scoped continuations can return empty pages while advancing; follow next_cursor. Source snapshots and phone-name-only overrides are not duplicated as rich records.",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-private, never shared-cacheable; successful writes are durable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedContactPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSavedPrivateContact",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "One opaque current-human-owner private contact in the existing address book, not a global person or Member identity. No deduplication by name or endpoint. Device sources, exact-phone name overrides, visibility, blocking and communication permissions remain unchanged. No delegated access. Writes require the exact current book revision and durably publish the complete record before success; conflicts and uncertain responses require explicit re-reading, never blind retry. No lifetime record-count cap. Selected-contact callers must disclose private saving and submit only final supplied fields, without refetching unselected contacts. The request is limited to 64 KiB. Cookie-authenticated writes require browser presence protection.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedContactCaptureInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Owner-private, never shared-cacheable; successful writes are durable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedContactResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/member-access/saved-contacts/{contactId}": {
+      "parameters": [
+        {
+          "name": "contactId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getSavedPrivateContact",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "Read exactly one current human owner's saved contact. Other owners cannot inspect its details; knowing an opaque ID grants no access. No query parameters.",
+        "responses": {
+          "200": {
+            "description": "Owner-private, never shared-cacheable; successful writes are durable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedContactResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateSavedPrivateContact",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "One opaque current-human-owner private contact in the existing address book, not a global person or Member identity. No deduplication by name or endpoint. Device sources, exact-phone name overrides, visibility, blocking and communication permissions remain unchanged. No delegated access. Writes require the exact current book revision and durably publish the complete record before success; conflicts and uncertain responses require explicit re-reading, never blind retry. No lifetime record-count cap. Selected-contact callers must disclose private saving and submit only final supplied fields, without refetching unselected contacts. The request is limited to 64 KiB. Cookie-authenticated writes require browser presence protection. The exact record must already exist for this owner. Unavailable fields never erase known details.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedContactInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Owner-private, never shared-cacheable; successful writes are durable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedContactResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/api/v1/member-access/contact-name": {
       "get": {
         "operationId": "getPrivateContactName",
         "description": "Read the name and current private address-book revision for an exact E.164 phone target selected from the current human Member's contact directory. Repeat the query, cursor, hidden selection and limit of the page that contained this target. The page is revalidated; an absent target requires refreshing Contacts. An unnamed target returns an empty name. This read saves nothing, infers no identity and grants no communication authority.",
         "security": [{"memberBearer": []}],
         "parameters": [
+          {"name": "view", "in": "query", "schema": {"type": "string", "enum": ["contacts", "recipients"], "default": "contacts"}, "description": "Contacts shows each exact owner-saved record independently of usable endpoints. Recipients projects eligible saved-record endpoints. This read choice grants no authority and is bound into continuation. Hidden review is contacts-only."},
           {"name": "number", "in": "query", "required": true, "schema": {"type": "string", "pattern": "^\\+[1-9][0-9]{1,14}$"}},
           {"name": "query", "in": "query", "schema": {"type": "string", "maxLength": 256}},
           {"name": "cursor", "in": "query", "schema": {"type": "string", "minLength": 1, "maxLength": 4096}},
@@ -9374,7 +9573,7 @@
       ],
       "post": {
         "operationId": "createSmallAsset",
-        "description": "Creates an Asset of at most 8 MiB under one authorized Account, Content, Chat, Member or private Mailbox parent and returns its Basstok-assigned opaque identity. Select at most one of content_id, chat_id, member_id and mailbox_id; absence selects Account. mailbox_id must select the current admitted human's own existing Mailbox in the routed Account. Mailbox uploads are immutable detached Assets, without modifying any Email; reference their identities explicitly when sending. Only name, media_type and mailbox_id query parameters are accepted for a Mailbox upload: no owner Account, Member, acting identity, attachment-to-parent flag or delegated App, including email:send. member_id requires the current human Member's own identity, no acting identity or delegated application, and nonempty image bytes. Member photo Assets are immutable and initially private to self; select one through PUT /api/v1/member-access/avatar. OAuth callers use an explicit Content or Chat parent. A Chat upload remains visible only to its uploader until shared through a Message or attachment to the Chat; other participants then require visibility of that shared activity from their admission boundary. Retry an ambiguous outcome with the exact same Idempotency-Key, query parameters, and bytes; changed input with the same key conflicts.",
+        "description": "Creates an Asset of at most 8 MiB under one authorized Account, Content, Chat, Member or private Mailbox parent and returns its Basstok-assigned opaque identity. Select at most one of content_id, chat_id, member_id and mailbox_id; absence selects Account. mailbox_id must select the current admitted human's own existing Mailbox in the routed Account. Mailbox uploads are immutable detached Assets, without modifying any Email; reference their identities explicitly when sending. Only name, media_type and mailbox_id query parameters are accepted for a Mailbox upload: no owner Account, Member, acting identity, attachment-to-parent flag or delegated App, including email:send. member_id requires the current human Member's own identity, no acting identity or delegated application, and nonempty image bytes. Member image Assets have an immutable purpose. Without saved_contact_id, select a profile image through PUT /api/v1/member-access/avatar. With saved_contact_id, the exact existing owner-scoped contact is required and the image remains owner-human private permanently; avatar assignment is rejected. Publish its reference separately through that saved contact’s exact-revision update. Failed or cancelled selection may leave an owner-private unselected image under the existing Asset lifecycle; no photo reference or completion is invented. OAuth callers use an explicit Content or Chat parent. A Chat upload remains visible only to its uploader until shared through a Message or attachment to the Chat; other participants then require visibility of that shared activity from their admission boundary. Retry an ambiguous outcome with the exact same Idempotency-Key, query parameters, and bytes; changed input with the same key conflicts.",
         "security": [
           {
             "memberBearer": []
@@ -9412,6 +9611,9 @@
           },
           {
             "$ref": "#/components/parameters/AssetMemberParent"
+          },
+          {
+            "$ref": "#/components/parameters/AssetContactImage"
           },
           {
             "$ref": "#/components/parameters/AssetMailboxParent"
@@ -13684,8 +13886,13 @@
         "name": "member_id",
         "in": "query",
         "required": false,
-        "description": "Own Member identity for an immutable profile image. Exclusive with content_id and chat_id. Current human only; use PUT /api/v1/member-access/avatar after upload to select it.",
+        "description": "Own Member identity for an immutable image. Exclusive with Content, Chat and Mailbox parents. Current human only. Without saved_contact_id this is a profile image; selecting an avatar remains a separate operation. A saved contact image is permanently private and cannot be selected as an avatar.",
         "schema": {"type": "string", "minLength": 1, "maxLength": 128}
+      },
+      "AssetContactImage": {
+        "name": "saved_contact_id", "in": "query", "required": false,
+        "schema": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+        "description": "Requires member_id selecting your own human membership and an already existing saved contact owned there. Pins immutable contact-private image purpose. Other owners, Apps, profile-avatar selection and accepted Connections gain no access. Photo reference publication is a separate exact-revision saved-contact enrichment."
       },
       "AssetMailboxParent": {
         "name": "mailbox_id", "in": "query", "required": false,
@@ -17702,6 +17909,48 @@
                 }
               }
             }
+          },
+          {
+            "if": {
+              "required": [
+                "reply_to"
+              ]
+            },
+            "then": {
+              "properties": {
+                "authorship": {
+                  "properties": {
+                    "type": {
+                      "const": "member"
+                    }
+                  }
+                }
+              },
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "sms"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "sip"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "fax"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "deleted_at"
+                    ]
+                  }
+                ]
+              }
+            }
           }
         ],
         "properties": {
@@ -17750,6 +17999,13 @@
           },
           "authorship": {
             "$ref": "#/components/schemas/MessageAuthorship"
+          },
+          "reply_to": {
+            "$ref": "#/components/schemas/MessageReplyPresentation"
+          },
+          "forwarded": {
+            "type": "boolean",
+            "description": "True for a live Message deliberately forwarded by its current sender. Contains no original author, source locator or access link."
           }
         },
         "additionalProperties": false
@@ -18423,18 +18679,91 @@
         },
         "additionalProperties": false
       },
-      "MessageWrite": {
+      "MessageReplyTarget": {
         "type": "object",
         "required": [
-          "body"
+          "message_id"
         ],
+        "additionalProperties": false,
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Earlier currently readable ordinary Member-authored Message in this same live Chat. Deleted, external transport and imported history targets cannot be selected. Send immediately; human scheduled Messages do not accept reply_to."
+          }
+        }
+      },
+      "MessageReplyPresentation": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Current authorized quotation. An empty object means the original is unavailable to this viewer, including history before admission, blocking or deletion. No target identity, text or Asset is disclosed in that case. Omitted for an ordinary non-reply or deleted Message.",
+        "properties": {
+          "quotation": {
+            "$ref": "#/components/schemas/MessageReplyQuotation"
+          }
+        }
+      },
+      "MessageReplyQuotation": {
+        "type": "object",
+        "required": [
+          "message_id",
+          "author",
+          "text"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Select this exact identity with the same Chat message window around position; availability is rechecked."
+          },
+          "author": {
+            "$ref": "#/components/schemas/MemberIdentity"
+          },
+          "text": {
+            "type": "string",
+            "description": "Current plain text excerpt, at most 1024 UTF-8 bytes, or a Message/Attachment/Location label. Contains no nested quotation or Asset identities."
+          }
+        }
+      },
+      "MessageForwardSource": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "owner_account_id",
+          "chat_id",
+          "message_id"
+        ],
+        "description": "Request-only exact currently authorized ordinary live Message. Send an empty body and omit asset_ids, location and reply_to. Engine copies its current body, location and independently owned destination attachments, with the current sender as author and no original-author/source link. Imported histories and external SMS, calling texts, fax and Email are ineligible. Current source and destination admission, blocking, session and ownership are checked at Send. An exact already accepted retry returns the destination copy even after source withdrawal. Requires immediate Send; unavailable to human scheduled Messages.",
+        "properties": {
+          "owner_account_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "chat_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "message_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      },
+      "MessageWrite": {
+        "type": "object",
         "properties": {
           "body": {
             "type": "string"
           },
           "asset_ids": {
             "type": "array",
-            "description": "Currently authorized source Assets for this Chat. Each sent Message receives its own immutable attachment identities, returned in the Message response; these may differ from the submitted source IDs. Retry with the original source IDs and idempotency key. Forwarding an attachment from another Chat first uses the explicit attachment-copy operation.",
+            "description": "Currently authorized source Assets for this Chat. Each sent Message receives its own immutable attachment identities; retry with the original source IDs and idempotency key. To forward a whole ordinary live Message use forward_from instead.",
             "items": {
               "type": "string"
             }
@@ -18445,9 +18774,18 @@
           },
           "location": {
             "$ref": "#/components/schemas/MessageLocation"
+          },
+          "reply_to": {
+            "$ref": "#/components/schemas/MessageReplyTarget"
+          },
+          "forward_from": {
+            "$ref": "#/components/schemas/MessageForwardSource"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "required": [
+          "body"
+        ]
       },
       "HistorySourceAsset": {
         "type": "object",
@@ -18931,6 +19269,7 @@
           "integrity"
         ],
         "properties": {
+          "member_image": {"$ref": "#/components/schemas/MemberImagePurpose"},
           "id": {
             "type": "string"
           },
@@ -19010,7 +19349,7 @@
       },
       "AssetUploadRequest": {
         "type": "object",
-        "description": "At most one Content, Chat or Mailbox parent. mailbox_id selects only your own existing private Mailbox in the routed Account. Mailbox uploads are immutable and detached: attach_to_parent must be false or omitted. Another Manager, acting identity and delegated Apps cannot upload to it, including email:send. No query parameters are accepted for Mailbox upload admission; browser presence and same-origin protection apply.",
+        "description": "At most one Content, Chat, Mailbox or Member parent. mailbox_id selects only your own existing private Mailbox in the routed Account. member_id selects only your own immutable image Asset, at most 8 MiB; optional saved_contact_id pins it to an already existing saved contact under this same owner, permanently excluding avatar/profile sharing. Private Mailbox and Member images are detached: attach_to_parent must be false or omitted. Another Manager, acting identity and delegated Apps cannot upload to these private scopes. No query parameters are accepted for private upload admission; browser presence and same-origin protection apply. Abort uses the existing upload lifecycle; completed but unselected contact images remain owner-private.",
         "required": [
           "name",
           "media_type",
@@ -19041,14 +19380,17 @@
           "mailbox_id": {
             "$ref": "#/components/schemas/MailboxResourceId"
           },
+          "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+          "saved_contact_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
           "attach_to_parent": {
             "type": "boolean"
           }
         },
         "additionalProperties": false,
         "allOf": [
-          {"not": {"anyOf": [{"required": ["content_id", "chat_id"]}, {"required": ["content_id", "mailbox_id"]}, {"required": ["chat_id", "mailbox_id"]}]}},
-          {"if": {"required": ["mailbox_id"]}, "then": {"properties": {"attach_to_parent": {"const": false}}}}
+          {"not": {"anyOf": [{"required": ["content_id", "chat_id"]}, {"required": ["content_id", "mailbox_id"]}, {"required": ["chat_id", "mailbox_id"]}, {"required": ["member_id", "content_id"]}, {"required": ["member_id", "chat_id"]}, {"required": ["member_id", "mailbox_id"]}]}},
+          {"if": {"anyOf": [{"required": ["mailbox_id"]}, {"required": ["member_id"]}]}, "then": {"properties": {"attach_to_parent": {"const": false}}}},
+          {"if": {"required": ["saved_contact_id"]}, "then": {"required": ["member_id"]}}
         ]
       },
       "AssetUploadProgress": {
@@ -19387,10 +19729,14 @@
           }},
           {"type": "object", "additionalProperties": false, "required": ["type", "member"], "properties": {
             "type": {"const": "member"}, "member": {"$ref": "#/components/schemas/MemberIdentity"}
+          }},
+          {"type": "object", "additionalProperties": false, "required": ["type", "owner", "contact_id"], "properties": {
+            "type": {"const": "saved_contact"}, "owner": {"$ref": "#/components/schemas/MemberIdentity"},
+            "contact_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"}
           }}
         ],
         "discriminator": {"propertyName": "type"},
-        "description": "An exact endpoint or an independently authorized, Account-qualified Basstok Member. These alternatives never imply a person-level merge. Email local-part case is preserved; only the domain is normalized. Local phone numbers retain their existing saved spelling without guessing a country."
+        "description": "An exact endpoint, an independently authorized Account-qualified Basstok Member, or one exact owner-private saved record. A saved record owner must match the current human Account/Member; it carries no implicit recipient, communication action or person-level identity. These alternatives never imply a person-level merge. Email local-part case is preserved; only the domain is normalized. Local phone numbers retain their existing saved spelling without guessing a country."
       },
       "ContactDirectoryEntry": {
         "type": "object", "additionalProperties": false,
@@ -19426,9 +19772,520 @@
           "revision": {"type": "integer", "minimum": 0, "format": "uint64"}
         }
       },
+      "MemberImagePurpose": {"oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "profile"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "contact_id"], "properties": {
+          "type": {"const": "private_contact"}, "contact_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"}
+        }}
+      ], "description": "Immutable Member-owned image purpose. Private-contact images require their exact existing owner-scoped saved contact, are View/Manage owner-human only, and cannot be selected as a profile image or shared through accepted Connections. Knowing IDs conveys no authority."},
+      "SavedContactPhoto": {"oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "none"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "asset"], "properties": {
+          "type": {"const": "asset"}, "asset": {"type": "object", "additionalProperties": false, "required": ["id"], "properties": {"id": {"type": "string", "format": "uuid"}}}
+        }}
+      ], "description": "Omission preserves an existing photo. Explicit none removes the selected photo reference. Asset publication requires an image with this exact owner and saved-contact private purpose; no bytes inline or remote image fetching. Prepare the saved record before uploading its image through the existing Asset API. Details and photo publication have separate durable acknowledgements; a photo failure does not undo already saved details."},
+      "SavedContactName": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "prefix": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "given": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "middle": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "family": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "suffix": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "nickname": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "phonetic_given": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "phonetic_middle": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "phonetic_family": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "previous_family": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          }
+        }
+      },
+      "SavedContactOrganization": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "department": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "phonetic_name": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          }
+        }
+      },
+      "SavedContactChannel": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "value"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          }
+        }
+      },
+      "SavedContactPostalAddress": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "street",
+          "city",
+          "region",
+          "postal_code",
+          "country",
+          "country_code",
+          "sublocality",
+          "subregion"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "street": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "region": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "postal_code": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "country": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "country_code": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "sublocality": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "subregion": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          }
+        }
+      },
+      "SavedContactDate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "calendar"
+        ],
+        "properties": {
+          "calendar": {
+            "type": "string",
+            "enum": [
+              "unspecified",
+              "gregorian",
+              "buddhist",
+              "chinese",
+              "coptic",
+              "ethiopic",
+              "ethiopic_alem",
+              "hebrew",
+              "iso8601",
+              "indian",
+              "islamic",
+              "islamic_civil",
+              "japanese",
+              "persian",
+              "republic_of_china",
+              "islamic_tabular",
+              "islamic_umm_al_qura"
+            ]
+          },
+          "era": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "year": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999999
+          },
+          "month": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 13
+          },
+          "day": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 31
+          },
+          "leap_month": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SavedContactLabeledDate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "value"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "value": {
+            "$ref": "#/components/schemas/SavedContactDate"
+          }
+        }
+      },
+      "SavedContactSocialAddress": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "service",
+          "username",
+          "user_identifier",
+          "url"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "service": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "user_identifier": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          }
+        }
+      },
+      "SavedContactInstantAddress": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "service",
+          "username"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "service": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          }
+        }
+      },
+      "SavedContactRelation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "name"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Source text, at most 4096 UTF-8 bytes."
+          }
+        }
+      },
+      "SavedContactDetails": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "photo": {"$ref": "#/components/schemas/SavedContactPhoto"},
+          "name": {
+            "$ref": "#/components/schemas/SavedContactName"
+          },
+          "organization": {
+            "$ref": "#/components/schemas/SavedContactOrganization"
+          },
+          "phones": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/SavedContactChannel"
+            }
+          },
+          "emails": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/SavedContactChannel"
+            }
+          },
+          "urls": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/SavedContactChannel"
+            }
+          },
+          "postal_addresses": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/SavedContactPostalAddress"
+            }
+          },
+          "birthday": {
+            "$ref": "#/components/schemas/SavedContactDate"
+          },
+          "alternate_birthday": {
+            "$ref": "#/components/schemas/SavedContactDate"
+          },
+          "dates": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/SavedContactLabeledDate"
+            }
+          },
+          "social_addresses": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/SavedContactSocialAddress"
+            }
+          },
+          "instant_addresses": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/SavedContactInstantAddress"
+            }
+          },
+          "relations": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/SavedContactRelation"
+            }
+          }
+        },
+        "minProperties": 1,
+        "description": "Only actually supplied fields. Missing fields (including individual structured name/organization fields) retain existing details on an exact-record update. At most 32 KiB compact UTF-8 JSON and 512 UTF-8 bytes for the derived display name; oversize input fails rather than being truncated. Source channel values and labels are retained unchanged; routable actions are derived separately. Dates require at least one year, month or day. Relations, social addresses and photos never establish identity or access. No notes, device identity or inline photo bytes."
+      },
+      "SavedContactSource": {
+        "type": "object", "additionalProperties": false, "required": ["source_id", "record_id"],
+        "description": "Owner-private adapter source reference from only the final selected local contact. source_id is the existing adapter namespace UUID; record_id is the SHA-256 of the actually supplied local contact identifier. Neither identifies a Member or global person. Absence never triggers endpoint or name matching.",
+        "properties": {
+          "source_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+          "record_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      },
+      "SavedContactCaptureInput": {
+        "type": "object", "additionalProperties": false, "required": ["expected_revision", "details"],
+        "description": "Creates a contact, or enriches the same exact owner/source record. Supplying source chooses a stable opaque owner-scoped ID. Omitted source creates a new record. Lists add exact labeled values; missing or empty arrays never delete known values. Name and organization supplied members update, omitted members retain. Conflicts require rereading; no mutation retry is implied.",
+        "properties": {
+          "expected_revision": {"type": "integer", "minimum": 0, "format": "uint64"},
+          "details": {"$ref": "#/components/schemas/SavedContactDetails"},
+          "source": {"$ref": "#/components/schemas/SavedContactSource"}
+        }
+      },
+      "SavedContact": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "details"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+          },
+          "details": {
+            "$ref": "#/components/schemas/SavedContactDetails"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SavedContactSource"
+          }
+        }
+      },
+      "SavedContactResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision",
+          "contact"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "format": "uint64"
+          },
+          "contact": {
+            "$ref": "#/components/schemas/SavedContact"
+          }
+        }
+      },
+      "SavedContactPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision",
+          "items"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "format": "uint64"
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/SavedContact"
+            }
+          },
+          "next_cursor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      },
+      "SavedContactInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Enrich this exact existing owner record, retaining its immutable source reference. Omitted fields and empty partial arrays preserve known details; supplied list values add only exact labeled values. Supplied name/organization members update while omitted members retain. This is not full-field replacement or an endpoint-removal editor. Explicit photo none detaches only that reference without deleting Asset bytes.",
+        "required": [
+          "expected_revision",
+          "details"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "format": "uint64"
+          },
+          "details": {
+            "$ref": "#/components/schemas/SavedContactDetails"
+          }
+        }
+      },
       "ContactNameSelection": {
         "type": "object", "additionalProperties": false,
         "properties": {
+          "view": {"type": "string", "enum": ["contacts", "recipients"], "default": "contacts"},
           "query": {"type": "string", "maxLength": 256, "default": ""},
           "cursor": {"type": "string", "minLength": 1, "maxLength": 4096},
           "hidden": {"type": "boolean", "default": false},
@@ -22426,6 +23283,59 @@
           }
         }
       },
+      "MailboxDraftInput": {
+        "type": "object", "additionalProperties": false,
+        "properties": {
+          "connection_id": {"type": "string", "maxLength": 64, "description": "Optional remembered sender choice, not sending authority; empty while incomplete."},
+          "recipient": {"type": "string", "maxLength": 8192, "description": "Incomplete recipient text is permitted while editing; no control characters."},
+          "subject": {"type": "string", "maxLength": 512}, "body": {"type": "string", "maxLength": 16384, "description": "Exact CommonMark editing source, at most 16384 UTF-8 bytes."},
+          "reply_to": {"$ref": "#/components/schemas/MailboxEmailReplyInput"},
+          "asset_ids": {"type": "array", "maxItems": 4, "uniqueItems": true, "items": {"type": "string", "format": "uuid"}}
+        }
+      },
+      "MailboxDraftRevision": {
+        "type": "object", "additionalProperties": false, "required": ["sequence", "revision"],
+        "properties": {"sequence": {"$ref": "#/components/schemas/MailboxEmailSequence"}, "revision": {"type": "integer", "format": "uint64", "minimum": 1}}
+      },
+      "MailboxDraftChange": {
+        "type": "object", "additionalProperties": false, "required": ["sequence", "revision", "input"],
+        "properties": {"sequence": {"$ref": "#/components/schemas/MailboxEmailSequence"}, "revision": {"type": "integer", "format": "uint64", "minimum": 1}, "input": {"$ref": "#/components/schemas/MailboxDraftInput"}}
+      },
+      "MailboxDraftSubmission": {
+        "type": "object", "additionalProperties": false, "required": ["email_id", "sequence", "revision", "creation_id"],
+        "description": "Current human's exact saved draft target. Sending fields must match that snapshot. Use creation_id as the ordinary send Idempotency-Key. Forbidden to Apps. Undo/Send Later retain the ordinary scheduled-request contract.",
+        "properties": {"email_id": {"type": "string", "format": "uuid"}, "sequence": {"$ref": "#/components/schemas/MailboxEmailSequence"}, "revision": {"type": "integer", "format": "uint64", "minimum": 1}, "creation_id": {"type": "string", "format": "uuid"}}
+      },
+      "EmailDraft": {
+        "type": "object", "additionalProperties": false, "required": ["type", "creation_id", "creation_sha256", "revision", "connection_id", "recipient", "state"],
+        "description": "An owner-private Basstok editing draft, distinct from immutable imported/source drafts and from actual outgoing dispatch. Completed/discarded creation facts are hidden from ordinary email lists.",
+        "properties": {"type": {"const": "draft"}, "creation_id": {"type": "string", "format": "uuid"}, "creation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "revision": {"type": "integer", "format": "uint64", "minimum": 1}, "connection_id": {"type": "string"}, "recipient": {"type": "string"}, "reply_to": {"$ref": "#/components/schemas/MailboxEmailReplyInput"},
+          "state": {"$ref": "#/components/schemas/EmailDraftState"}}
+      },
+      "EmailDraftState": {
+        "oneOf": [{"$ref": "#/components/schemas/EmailDraftEditing"}, {"$ref": "#/components/schemas/EmailDraftSubmitting"}, {"$ref": "#/components/schemas/EmailDraftCompleted"}, {"$ref": "#/components/schemas/EmailDraftDiscarded"}, {"$ref": "#/components/schemas/EmailDraftScheduled"}],
+        "discriminator": {"propertyName": "type", "mapping": {"editing": "#/components/schemas/EmailDraftEditing", "submitting": "#/components/schemas/EmailDraftSubmitting", "completed": "#/components/schemas/EmailDraftCompleted", "discarded": "#/components/schemas/EmailDraftDiscarded", "scheduled": "#/components/schemas/EmailDraftScheduled"}}
+      },
+      "EmailDraftEditing": {
+        "type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "editing"}}
+      },
+      "EmailDraftSubmitting": {
+        "type": "object", "additionalProperties": false, "required": ["type", "submission_id"],
+        "properties": {"type": {"const": "submitting"}, "submission_id": {"type": "string", "format": "uuid"}}
+      },
+      "EmailDraftScheduled": {
+        "type": "object", "additionalProperties": false, "required": ["type", "submission_id", "batch_id"],
+        "description": "Immutable saved revision selected by one ordinary scheduled email. Its frozen sending identity is distinct from draft creation. This state never independently queues or sends email.",
+        "properties": {"type": {"const": "scheduled"}, "submission_id": {"type": "string", "format": "uuid"}, "batch_id": {"type": "string", "format": "uuid"}}
+      },
+      "EmailDraftCompleted": {
+        "type": "object", "additionalProperties": false, "required": ["type", "submission_id", "sent_email"],
+        "properties": {"type": {"const": "completed"}, "submission_id": {"type": "string", "format": "uuid"}, "sent_email": {"$ref": "#/components/schemas/MailboxEmailReplyInput"}}
+      },
+      "EmailDraftDiscarded": {
+        "type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "discarded"}}
+      },
       "MailboxEmailSendInput": {
         "type": "object",
         "additionalProperties": false,
@@ -22498,7 +23408,8 @@
               "$ref": "#/components/schemas/MailboxEmailAttachmentInput"
             },
             "description": "Inline bytes supplied by this request, permitted for human owners and consented send-only Apps. At most four combined with asset_ids, and at most 8 MiB combined decoded bytes."
-          }
+          },
+          "draft": {"$ref": "#/components/schemas/MailboxDraftSubmission"}
         }
       },
       "EmailAuthenticationStatus": {
@@ -22892,7 +23803,7 @@
           "recorded_at_ms": {"type": "integer", "minimum": 1, "maximum": 253402300799999},
           "subject": {"type": "string", "maxLength": 16384},
           "body": {"type": "string", "maxLength": 10485760, "description": "Canonical CommonMark Markdown source, bounded to 10 MiB of UTF-8."},
-          "delivery": {"oneOf": [{"$ref": "#/components/schemas/EmailReception"}, {"$ref": "#/components/schemas/EmailDispatch"}, {"$ref": "#/components/schemas/EmailHistorical"}], "discriminator": {"propertyName": "type", "mapping": {"received": "#/components/schemas/EmailReception", "outgoing": "#/components/schemas/EmailDispatch", "historical": "#/components/schemas/EmailHistorical"}}},
+          "delivery": {"oneOf": [{"$ref": "#/components/schemas/EmailReception"}, {"$ref": "#/components/schemas/EmailDispatch"}, {"$ref": "#/components/schemas/EmailHistorical"}, {"$ref": "#/components/schemas/EmailDraft"}], "discriminator": {"propertyName": "type", "mapping": {"received": "#/components/schemas/EmailReception", "outgoing": "#/components/schemas/EmailDispatch", "historical": "#/components/schemas/EmailHistorical", "draft": "#/components/schemas/EmailDraft"}}},
           "organization": {"$ref": "#/components/schemas/EmailOrganization"},
           "unsubscribe": {"$ref": "#/components/schemas/EmailUnsubscribeAttempt"},
           "message_id": {"type": "string", "minLength": 5, "maxLength": 998},
@@ -22960,7 +23871,7 @@
       },
       "EmailFolder": {
         "type": "string",
-        "enum": ["inbox", "archive", "trash", "junk"],
+        "enum": ["inbox", "archive", "trash", "junk", "drafts", "sent"],
         "default": "inbox"
       },
       "MessageSearchHit": {
