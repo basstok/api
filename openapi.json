@@ -1253,7 +1253,7 @@
         "operationId": "getAccountSmsSending",
         "tags": ["Account"],
         "summary": "Read your text message sending service",
-        "description": "Verified-phone human session of the personal Account creator only. Returns the actual configured sender, current sending readiness and explicit reply availability. Uses the existing shared sender unless a dedicated assignment has been explicitly requested. An assigned number does not silently fall back to a shared sender on supplier or setup failure. Dedicated sending additionally requires approved sender use and completed registration; SMS-capable inventory alone is not sufficient. Missing configuration returns not_configured without inventing a sender. A current Production monthly plan is required; test purchases, grace and starter allowance cannot enable sending. Each new send refreshes production purchase proof and rechecks authorization and limits. Reply availability requires the current assigned number's exact receiving destination; it does not imply per-recipient Chat threading. Provider acceptance never promises delivery. No query parameters are accepted.",
+        "description": "Verified-phone human session of the personal Account creator only. Returns the selected remaining Message allowance independently of provider setup or availability, plus the actual configured sender, sending readiness and explicit reply availability. A saved introductory SMS grant or current Production monthly allowance is required. Ordinary starter money, test purchases and grace do not issue SMS units. Zero allowance remains visible even without a configured provider; later login, device changes or reinstall do not refill it. Uses the existing shared sender unless a dedicated assignment has been explicitly requested. An assigned number does not silently fall back to a shared sender on supplier or setup failure. Dedicated sending additionally requires approved sender use and completed registration; SMS-capable inventory alone is not sufficient. Missing configuration returns not_configured without inventing a sender. Each new send refreshes saved production purchase proof and rechecks authorization and limits. Reply availability requires the current assigned number's exact receiving destination; it does not imply per-recipient Chat threading. Provider acceptance never promises delivery. No query parameters are accepted.",
         "security": [{"memberBearer": []}],
         "responses": {
           "200": {"description": "Current text message sending readiness.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ManagedSmsSending"}}}},
@@ -6026,6 +6026,43 @@
         ],
         "responses": {
           "200": {"description": "Private bounded contact page; never shared-cacheable.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ContactDirectoryPage"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/api/v1/member-access/contact-name": {
+      "get": {
+        "operationId": "getPrivateContactName",
+        "description": "Read the name and current private address-book revision for an exact E.164 phone target selected from the current human Member's contact directory. Repeat the query, cursor, hidden selection and limit of the page that contained this target. The page is revalidated; an absent target requires refreshing Contacts. An unnamed target returns an empty name. This read saves nothing, infers no identity and grants no communication authority.",
+        "security": [{"memberBearer": []}],
+        "parameters": [
+          {"name": "number", "in": "query", "required": true, "schema": {"type": "string", "pattern": "^\\+[1-9][0-9]{1,14}$"}},
+          {"name": "query", "in": "query", "schema": {"type": "string", "maxLength": 256}},
+          {"name": "cursor", "in": "query", "schema": {"type": "string", "minLength": 1, "maxLength": 4096}},
+          {"name": "hidden", "in": "query", "schema": {"type": "boolean", "default": false}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}}
+        ],
+        "responses": {
+          "200": {"description": "Private name and revision; never shared-cacheable.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PrivateContactName"}}}},
+          "default": {"$ref": "#/components/responses/Error"}
+        }
+      },
+      "put": {
+        "operationId": "savePrivateContactName",
+        "description": "Durably save a private name for one exact E.164 target selected from the current human Member's contact directory. The selected page is revalidated and the exact current address-book revision is required. A deliberate save accepts this endpoint as a saved contact, independently of later activity or device-source removal. Device snapshots and other targets are preserved. The phone number, visibility, blocking and communication permissions are unchanged. This does not modify any device contact, Member profile or another Member's address book. Names are meaningful single-line text bounded to 512 UTF-8 bytes. A conflict or uncertain response requires reading current state before trying again. No query parameters or delegated access. Cookie-authenticated writes require browser presence protection. The body is limited to 8 KiB.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {
+          "type": "object", "additionalProperties": false, "required": ["number", "name", "expected_revision", "selection"],
+          "properties": {
+            "number": {"type": "string", "pattern": "^\\+[1-9][0-9]{1,14}$"},
+            "name": {"type": "string", "minLength": 1, "maxLength": 512},
+            "expected_revision": {"type": "integer", "minimum": 0, "format": "uint64"},
+            "selection": {"$ref": "#/components/schemas/ContactNameSelection"}
+          }
+        }}}},
+        "responses": {
+          "200": {"description": "The exact private contact name is durable at the returned address-book revision.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PrivateContactName"}}}},
+          "409": {"$ref": "#/components/responses/Error"},
           "default": {"$ref": "#/components/responses/Error"}
         }
       }
@@ -12610,7 +12647,7 @@
           "Phone"
         ],
         "summary": "Send using managed texts",
-        "description": "Requires the verified-phone human Account creator and existing service, retail allowance and independent supplier bounds. Texts require fresh Production Monthly proof; fax retains existing trial/paid funding. A durable unconfirmed receipt precedes one bounded external attempt; a missing response is not permission to resend. Cellular texts are human-only; no application scope grants SMS authority.",
+        "description": "Requires the verified-phone human Account creator and existing service, retail allowance and independent supplier bounds. Texts require a saved explicit introductory SMS unit or fresh Production Monthly proof and its allowance; ordinary starter money does not fund texts. Saved production proof is refreshed before each new managed send even when starter units remain. Fax retains existing trial/paid funding. A durable unconfirmed receipt precedes one bounded external attempt; a missing response is not permission to resend. Cellular texts are human-only; no application scope grants SMS authority.",
         "security": [
           {
             "memberBearer": []
@@ -17052,7 +17089,7 @@
         "properties": {
           "share_profile_photo": {"type": "boolean", "default": true, "description": "Share the selected photo with accepted Connections only. Self always retains access to own uploads."},
           "share_read_receipts": {"type": "boolean", "default": true, "description": "Share read positions with accepted Connections who can read the referenced Chat history."},
-          "share_last_activity": {"type": "boolean", "default": false, "description": "Share approximate server-observed last activity with accepted Connections. Disabling clears the retained observation."}
+          "share_last_activity": {"type": "boolean", "default": true, "description": "Share approximate server-observed last activity with accepted Connections. Disabling clears the retained observation."}
         }
       },
       "MemberLastActivity": {
@@ -18249,11 +18286,13 @@
       },
       "ManagedSmsSending": {
         "type": "object",
-        "required": ["state", "can_send", "replies_supported"],
+        "required": ["state", "can_send", "replies_supported", "messages_available", "funding_source"],
         "properties": {
-          "sender": {"type": "string", "minLength": 1, "maxLength": 16, "description": "Actual configured telephone number or alphanumeric sender. Omitted when unconfigured. Sending identity alone does not prove receiving readiness."},
+          "sender": {"type": ["string", "null"], "minLength": 1, "maxLength": 16, "description": "Actual configured telephone number or alphanumeric sender. Null when unconfigured. Sending identity alone does not prove receiving readiness."},
           "state": {"type": "string", "enum": ["not_configured", "paid_plan_required", "provider_setup", "unavailable", "limit_reached", "ready"]},
-          "can_send": {"type": "boolean", "description": "Current verified plan snapshot, inspected sender and remaining sending limit permit a new attempt; the send operation rechecks all admission requirements."},
+          "can_send": {"type": "boolean", "description": "Current selected allowance, verified plan snapshot where required, inspected sender and separate supplier limits permit a new attempt; the send operation rechecks all admission requirements."},
+          "messages_available": {"type": ["integer", "null"], "minimum": 0, "description": "Selected customer Message-count allowance remaining after spent and reserved units, independently of provider configuration or inspection failure. Zero is exhausted or no managed starter SMS grant. Null with a selected funding_source means no customer count ceiling, never unlimited SMS or supplier spending authority. Null with a null funding_source means the allowance needs reconciliation; do not display zero or unlimited."},
+          "funding_source": {"type": ["string", "null"], "enum": ["trial", "monthly", null], "description": "Currently selected starter or verified production monthly allowance, using the same selection as Account usage. Null means reconciliation is required. A paid selection never falls back to starter units because its allowance is exhausted. This read does not refresh store proof or authorize a send."},
           "replies_supported": {"type": "boolean", "description": "Current assigned-number replies can reach the own private receiving Chat. False for a shared sender. Independent of outbound sending readiness."}
         },
         "additionalProperties": false
@@ -19379,6 +19418,23 @@
           "hidden": {"type": "boolean"}
         }
       },
+      "PrivateContactName": {
+        "type": "object", "additionalProperties": false, "required": ["number", "name", "revision"],
+        "properties": {
+          "number": {"type": "string", "pattern": "^\\+[1-9][0-9]{1,14}$"},
+          "name": {"type": "string", "maxLength": 512},
+          "revision": {"type": "integer", "minimum": 0, "format": "uint64"}
+        }
+      },
+      "ContactNameSelection": {
+        "type": "object", "additionalProperties": false,
+        "properties": {
+          "query": {"type": "string", "maxLength": 256, "default": ""},
+          "cursor": {"type": "string", "minLength": 1, "maxLength": 4096},
+          "hidden": {"type": "boolean", "default": false},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}
+        }
+      },
       "MemberContacts": {
         "type": "object",
         "additionalProperties": false,
@@ -19694,6 +19750,11 @@
             "minimum": 0,
             "maximum": 14400,
             "description": "Upper bound for one outgoing call from the currently selected allowance, customer tariff and remaining time/call quotas, excluding reserved capacity. Zero means none currently available; null or absent means the allowance needs reconciliation. This read grants no credit and does not establish destination or service readiness. Calls and fax share the allowance; this is not an additional grant or a fixed fax-page allowance."
+          },
+          "messages_available": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "description": "Managed SMS Message-count units in the selected allowance after spent and reserved units. Zero includes no explicitly granted starter SMS. Null or absent with current_source present means no customer Message-count ceiling, not unlimited SMS; supplier limits and readiness remain separate. With no current_source the allowance needs reconciliation. Reads never grant or refill units."
           },
           "introductory_billable_minutes_available": {
             "type": ["integer", "null"],
