@@ -24,6 +24,139 @@
     }
   ],
   "paths": {
+    "/api/v1/private-chat-histories/prepare": {
+      "post": {
+        "operationId": "preparePrivateChatHistory",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "Imports immutable owner-private read-only Chat history. No Member identity is inferred from exported speakers. Manager authority and Apps confer no access. Source evidence and media use existing multipart Asset uploads. Ordinary reads, lists, Search and known identities cannot expose unfinished history. An exact completed declaration selects the existing history. A failed run requires deliberate whole-source restart, not resume.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivateChatHistoryDeclaration"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exact owner-private history selection. Prepared state is not ordinary visibility.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivateChatHistoryPreparation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid declaration or source"
+          },
+          "401": {
+            "description": "Current human session required"
+          },
+          "403": {
+            "description": "Not the current admitted human owner"
+          },
+          "409": {
+            "description": "Immutable input conflict or concurrent operation"
+          },
+          "502": {
+            "description": "Publication could not be confirmed; deliberately inspect and retry the whole unchanged source"
+          }
+        }
+      }
+    },
+    "/api/v1/private-chat-histories/{chatId}/publish": {
+      "post": {
+        "operationId": "publishPrivateChatHistory",
+        "security": [
+          {
+            "memberBearer": []
+          }
+        ],
+        "description": "Imports immutable owner-private read-only Chat history. No Member identity is inferred from exported speakers. Manager authority and Apps confer no access. Source evidence and media use existing multipart Asset uploads. Ordinary reads, lists, Search and known identities cannot expose unfinished history. An exact completed declaration selects the existing history. A failed run requires deliberate whole-source restart, not resume.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivateChatHistoryPublication"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exact owner-private history selection. Prepared state is not ordinary visibility.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Chat"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid declaration or source"
+          },
+          "401": {
+            "description": "Current human session required"
+          },
+          "403": {
+            "description": "Not the current admitted human owner"
+          },
+          "409": {
+            "description": "Immutable input conflict or concurrent operation"
+          },
+          "502": {
+            "description": "Publication could not be confirmed; deliberately inspect and retry the whole unchanged source"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "chatId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/mailbox/import": {
+      "post": {
+        "operationId": "importOwnHistoricalMailbox",
+        "summary": "Publish an immutable historical email source to your private Mailbox",
+        "description": "Current admitted human Mailbox owner only. Apps, acting identities and another Manager cannot import into this Mailbox. All source references must be existing owner-private Assets with exact SHA-256. Source pages are ordinary JSON Assets, at most 256 KiB and 32 records each, linked backwards by previous; first is a zero-based source offset. The final page and total select the entire immutable source. The complete run validates before atomic durable publication. No partial-success state, saved cursor or automatic retry. A deliberate retry starts from the same source and validates exact record identity/provenance while preserving current Basstok filing. A different source under a reused namespace/record identity conflicts. Received/sent/draft/scheduled are inert source facts, never sending, scheduling, authentication or authorship authority. No historical notifications, push, optional email or outgoing submissions; unread counts reflect retained source unread facts. Source order/date are provenance; actual admission chronology is unchanged. Original MIME and supported attachments are retained; Ordinary historical MIME, decoded bytes and normalized body are each bounded to 10 MiB; structural header, depth, part and allocation safeguards remain. Unsupported/malformed/oversized records fail the entire run without silently skipping or truncating mail. Source adapters run outside the server. No provider activation or ongoing synchronization. JSON request at most 8192 UTF-8 bytes; unknown, duplicate or missing required fields rejected. Browser presence and same-origin protection apply. A bounded operation timeout can fail a large attempt; it is not partial completion or a lifetime count cap. After transport loss inspect your Mailbox and deliberately retry unchanged input; no automatic replay request is made. All responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxHistoricalImport"}}}},
+        "responses": {"200": {"description": "The entire validated source is durably published, or exact replays already exist.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MailboxHistoricalResult"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      }
+    },
     "/api/v1/mailbox/receiving": {
       "get": {
         "operationId": "readOwnMailboxReceiving",
@@ -64,6 +197,7 @@
       "get": {
         "operationId": "readMailboxEmailSending",
         "summary": "Read your available Email senders",
+        "parameters": [{"name": "address", "in": "query", "required": false, "schema": {"type": "string", "format": "email", "maxLength": 254}, "description": "Current human owner only. Return optional editable SMTP setup hints for this exact address without contacting its provider, saving a connection or authorizing sending/receiving. Unknown and duplicate query parameters are rejected."}],
         "security": [
           {
             "memberBearer": []
@@ -74,7 +208,7 @@
             ]
           }
         ],
-        "description": "Returns current sender choices without credentials. The Mailbox owner may manage them. A delegated App requires both email:send and separate current Mailbox-owner consent; can_manage is false for the App. No chat:read or chat:write capability is required. This limited capability read is not inbox/history, organization or private Asset access. Explicit SMTP takes precedence over a connected Google/Microsoft sender with the same address. Choices sort by address, with the assigned Basstok sender first when available. Sending always requires an exact connection_id. No request body. Uses only the current admitted responsible human's existing Mailbox in the routed Account. No Account, Member, Mailbox or acting-persona selector and no query parameters. A Manager cannot substitute for another owner. Browser mutations require current presence and same-origin checks. Responses are no-store.",
+        "description": "Returns current sender choices without credentials. The Mailbox owner may manage them. A delegated App requires both email:send and separate current Mailbox-owner consent; can_manage is false for the App and setup hints are forbidden. No chat:read or chat:write capability is required. This limited capability read is not inbox/history, organization or private Asset access. Explicit SMTP takes precedence over a connected Google/Microsoft sender with the same address. Choices sort by address, with the assigned Basstok sender first when available. Sending always requires an exact connection_id. Optional address returns server-owned SMTP defaults and instructions, not authentication success or provider authority. No provider contact or mutation occurs. Query at most 1024 UTF-8 bytes; only address is accepted, once. No request body. Uses only the current admitted responsible human's existing Mailbox in the routed Account. No Account, Member, Mailbox or acting-persona selector. A Manager cannot substitute for another owner. Browser mutations require current presence and same-origin checks. Responses are no-store.",
         "responses": {
           "200": {
             "description": "Current sending capability, not evidence of deliverability.",
@@ -326,6 +460,14 @@
       }
     },
     "/api/v1/mailbox": {
+      "post": {
+        "operationId": "ensureOwnMailbox",
+        "summary": "Explicitly create or read your private Mailbox",
+        "description": "Current admitted human owner only; no Manager override, App or acting identity. Creates an empty private Mailbox through the ordinary owner operation when none is selected, otherwise returns the existing Mailbox. Does not connect a provider, create a sending address, send mail or publish imported correspondence. No query parameters. Body is the empty JSON object, at most 64 bytes. Browser presence and same-origin protection apply. All responses are no-store.",
+        "security": [{"memberBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "maxProperties": 0}}}},
+        "responses": {"200": {"description": "Your durably selected Mailbox.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Mailbox"}}}}, "default": {"$ref": "#/components/responses/Error"}}
+      },
       "get": {
         "operationId": "readOwnMailbox",
         "summary": "Read your private Mailbox",
@@ -8305,7 +8447,7 @@
           "type": "object", "additionalProperties": false, "required": ["number", "attempt_id", "preview_id"],
           "properties": {
             "number": {"type": "string", "pattern": "^\\+[1-9][0-9]{7,14}$", "maxLength": 16},
-            "preview_id": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Exact reviewed preview expectation. A changed route, source or outgoing identity returns call_preview_changed; review a fresh preview before another deliberate call attempt."},
+            "preview_id": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Exact reviewed preview expectation. A changed route, source, selected funding profile, effective tariff, destination rule or outgoing identity returns call_preview_changed; review a fresh preview before another deliberate call attempt. Managed destination denials take precedence over allowed prefixes and stop new calls before funding or dispatch; these rules do not confer caller-ID permission."},
             "attempt_id": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}
           }
         }}}},
@@ -9459,7 +9601,7 @@
       ],
       "post": {
         "operationId": "beginAssetUpload",
-        "description": "Begins a bounded Content-, Chat- or private Mailbox-owned multipart Asset upload and returns Basstok-assigned opaque upload and Asset identities. mailbox_id is exclusive with content_id and chat_id and selects only the current admitted human's own existing Mailbox in the routed Account. Mailbox uploads are immutable and detached; attach_to_parent is false or omitted, and query selectors, acting identities and delegated Apps are rejected. Part, completion and abort operations retain the same current-owner checks. Reference the completed Asset identity explicitly when sending Email. content:write is sufficient only for an exact pending Content create owned by the same application and responsible Member; an existing published Content additionally requires content:read and ordinary resource authorization. For a Chat parent, actor_id selects the effective participant and the same value must be supplied for every later operation on this upload. Retry an ambiguous begin with the exact same Idempotency-Key and declaration; changed input with the same key conflicts.",
+        "description": "Begins a bounded Content-, Chat- or private Mailbox-owned multipart Asset upload and returns Basstok-assigned opaque upload and Asset identities. mailbox_id is exclusive with content_id and chat_id and selects only the current admitted human's own existing Mailbox in the routed Account. Mailbox uploads are immutable and detached; attach_to_parent is false or omitted, and query selectors, acting identities and delegated Apps are rejected. Part, completion and abort operations retain the same current-owner checks. Reference the completed Asset identity explicitly when sending Email. content:write is sufficient only for an exact pending Content create owned by the same application and responsible Member; an existing published Content additionally requires content:read and ordinary resource authorization. For a Chat parent, actor_id selects the effective participant and the same value must be supplied for every later operation on this upload. Retry an ambiguous begin with the exact same Idempotency-Key and declaration; changed input with the same key conflicts. An exact owner-private history preparation also permits detached uploads by its current admitted human owner only. This does not grant ordinary Chat interaction authority, accept an App or Manager substitute, or expose unpublished bytes. Referenced media retains ordinary multipart bounds, not an inline eight-MiB ceiling.",
         "security": [
           {
             "memberBearer": []
@@ -17094,12 +17236,13 @@
         "required": [
           "id",
           "body",
-          "assets"
+          "assets",
+          "authorship"
         ],
         "oneOf": [
           {
             "required": [
-              "author"
+              "authorship"
             ],
             "not": {
               "anyOf": [
@@ -17173,6 +17316,13 @@
                     ]
                   }
                 }
+              },
+              "authorship": {
+                "properties": {
+                  "type": {
+                    "const": "member"
+                  }
+                }
               }
             }
           },
@@ -17182,11 +17332,6 @@
             ],
             "not": {
               "anyOf": [
-                {
-                  "required": [
-                    "author"
-                  ]
-                },
                 {
                   "required": [
                     "sip"
@@ -17213,6 +17358,13 @@
                     ]
                   }
                 }
+              },
+              "authorship": {
+                "properties": {
+                  "type": {
+                    "const": "external"
+                  }
+                }
               }
             }
           },
@@ -17222,11 +17374,6 @@
             ],
             "not": {
               "anyOf": [
-                {
-                  "required": [
-                    "author"
-                  ]
-                },
                 {
                   "required": [
                     "sms"
@@ -17253,6 +17400,13 @@
                     ]
                   }
                 }
+              },
+              "authorship": {
+                "properties": {
+                  "type": {
+                    "const": "external"
+                  }
+                }
               }
             }
           },
@@ -17262,11 +17416,6 @@
             ],
             "not": {
               "anyOf": [
-                {
-                  "required": [
-                    "author"
-                  ]
-                },
                 {
                   "required": [
                     "sms"
@@ -17293,7 +17442,76 @@
                     ]
                   }
                 }
+              },
+              "authorship": {
+                "properties": {
+                  "type": {
+                    "const": "external"
+                  }
+                }
               }
+            }
+          },
+          {
+            "required": [
+              "authorship"
+            ],
+            "properties": {
+              "authorship": {
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "speaker",
+                      "system",
+                      "unclassified"
+                    ]
+                  }
+                }
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "sms"
+                  ]
+                },
+                {
+                  "required": [
+                    "sip"
+                  ]
+                },
+                {
+                  "required": [
+                    "fax"
+                  ]
+                },
+                {
+                  "required": [
+                    "location"
+                  ]
+                },
+                {
+                  "required": [
+                    "deleted_at"
+                  ]
+                },
+                {
+                  "required": [
+                    "updated_at"
+                  ]
+                },
+                {
+                  "required": [
+                    "reaction_summary"
+                  ]
+                },
+                {
+                  "required": [
+                    "attribution"
+                  ]
+                }
+              ]
             }
           }
         ],
@@ -17306,7 +17524,7 @@
             },
             "then": {
               "required": [
-                "author"
+                "authorship"
               ],
               "not": {
                 "anyOf": [
@@ -17331,6 +17549,15 @@
                     ]
                   }
                 ]
+              },
+              "properties": {
+                "authorship": {
+                  "properties": {
+                    "type": {
+                      "const": "member"
+                    }
+                  }
+                }
               }
             }
           },
@@ -17342,7 +17569,7 @@
             },
             "then": {
               "required": [
-                "author",
+                "authorship",
                 "created_at"
               ],
               "properties": {
@@ -17351,6 +17578,13 @@
                 },
                 "assets": {
                   "maxItems": 0
+                },
+                "authorship": {
+                  "properties": {
+                    "type": {
+                      "const": "member"
+                    }
+                  }
                 }
               },
               "not": {
@@ -17434,9 +17668,6 @@
           }
         ],
         "properties": {
-          "author": {
-            "$ref": "#/components/schemas/MemberIdentity"
-          },
           "id": {
             "type": "string"
           },
@@ -17479,6 +17710,9 @@
           },
           "location": {
             "$ref": "#/components/schemas/MessageLocation"
+          },
+          "authorship": {
+            "$ref": "#/components/schemas/MessageAuthorship"
           }
         },
         "additionalProperties": false
@@ -17913,6 +18147,7 @@
           {"type": "object", "additionalProperties": false, "required": ["type", "currency", "rate", "usage", "maximum_connected_seconds"], "properties": {
             "type": {"const": "basstok"}, "currency": {"type": "string", "const": "USD"},
             "rate": {"type": "object", "additionalProperties": false,
+              "description": "The selected balance's effective voice tariff. An introductory voice package freezes its per-minute amount and counts answered calls in whole started minutes; this does not change fax pricing or supplier limits.",
               "required": ["usd_micros_per_minute", "connection_usd_micros", "minimum_seconds", "increment_seconds"], "properties": {
                 "usd_micros_per_minute": {"type": "integer", "minimum": 0}, "connection_usd_micros": {"type": "integer", "minimum": 0},
                 "minimum_seconds": {"type": "integer", "minimum": 1}, "increment_seconds": {"type": "integer", "minimum": 1}
@@ -18175,13 +18410,278 @@
         },
         "additionalProperties": false
       },
-      "Chat": {
+      "HistorySourceAsset": {
+        "type": "object",
+        "required": [
+          "id",
+          "sha256"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PrivateChatHistoryDeclaration": {
+        "type": "object",
+        "required": [
+          "source_namespace",
+          "source_system",
+          "messages",
+          "original_size",
+          "original_sha256",
+          "plan_sha256"
+        ],
+        "properties": {
+          "source_namespace": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source_system": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "messages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "original_size": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "original_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "plan_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "HistoricalMessageOrigin": {
+        "type": "object",
+        "required": [
+          "source_record_id",
+          "source_position",
+          "notes"
+        ],
+        "properties": {
+          "source_record_id": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "source_position": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "source_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        "additionalProperties": false
+      },
+      "MessageAuthorship": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "account_id",
+              "member_id"
+            ],
+            "properties": {
+              "type": {
+                "const": "member"
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "member_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "label",
+              "source"
+            ],
+            "properties": {
+              "type": {
+                "const": "speaker"
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "source": {
+                "$ref": "#/components/schemas/HistoricalMessageOrigin"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "source"
+            ],
+            "properties": {
+              "type": {
+                "const": "system"
+              },
+              "source": {
+                "$ref": "#/components/schemas/HistoricalMessageOrigin"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "source"
+            ],
+            "properties": {
+              "type": {
+                "const": "unclassified"
+              },
+              "source": {
+                "$ref": "#/components/schemas/HistoricalMessageOrigin"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "external"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
+      "PrivateChatHistoryPublication": {
+        "type": "object",
+        "required": [
+          "source"
+        ],
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/HistorySourceAsset"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ChatForm": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "live"
+              },
+              "phone_number": {
+                "type": "string"
+              },
+              "calling_address": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "owner",
+              "declaration",
+              "state"
+            ],
+            "properties": {
+              "type": {
+                "const": "imported_history"
+              },
+              "owner": {
+                "$ref": "#/components/schemas/MemberIdentity"
+              },
+              "declaration": {
+                "$ref": "#/components/schemas/PrivateChatHistoryDeclaration"
+              },
+              "state": {
+                "type": "object",
+                "required": [
+                  "type",
+                  "source"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "published"
+                  },
+                  "source": {
+                    "$ref": "#/components/schemas/HistorySourceAsset"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
+      "PrivateChatHistoryPreparation": {
         "type": "object",
         "required": [
           "id",
           "participants",
           "participant_members",
-          "owner_account_id"
+          "owner_account_id",
+          "form"
         ],
         "properties": {
           "created_by": {
@@ -18222,17 +18722,123 @@
           "latest_message": {
             "$ref": "#/components/schemas/Message"
           },
-          "phone_number": {
+          "attribution": {
             "type": "string",
-            "description": "Customer-owned number connected for cellular texts. Inspect the phone resource for current readiness; this field does not promise calling support."
+            "description": "Optional human-readable intermediary attribution. Canonical audit mechanics are not part of the resource contract."
           },
-          "calling_address": {
-            "type": "string",
-            "description": "Address of this Chat's connected calling account. Inspect the calling resource before use; this is not a readiness or permission claim. No credentials are included."
+          "form": {
+            "type": "object",
+            "required": [
+              "type",
+              "owner",
+              "declaration",
+              "state"
+            ],
+            "properties": {
+              "type": {
+                "const": "imported_history"
+              },
+              "owner": {
+                "$ref": "#/components/schemas/MemberIdentity"
+              },
+              "declaration": {
+                "$ref": "#/components/schemas/PrivateChatHistoryDeclaration"
+              },
+              "state": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "type"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "prepared"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "source"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "published"
+                      },
+                      "source": {
+                        "$ref": "#/components/schemas/HistorySourceAsset"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "Chat": {
+        "type": "object",
+        "required": [
+          "id",
+          "participants",
+          "participant_members",
+          "owner_account_id",
+          "form"
+        ],
+        "properties": {
+          "created_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MemberIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Absent or null when creation precedes participant admission."
+          },
+          "owner_account_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatParticipant"
+            }
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "participant_members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatMemberPresentation"
+            }
+          },
+          "latest_message": {
+            "$ref": "#/components/schemas/Message"
           },
           "attribution": {
             "type": "string",
             "description": "Optional human-readable intermediary attribution. Canonical audit mechanics are not part of the resource contract."
+          },
+          "form": {
+            "$ref": "#/components/schemas/ChatForm"
           }
         },
         "additionalProperties": false
@@ -19088,6 +19694,12 @@
             "minimum": 0,
             "maximum": 14400,
             "description": "Upper bound for one outgoing call from the currently selected allowance, customer tariff and remaining time/call quotas, excluding reserved capacity. Zero means none currently available; null or absent means the allowance needs reconciliation. This read grants no credit and does not establish destination or service readiness. Calls and fax share the allowance; this is not an additional grant or a fixed fax-page allowance."
+          },
+          "introductory_billable_minutes_available": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "maximum": 10,
+            "description": "Whole started voice minutes affordable from the selected saved introductory starter package at its frozen rate, excluding spent and reserved money. Answered calls count at least one minute and round up to whole minutes; unanswered calls cost nothing. Zero is exhausted package capacity. Null or absent means no such package is currently selected or its balance needs reconciliation. This is not one-call duration, route readiness or a supplier spending bound. Fax uses the same finite monetary balance at its separate ordinary tariff and reduces this voice capacity; there is no additional fax allowance."
           },
           "starter": {
             "$ref": "#/components/schemas/AccountUsageAllowance",
@@ -21597,7 +22209,23 @@
             "items": {
               "$ref": "#/components/schemas/EmailSender"
             }
+          },
+          "setup": {
+            "$ref": "#/components/schemas/MailboxSendingSetup"
           }
+        }
+      },
+      "MailboxSendingSetup": {
+        "type": "object", "additionalProperties": false,
+        "required": ["address", "host", "username", "port", "security", "instructions"],
+        "properties": {
+          "address": {"type": "string", "format": "email", "maxLength": 254},
+          "host": {"type": "string", "maxLength": 253, "description": "Optional editable default; empty means enter your provider's server. Not a discovery result or authority."},
+          "username": {"type": "string", "maxLength": 512, "description": "Optional editable default; empty means enter the actual provider login. An email address or alias does not necessarily identify the login."},
+          "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+          "security": {"type": "string", "enum": ["implicit_tls", "starttls"]},
+          "instructions": {"type": "string", "maxLength": 4096},
+          "help_url": {"type": "string", "format": "uri", "maxLength": 2048}
         }
       },
       "MailboxReceivingSelection": {
@@ -22095,6 +22723,104 @@
           }
         }
       },
+      "MailboxSourceAsset": {
+        "type": "object", "required": ["id", "sha256"], "additionalProperties": false,
+        "description": "Exact existing private Mailbox Asset; its name or source metadata confers no access or authority.",
+        "properties": {"id": {"$ref": "#/components/schemas/MailboxResourceId"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+      },
+      "MailboxArchive": {
+        "description": "Explicit original-evidence representation. No content guessing. Both alternatives use existing authorized private Mailbox Assets; they confer no identity or sending authority.",
+        "oneOf": [{"$ref": "#/components/schemas/MailboxWholeArchive"}, {"$ref": "#/components/schemas/MailboxSegmentedArchive"}],
+        "discriminator": {"propertyName": "type", "mapping": {"whole_asset": "#/components/schemas/MailboxWholeArchive", "segmented": "#/components/schemas/MailboxSegmentedArchive"}}
+      },
+      "MailboxWholeArchive": {
+        "type": "object", "required": ["type", "asset"], "additionalProperties": false,
+        "properties": {"type": {"const": "whole_asset"}, "asset": {"$ref": "#/components/schemas/MailboxSourceAsset"}},
+        "description": "One complete original file. Basstok streams and verifies its actual bytes against the Asset size and digest. Existing per-Asset bounds apply."
+      },
+      "MailboxSegmentedArchive": {
+        "type": "object", "required": ["type", "manifest"], "additionalProperties": false,
+        "properties": {"type": {"const": "segmented"}, "manifest": {"$ref": "#/components/schemas/MailboxSourceAsset"}},
+        "description": "Private application/json Asset containing a MailboxArchiveManifest. Basstok streams and hashes the complete ordered concatenation before whole-source publication, independently of individual part hashes."
+      },
+      "MailboxArchiveManifest": {
+        "type": "object", "required": ["format_version", "size", "sha256", "first"], "additionalProperties": false,
+        "description": "Immutable source-neutral original-evidence root, at most 16 KiB, not an import job or progress checkpoint.",
+        "properties": {"format_version": {"const": 1}, "size": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "first": {"$ref": "#/components/schemas/MailboxSourceAsset"}}
+      },
+      "MailboxArchivePart": {
+        "type": "object", "required": ["asset", "offset", "size"], "additionalProperties": false,
+        "properties": {"asset": {"$ref": "#/components/schemas/MailboxSourceAsset"}, "offset": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+          "size": {"type": "integer", "minimum": 1, "maximum": 68719476736}},
+        "description": "Complete existing private Asset, not a byte subrange. Its length must match size and its offset must immediately follow previous bytes."
+      },
+      "MailboxArchivePage": {
+        "type": "object", "required": ["format_version", "offset", "parts"], "additionalProperties": false,
+        "description": "Immutable application/json Asset, at most 16 KiB and 32 parts. Forward coverage starts at zero, increases strictly and ends at the manifest size. next is present exactly when bytes remain. Gaps, overlap, loops and unavailable/foreign/corrupt parts fail the complete import.",
+        "properties": {"format_version": {"const": 1}, "offset": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+          "parts": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"$ref": "#/components/schemas/MailboxArchivePart"}},
+          "next": {"oneOf": [{"$ref": "#/components/schemas/MailboxSourceAsset"}, {"type": "null"}]}}
+      },
+      "HistoricalEmailKind": {"type": "string", "enum": ["received", "sent", "draft", "scheduled", "mixed", "unspecified"], "description": "Inert source status; never a Basstok send, schedule, delivery proof or authenticated author."},
+      "HistoricalEmailDateBasis": {"type": "string", "enum": ["source_metadata", "claimed_header"], "description": "Whether the optional source timestamp came from source metadata or an unverified MIME Date claim; neither authenticates identity."},
+      "MailboxHistoricalInput": {
+        "type": "object", "required": ["source_record_id", "original", "metadata", "kind", "date_basis", "organization", "mapping_notes"], "additionalProperties": false,
+        "properties": {
+          "source_record_id": {"type": "string", "minLength": 1, "maxLength": 512},
+          "original": {"$ref": "#/components/schemas/MailboxSourceAsset", "description": "Exact exported message/rfc822 bytes, at most 10 MiB. Embedded HTML and headers are untrusted."},
+          "metadata": {"$ref": "#/components/schemas/MailboxSourceAsset", "description": "Untouched source metadata/evidence, at most 1 MiB; never parsed as authority."},
+          "kind": {"$ref": "#/components/schemas/HistoricalEmailKind"},
+          "source_date_ms": {"type": ["integer", "null"], "minimum": -62135596800000, "maximum": 253402300799999},
+          "date_basis": {"$ref": "#/components/schemas/HistoricalEmailDateBasis"},
+          "organization": {"$ref": "#/components/schemas/EmailOrganization", "description": "Initial filing only; Labels must already belong to this owner. Exact replays preserve later organization."},
+          "mapping_notes": {"type": "string", "maxLength": 1024, "description": "Truthful limitations/ambiguities; unsupported source facts remain in original evidence rather than excluding correspondence."}
+        }
+      },
+      "MailboxHistoricalPage": {
+        "type": "object", "required": ["format_version", "first", "emails"], "additionalProperties": false,
+        "description": "Immutable normalized source JSON uploaded as an existing private Asset, not a server import job or progress checkpoint. previous is required exactly when first is nonzero. Offsets decrease strictly when traversed; all records must be covered exactly.",
+        "properties": {
+          "format_version": {"const": 1}, "first": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+          "previous": {"oneOf": [{"$ref": "#/components/schemas/MailboxSourceAsset"}, {"type": "null"}]},
+          "emails": {"type": "array", "maxItems": 32, "items": {"$ref": "#/components/schemas/MailboxHistoricalInput"}}
+        }
+      },
+      "MailboxHistoricalImport": {
+        "type": "object", "required": ["source_namespace", "source_system", "source", "catalog", "messages"], "additionalProperties": false,
+        "properties": {
+          "source_namespace": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Stable immutable source identity within this owner's Mailbox. Reuse it only for the exact same normalized source; different namespaces do not deduplicate correspondence."},
+          "source_system": {"type": "string", "minLength": 1, "maxLength": 64, "description": "Inert provenance, not a server parser or provider kind."},
+          "source": {"$ref": "#/components/schemas/MailboxSourceAsset", "description": "Last normalized source page."},
+          "catalog": {"$ref": "#/components/schemas/MailboxSourceAsset", "description": "Untouched source label/folder catalog or normalization evidence, at most 8 MiB."},
+          "messages": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+          "archive": {"oneOf": [{"$ref": "#/components/schemas/MailboxArchive"}, {"type": "null"}], "description": "Optional complete original evidence, including exact MBOX framing/escaping. Whole Asset or explicitly segmented representation; no arbitrary whole-export cap. Existing per-Asset and per-request bounds remain."}
+        }
+      },
+      "MailboxHistoricalResult": {
+        "type": "object", "required": ["source", "messages", "created", "replayed", "complete"], "additionalProperties": false,
+        "properties": {
+          "source": {"$ref": "#/components/schemas/MailboxSourceAsset"},
+          "messages": {"type": "integer", "minimum": 0}, "created": {"type": "integer", "minimum": 0}, "replayed": {"type": "integer", "minimum": 0}, "complete": {"const": true}
+        }
+      },
+      "EmailHistorical": {
+        "type": "object", "required": ["type", "source_namespace", "source_record_id", "source_system", "source_position", "source_count", "source", "original", "metadata", "catalog", "input_sha256", "kind", "date_basis", "claimed_from", "claimed_to", "mapping_notes"], "additionalProperties": false,
+        "description": "Owner-authorized historical source facts. Sent/draft/scheduled status never dispatches mail, creates a schedule or authenticates a Member. Exact immutable provenance is owner-scoped; original bytes and unsupported source facts remain private Assets.",
+        "properties": {
+          "type": {"const": "historical"}, "source_namespace": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "source_record_id": {"type": "string", "minLength": 1, "maxLength": 512}, "source_system": {"type": "string", "minLength": 1, "maxLength": 64},
+          "source_position": {"type": "integer", "minimum": 1}, "source_count": {"type": "integer", "minimum": 1},
+          "source": {"$ref": "#/components/schemas/MailboxSourceAsset"}, "original": {"$ref": "#/components/schemas/MailboxSourceAsset"},
+          "metadata": {"$ref": "#/components/schemas/MailboxSourceAsset"}, "catalog": {"$ref": "#/components/schemas/MailboxSourceAsset"},
+          "archive": {"oneOf": [{"$ref": "#/components/schemas/MailboxArchive"}, {"type": "null"}]},
+          "input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "kind": {"$ref": "#/components/schemas/HistoricalEmailKind"},
+          "source_date_ms": {"type": ["integer", "null"], "minimum": -62135596800000, "maximum": 253402300799999},
+          "date_basis": {"$ref": "#/components/schemas/HistoricalEmailDateBasis"},
+          "claimed_from": {"type": "string", "maxLength": 8192}, "claimed_to": {"type": "string", "maxLength": 8192},
+          "mapping_notes": {"type": "string", "maxLength": 1024}
+        }
+      },
       "Email": {
         "type": "object", "required": ["id", "mailbox_id", "sequence", "recorded_at_ms", "subject", "body", "delivery", "organization", "references", "assets"], "additionalProperties": false,
         "description": "One private Mailbox-owned Email. Original MIME, brand and attachment references retain private Mailbox Asset authorization.",
@@ -22105,7 +22831,7 @@
           "recorded_at_ms": {"type": "integer", "minimum": 1, "maximum": 253402300799999},
           "subject": {"type": "string", "maxLength": 16384},
           "body": {"type": "string", "maxLength": 10485760, "description": "Canonical CommonMark Markdown source, bounded to 10 MiB of UTF-8."},
-          "delivery": {"oneOf": [{"$ref": "#/components/schemas/EmailReception"}, {"$ref": "#/components/schemas/EmailDispatch"}], "discriminator": {"propertyName": "type", "mapping": {"received": "#/components/schemas/EmailReception", "outgoing": "#/components/schemas/EmailDispatch"}}},
+          "delivery": {"oneOf": [{"$ref": "#/components/schemas/EmailReception"}, {"$ref": "#/components/schemas/EmailDispatch"}, {"$ref": "#/components/schemas/EmailHistorical"}], "discriminator": {"propertyName": "type", "mapping": {"received": "#/components/schemas/EmailReception", "outgoing": "#/components/schemas/EmailDispatch", "historical": "#/components/schemas/EmailHistorical"}}},
           "organization": {"$ref": "#/components/schemas/EmailOrganization"},
           "unsubscribe": {"$ref": "#/components/schemas/EmailUnsubscribeAttempt"},
           "message_id": {"type": "string", "minLength": 5, "maxLength": 998},
