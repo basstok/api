@@ -2079,7 +2079,7 @@
     "/api/v1/member-access/phone/verification/complete": {
       "post": {
         "operationId": "completeAccountPhoneVerification",
-        "description": "Checks the six-digit code locally against the exact pending challenge. Completion needs no provider request and cannot change the delivery channel. Send limits do not prevent checking an existing valid code. The caller cannot supply a provider ID, country, Member or Account. Requires the original current session, credential generation, Member phone-control revision and hosting security identity; at most five checks before expiry. An exhausted challenge requires an explicitly requested new code, not another check of the old code. An exact successful replay returns the established result without another send or grant; revoked sessions, other Members/Accounts and stale phone revisions fail closed. No new authentication session or Admin authority is created.",
+        "description": "Checks the code against the exact pending challenge and cannot change its source or delivery channel. Basstok-generated codes contain six digits; an explicitly consented outgoing-voice challenge may use the supplier-generated five- or six-digit code, which is completed with that supplier before recording phone control and separate caller-ID authorization. Send limits do not prevent checking an existing valid code. The caller cannot supply a provider ID, country, Member or Account. Requires the original current session, credential generation, Member phone-control revision and hosting security identity; at most five checks before expiry. An exhausted challenge requires an explicitly requested new code, not another check of the old code. An exact successful replay returns the established result without another send or grant; revoked sessions, other Members/Accounts and stale phone revisions fail closed. No new authentication session or Admin authority is created.",
         "security": [
           {
             "memberBearer": []
@@ -12324,7 +12324,7 @@
     "/api/v1/auth/phone-recovery/verify": {
       "post": {
         "operationId": "verifyPhoneRecovery",
-        "description": "Verify the fresh six-digit recovery code and return matching Account addresses. Requires the original completion token. The code expires after five minutes and allows at most five checks. This does not install a session. A client may automatically select one returned Account for recovery; Accounts are never merged. Browser requests require same-origin JSON, X-Basstok-Auth equal to completion_token, and the host-only binding cookie set by the request operation for verification/completion. Native clients do not need browser cookies. Responses are not cacheable.",
+        "description": "Verify the fresh recovery code and return matching Account addresses. Basstok-generated codes contain six digits; a consented outgoing-voice challenge may use a supplier-generated five- or six-digit code. The exact pending source determines validation; supplier-generated codes require supplier acceptance before recording that proof. Requires the original completion token. The code expires after five minutes and allows at most five checks. This does not install a session. A client may automatically select one returned Account for recovery; Accounts are never merged. Browser requests require same-origin JSON, X-Basstok-Auth equal to completion_token, and the host-only binding cookie set by the request operation for verification/completion. Native clients do not need browser cookies. Responses are not cacheable.",
         "security": [],
         "parameters": [
           {
@@ -20975,8 +20975,8 @@
           },
           "code": {
             "type": "string",
-            "pattern": "^[0-9]{6}$",
-            "minLength": 6,
+            "pattern": "^[0-9]{5,6}$",
+            "minLength": 5,
             "maxLength": 6
           }
         }
@@ -24579,7 +24579,7 @@
           },
           "code": {
             "type": "string",
-            "pattern": "^[0-9]{6}$"
+            "pattern": "^[0-9]{5,6}$"
           }
         }
       },
